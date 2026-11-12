@@ -88,6 +88,28 @@ class SafeRestoreDeviceTest {
         }
     }
 
+    /** Missing ZIP central directory must fail, even if the first file is intact. */
+    @Test fun truncatedArchiveDoesNotChangeExistingNotes() {
+        val id = UUID.randomUUID().toString()
+        val note = StudyNote(id = id, documentId = "safety-test",
+            heading = "Notițe originale", page = 0, body = "De păstrat", course = "Test")
+        store.saveNotes(store.notes() + note)
+        val zip = archive(listOf("notes.json" to "[]"))
+        try {
+            val valid = zip.readBytes()
+            // Remove the end-of-central-directory record.
+            zip.writeBytes(valid.copyOf(valid.size - 22))
+            var rejected = false
+            try { store.importBackup(Uri.fromFile(zip)) }
+            catch (_: Exception) { rejected = true }
+            assertTrue("Truncated ZIP must not be accepted", rejected)
+            assertEquals("De păstrat", store.notes().single { it.id == id }.body)
+        } finally {
+            store.saveNotes(store.notes().filterNot { it.id == id })
+            zip.delete()
+        }
+    }
+
     @Test fun rejectsArchiveWithoutMedAtlasMetadata() {
         val zip = archive(listOf("random.txt" to "Not a backup"))
         try {
