@@ -1574,6 +1574,8 @@ private fun CardsScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: 
 @Composable
 private fun SettingsScreen(onReplayIntro: () -> Unit) {
     val context = LocalContext.current
+    val aiScope = rememberCoroutineScope()
+    var testingAi by remember { mutableStateOf(false) }
     var endpoint by remember { mutableStateOf(AiClient.endpoint(context)) }
     var token by remember { mutableStateOf(AiClient.token(context)) }
     var message by remember { mutableStateOf("") }
@@ -1651,12 +1653,26 @@ private fun SettingsScreen(onReplayIntro: () -> Unit) {
         Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 Text("Nadia AI • conectare backend", fontWeight = FontWeight.SemiBold)
-                Text("Pentru răspunsuri direct în aplicație este necesar un Cloudflare Worker cu OpenAI API. Plus nu include facturarea API. Cheia OpenAI rămâne DOAR pe server.", fontSize = 12.sp, color = Slate)
-                OutlinedTextField(endpoint, { endpoint = it }, label = { Text("URL backend HTTPS") }, placeholder = { Text("https://medatlas-nadia-ai...workers.dev") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(token, { token = it }, label = { Text("Token privat MedAtlas") }, singleLine = true, modifier = Modifier.fillMaxWidth(), visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
+                Text("Adresa Nadia AI este pregătită. Lipește tokenul privat MedAtlas o singură dată pe această tabletă. Testul trimite un mesaj de probă fără conținut din caiete.", fontSize = 12.sp, color = Slate)
+                OutlinedTextField(endpoint, { if (endpoint != it) token = ""; endpoint = it }, enabled = !testingAi, label = { Text("URL backend HTTPS") }, placeholder = { Text(AiClient.DEFAULT_ENDPOINT) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(token, { token = it }, enabled = !testingAi, label = { Text("Token privat MedAtlas") }, singleLine = true, modifier = Modifier.fillMaxWidth(), visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
                 Button(onClick = {
                     runCatching { AiClient.configure(context, endpoint, token) }.onSuccess { message = "Setările Nadia AI au fost salvate local." }.onFailure { message = it.localizedMessage ?: "Date invalide." }
                 }, modifier = Modifier.fillMaxWidth()) { Text("Salvează configurarea AI") }
+                OutlinedButton(enabled = !testingAi && token.isNotBlank(), onClick = {
+                    runCatching { AiClient.configure(context, endpoint, token) }.onSuccess {
+                        testingAi = true
+                        message = ""
+                        aiScope.launch {
+                            try {
+                                AiClient.ask(context, "summary", "Acesta este un test de conectare.", null, "Verificare Nadia")
+                                message = "Conexiune verificată. Nadia AI a răspuns."
+                            } catch (e: Exception) {
+                                message = e.localizedMessage ?: "Serviciul nu a răspuns."
+                            } finally { testingAi = false }
+                        }
+                    }.onFailure { message = it.localizedMessage ?: "Date invalide." }
+                }) { Text(if (testingAi) "Se verifică…" else "Salvează și testează Nadia AI") }
                 if (message.isNotBlank()) Text(message, color = Teal, fontSize = 12.sp)
             }
         }

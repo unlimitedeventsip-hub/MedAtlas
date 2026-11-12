@@ -14,12 +14,17 @@ import java.net.URL
 /** The API key stays on the owner-managed backend, never in the Android application. */
 object AiClient {
     private const val PREFS = "medatlas_ai"
-    fun endpoint(context: Context): String = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("endpoint", "").orEmpty()
+    const val DEFAULT_ENDPOINT = "https://medatlas-nadia-ai.unlimited-events-ip.workers.dev"
+    fun endpoint(context: Context): String = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        .getString("endpoint", DEFAULT_ENDPOINT).orEmpty().ifBlank { DEFAULT_ENDPOINT }
     fun token(context: Context): String = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("token", "").orEmpty()
     fun configure(context: Context, endpoint: String, token: String) {
-        require(endpoint.isBlank() || (endpoint.startsWith("https://") && !endpoint.contains("@"))) { "Introdu un URL HTTPS valid." }
+        val base = endpoint.trim().trimEnd('/').ifBlank { DEFAULT_ENDPOINT }
+        val uri = runCatching { java.net.URI(base) }.getOrNull()
+        require(uri != null && uri.scheme == "https" && !uri.host.isNullOrBlank() && uri.userInfo == null &&
+            uri.query == null && uri.fragment == null) { "Introdu o adresă HTTPS validă." }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString("endpoint", endpoint.trim().trimEnd('/'))
+            .putString("endpoint", base)
             .putString("token", token.trim()).apply()
     }
     fun configured(context: Context) = endpoint(context).startsWith("https://") && token(context).isNotBlank()
@@ -59,6 +64,7 @@ object AiClient {
         val address = endpoint(context)
         require(address.startsWith("https://") && token(context).isNotBlank()) { "Configurează mai întâi backend-ul AI din Setări." }
         val connection = URL("$address/ai").openConnection() as HttpURLConnection
+        connection.instanceFollowRedirects = false
         connection.requestMethod = "POST"
         connection.connectTimeout = 15000
         connection.readTimeout = if (request.optString("mode") == "sticker") 180000 else 90000
