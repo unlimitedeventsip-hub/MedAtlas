@@ -111,6 +111,17 @@ class LibraryStore(private val context: Context) {
         }.getOrDefault(emptyList())
     }
 
+    /** The source list is generated from sticker metadata, not from guessed web origins. */
+    fun imageBibliography(): List<PageSticker> = stickersDir.listFiles().orEmpty()
+        .filter { it.name.endsWith(".json") }
+        .flatMap { file ->
+            runCatching {
+                val a = JSONArray(file.readText())
+                (0 until a.length()).map { PageSticker.parse(a.getJSONObject(it)) }
+            }.getOrDefault(emptyList())
+        }.filter { it.sourceUrl.isNotBlank() || it.attribution.isNotBlank() }
+        .distinctBy { it.sourceUrl.ifBlank { it.imageName } }
+
     fun saveStickers(documentId: String, page: Int, items: List<PageSticker>) {
         val file = File(stickersDir, "${documentId}_$page.json")
         val temp = File(stickersDir, "${documentId}_$page.tmp")
