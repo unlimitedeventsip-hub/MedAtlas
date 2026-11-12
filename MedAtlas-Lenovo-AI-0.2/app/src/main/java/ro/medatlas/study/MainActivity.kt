@@ -782,14 +782,18 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
         }
 
         // Fixed reader controls. No longer hidden below an oversized PDF or quiz panel.
-        Row(Modifier.fillMaxWidth().background(Color.White).horizontalScroll(rememberScrollState())
+        Row(Modifier.fillMaxWidth().background(if (readOnly) Color(0xFF17314D) else Color.White)
+            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 6.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { showThumbnails = !showThumbnails }) {
+            val navColor = if (readOnly) Color(0xFFE4F0FF) else Navy
+            TextButton(onClick = { showThumbnails = !showThumbnails },
+                colors = ButtonDefaults.textButtonColors(contentColor = navColor)) {
                 Icon(Icons.Rounded.ViewSidebar, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(if (showThumbnails) "Ascunde pagini" else "Miniaturi", fontSize = 12.sp)
             }
-            TextButton(onClick = { continuous = !continuous }) {
+            TextButton(onClick = { continuous = !continuous },
+                colors = ButtonDefaults.textButtonColors(contentColor = navColor)) {
                 Icon(if (continuous) Icons.Rounded.ViewDay else Icons.Rounded.Description, null)
                 Spacer(Modifier.width(4.dp))
                 Text(if (continuous) "Pagini continue" else "O pagină", fontSize = 12.sp)
@@ -798,22 +802,31 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                 val target = (page - 1).coerceAtLeast(0)
                 page = target
                 if (continuous) scope.launch { scrollState.scrollToItem(target) }
-            }, enabled = page > 0) { Icon(Icons.Rounded.ChevronLeft, "Pagina precedentă") }
-            Text("${page + 1} / ${pager.count}", fontSize = 12.sp, color = Navy)
+            }, enabled = page > 0) {
+                Icon(Icons.Rounded.ChevronLeft, "Pagina precedentă", tint = navColor)
+            }
+            Text("${page + 1} / ${pager.count}", fontSize = 12.sp, color = navColor)
             IconButton(onClick = {
                 val target = (page + 1).coerceAtMost(pager.count - 1)
                 page = target
                 if (continuous) scope.launch { scrollState.scrollToItem(target) }
-            }, enabled = page < pager.count - 1) { Icon(Icons.Rounded.ChevronRight, "Pagina următoare") }
+            }, enabled = page < pager.count - 1) {
+                Icon(Icons.Rounded.ChevronRight, "Pagina următoare", tint = navColor)
+            }
             if (continuous) {
                 IconButton(onClick = { documentScale = (documentScale - 0.15f).coerceAtLeast(0.6f) }) {
                     Icon(Icons.Rounded.ZoomOut, "Micșorează")
                 }
-                Text("${(documentScale * 100).toInt()}%", fontSize = 11.sp, color = Slate)
+                Text("${(documentScale * 100).toInt()}%", fontSize = 11.sp,
+                    color = if (readOnly) Color(0xFFB9CDE6) else Slate)
                 IconButton(onClick = { documentScale = (documentScale + 0.15f).coerceAtMost(2f) }) {
                     Icon(Icons.Rounded.ZoomIn, "Mărește")
                 }
-            } else TextButton(onClick = { canvasView?.resetView() }) { Text("Reset zoom") }
+            } else TextButton(onClick = { canvasView?.resetView() },
+                colors = ButtonDefaults.textButtonColors(contentColor = navColor)) {
+                Text("Reset zoom")
+            }
+            if (!readOnly) {
             TextButton(onClick = { fingerInk = !fingerInk }) {
                 Text(if (fingerInk) "Deget: desen" else "Deget: scroll", fontSize = 11.sp)
             }
@@ -833,7 +846,9 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                     ocrWorkManager.cancelUniqueWork(FullDocumentOcrWorker.workName(doc.id))
                 }) { Text("Oprește OCR", fontSize = 11.sp) }
             }
-            TextButton(onClick = { showOcrLibrary = true }) {
+            }
+            TextButton(onClick = { showOcrLibrary = true },
+                colors = ButtonDefaults.textButtonColors(contentColor = navColor)) {
                 Icon(Icons.Rounded.TextSnippet, null)
                 Spacer(Modifier.width(4.dp))
                 Text("Text OCR", fontSize = 11.sp)
@@ -872,8 +887,11 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                     }
                     if (ocrText.isBlank()) Text("Nu există încă text OCR pentru această pagină. Închide și apasă OCR pagină.",
                         color = Slate, fontSize = 12.sp)
-                    OutlinedTextField(value = ocrText, onValueChange = { ocrText = it },
-                        label = { Text("Text recunoscut — poți corecta erorile") },
+                    OutlinedTextField(value = ocrText,
+                        onValueChange = { if (!readOnly) ocrText = it },
+                        readOnly = readOnly,
+                        label = { Text(if (readOnly) "Text recunoscut · doar citire" else
+                            "Text recunoscut — poți corecta erorile") },
                         modifier = Modifier.fillMaxWidth(), minLines = 7, maxLines = 18)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedButton(onClick = {
@@ -889,7 +907,7 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                 }
             },
             confirmButton = {
-                Button(onClick = {
+                if (!readOnly) Button(onClick = {
                     if (doc.kind == "PDF") store.savePageText(doc.id, ocrPage, ocrText)
                     else store.saveExtractedText(doc.id, ocrText)
                     textVersion++
