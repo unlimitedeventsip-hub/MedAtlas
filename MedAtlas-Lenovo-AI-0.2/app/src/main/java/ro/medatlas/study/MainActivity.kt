@@ -1090,7 +1090,7 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                                         }.onFailure { Toast.makeText(context, "Imaginea nu a putut fi adăugată.", Toast.LENGTH_SHORT).show() }
                                     }, modifier = Modifier.weight(1f)) {
                                         Column(Modifier.padding(5.dp)) {
-                                            androidx.compose.foundation.Image(thumb.asImageBitmap(), null, Modifier.fillMaxWidth().height(58.dp))
+                                            if (thumb != null) androidx.compose.foundation.Image(thumb.asImageBitmap(), null, Modifier.fillMaxWidth().height(58.dp))
                                             Text(name, fontSize = 11.sp)
                                         }
                                     }
