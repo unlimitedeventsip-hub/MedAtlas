@@ -173,6 +173,9 @@ internal object ClassroomSync {
                     withContext(Dispatchers.IO) {
                         importFiles(context, token, materials, courses)
                     }
+                    // A second notification ensures downloaded documents appear
+                    // in the open MedAtlas library, without an app restart.
+                    _revision.value = _revision.value + 1
                 }
                 cached(context)
             } catch (e: Exception) {
