@@ -14,6 +14,26 @@ import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class DriveBackupDeviceTest {
+    /** Legacy PPT must be stored byte-for-byte without a PDF conversion. */
+    @Test
+    fun preservesOriginalPowerPointFile() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = LibraryStore(context)
+        val sample = File.createTempFile("medatlas-presentation-", ".ppt", context.cacheDir)
+        val bytes = byteArrayOf(0x50, 0x50, 0x54, 0x31, 0x32, 0x33)
+        sample.writeBytes(bytes)
+        var importedId: String? = null
+        try {
+            val document = store.import(Uri.fromFile(sample), "Prezentări")
+            importedId = document.id
+            assertTrue(document.kind == "PPT")
+            assertTrue(store.fileOf(document).readBytes().contentEquals(bytes))
+        } finally {
+            importedId?.let { store.removeDocument(it) }
+            sample.delete()
+        }
+    }
+
     /** Drive uses Android SAF, so test the exact ZIP export/restore used by the picker. */
     @Test
     fun backupRestoresNotesAndFolderHierarchy() {
