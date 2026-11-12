@@ -305,7 +305,11 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
     var aiIllustration by remember { mutableStateOf<Bitmap?>(null) }
     fun askSelection(mode: String) {
         val current = crop ?: return
-        if (!AiClient.configured(context)) { aiError = "Configurează backend-ul AI în Setări. Până atunci, poți folosi butonul ChatGPT Plus pentru a partaja selecția."; return }
+        if (!AiClient.configured(context)) {
+            shareImage(context, current, "Explică în limba română această selecție medicală, cu mecanisme, diagnostic și informațiile importante pentru examen.")
+            crop = null
+            return
+        }
         aiBusy = true; aiTitle = if (mode == "explain") "Explicație medicală" else if (mode == "web") "Explicație și surse online" else "Nadia AI"
         scope.launch {
             runCatching { AiClient.ask(context, mode, "Explică informația încercuită din curs.", page, doc.title, current) }
@@ -316,7 +320,11 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
     }
     fun drawSelection() {
         val current = crop ?: return
-        if (!AiClient.configured(context)) { aiError = "Configurează backend-ul AI în Setări pentru generarea desenelor."; return }
+        if (!AiClient.configured(context)) {
+            shareImage(context, current, "Realizează un desen medical explicativ cu etichete, pe baza imaginii; spune ce elemente anatomice trebuie verificate.")
+            crop = null
+            return
+        }
         aiBusy = true
         scope.launch {
             runCatching { AiClient.draw(context, "Ilustrează anatomia și mecanismul explicat în selecția medicală. Document: ${doc.title}, pagina ${page + 1}.", current) }
@@ -783,7 +791,18 @@ private fun StudyPanel(doc: StudyDocument, store: LibraryStore, page: Int, textV
     fun runAi(type: String) {
         val fragment = (if (allText.isNotBlank()) allText else text).take(60000)
         if (fragment.isBlank()) { aiError = "Extrage mai întâi textul prin OCR."; return }
-        if (!AiClient.configured(context)) { aiError = "Configurează Nadia AI în Setări sau trimite fragmentul către ChatGPT Plus."; return }
+        if (!AiClient.configured(context)) {
+            // ChatGPT Plus fallback is explicitly user-triggered, without a paid API backend.
+            val task = when (type) {
+                "summary" -> "Creează un rezumat complet și logic în română, cu tabele și concepte esențiale."
+                "quiz" -> "Creează 10 grile medicale de examen cu barem, feedback și explicații."
+                "free" -> "Creează întrebări de examen cu răspuns liber și barem de evaluare."
+                "web" -> "Explică materialul și compară-l cu ghidurile medicale actuale disponibile online, menționând diferențele și sursele."
+                else -> "Explică acest fragment medical."
+            }
+            shareText(context, task + "\n\nDin cursul " + doc.title + ", pagina " + (page + 1) + ":\n\n" + fragment.take(12000))
+            return
+        }
         aiBusy = true
         scope.launch {
             runCatching { AiClient.ask(context, type, fragment, page, doc.title) }
