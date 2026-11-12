@@ -17,6 +17,21 @@ import java.util.UUID
 class NotebookDeviceTest {
     @get:Rule val ui = createEmptyComposeRule()
 
+    @Test fun exportIncludesEveryPageAndContinuesLongText() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = LibraryStore(context)
+        val note = ro.medatlas.study.data.StudyNote(documentId = "export", page = 0, heading = "Atlas", body = "Text de curs\n".repeat(100))
+        val file = java.io.File.createTempFile("caiet", ".pdf", context.cacheDir)
+        try {
+            file.outputStream().use { stream ->
+                kotlinx.coroutines.runBlocking { exportNotebook(context, store, listOf(note, note.copy(body = "")), stream) }
+            }
+            android.os.ParcelFileDescriptor.open(file, android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+                android.graphics.pdf.PdfRenderer(fd).use { pdf -> org.junit.Assert.assertTrue(pdf.pageCount >= 4) }
+            }
+        } finally { file.delete() }
+    }
+
     @Test fun boardInkSurvivesPanAndReopen() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("medatlas_editor", 0).edit().putBoolean("show_premium_intro", false).commit()
@@ -30,7 +45,7 @@ class NotebookDeviceTest {
             ui.onNodeWithTag("board-surface").performTouchInput { swipe(centerLeft, centerRight, 200) }
             ui.onNodeWithText("‹ Bibliotecă").performClick()
             ui.onNodeWithText("Caută în bibliotecă").performTextInput(title)
-            ui.onNodeWithText(title).performClick()
+            ui.onNode(hasText(title) and hasClickAction() and !hasSetTextAction()).performClick()
             ui.onNodeWithText("Încadrează tot").performClick()
             val store = LibraryStore(context)
             val board = store.boards().single { it.heading == title }

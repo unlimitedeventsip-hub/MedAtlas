@@ -30,6 +30,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.withContext
 import ro.medatlas.study.data.*
 import ro.medatlas.study.ui.StudyCanvasView
@@ -40,7 +43,7 @@ private val covers = listOf(Color(0xFF315C60), Color(0xFF6C4856), Color(0xFF4657
 private fun cover(name: String) = covers[Math.floorMod(name.hashCode(), covers.size)]
 internal fun inkId(id: String) = "notebook-" + UUID.nameUUIDFromBytes(id.toByteArray(Charsets.UTF_8))
 
-private fun paperBitmap(note: StudyNote, legacy: Bitmap?, width: Int): Bitmap {
+internal fun paperBitmap(note: StudyNote, legacy: Bitmap?, width: Int): Bitmap {
     val height = if (legacy == null) width * 5 / 4 else
         (width * legacy.height.toFloat() / legacy.width).toInt().coerceIn(1, width * 4)
     val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
@@ -106,6 +109,7 @@ internal fun NotebookSettings(prefs: SharedPreferences) {
 internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onOpen: (StudyDocument) -> Unit,
     unified: Boolean = false, onManage: () -> Unit = {}) {
     val context = LocalContext.current
+    val exportScope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("medatlas_editor", 0) }
     var boards by remember { mutableStateOf(store.boards()) }
     var boardId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -181,6 +185,27 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
         return
     }
     val groups = notes.groupBy(::course)
+    var exportFolder by rememberSaveable { mutableStateOf<String?>(null) }
+    var exporting by remember { mutableStateOf(false) }
+    val exportPicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        val target = exportFolder
+        if (uri != null && target != null) {
+            val snapshot = store.notes().filter { course(it) == target }
+            exporting = true
+            exportScope.launch {
+                try {
+                    withContext(Dispatchers.IO) {
+                        requireNotNull(context.contentResolver.openOutputStream(uri)).use {
+                            exportNotebook(context, store, snapshot, it)
+                        }
+                    }
+                    android.widget.Toast.makeText(context, "Caiet exportat", android.widget.Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    android.widget.Toast.makeText(context, "Export nereușit: " + e.localizedMessage, android.widget.Toast.LENGTH_LONG).show()
+                } finally { exporting = false }
+            }
+        }
+    }
     val home = unified && book == null
     val showDocs = home && section in listOf("Toate", "Documente")
     val showBoards = home && section in listOf("Toate", "Planșe")
@@ -206,6 +231,10 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (book != null) TextButton(onClick = { book = null; search = "" }) { Text("‹ Caiete") }
             Text(book ?: if (unified) "Biblioteca mea" else "Caietele mele", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+            if (book != null) TextButton(enabled = !exporting, onClick = {
+                exportFolder = book
+                exportPicker.launch((book ?: "Caiet").replace('/', '-') + ".pdf")
+            }) { Text(if (exporting) "Se exportă…" else "Export PDF") }
             if (home) TextButton(onClick = { onManage() }) { Text("Organizează fișiere") }
             if (!home) TextButton(onClick = { classic = true }) { Text("Carnet clasic") }
             Button(onClick = { val folder = book; if (folder == null) { name = ""; naming = true } else addPage(folder) }) {

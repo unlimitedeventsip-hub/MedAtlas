@@ -21,7 +21,7 @@ BOOKS = [
         "subject": "Anatomie și fiziologie",
         "publisher": "OpenStax",
         "file": "Anatomy_and_Physiology_2e.pdf",
-        "url": "https://assets.openstax.org/oscms-prodcms/media/documents/Anatomy_and_Physiology_2e_-_WEB_c9nD9QL.pdf",
+        "url": "https://assets.openstax.org/oscms-prodcms/media/documents/anatomy-and-physiology-2e_-_WEB.pdf",
         "source": "https://openstax.org/details/books/anatomy-and-physiology-2e",
         "rights": "Verify edition's CC license. Keep original PDF attribution intact.",
     },
@@ -31,7 +31,7 @@ BOOKS = [
         "subject": "Microbiologie",
         "publisher": "OpenStax",
         "file": "Microbiology.pdf",
-        "url": "https://assets.openstax.org/oscms-prodcms/media/documents/Microbiology-WEB.pdf",
+        "url": "https://assets.openstax.org/oscms-prodcms/media/documents/microbiology_-_WEB.pdf",
         "source": "https://openstax.org/books/microbiology/pages/1-introduction",
         "rights": "Verify edition's CC license. Keep original PDF attribution intact.",
     },
@@ -77,8 +77,8 @@ def download(book: dict) -> dict:
                         if not block:
                             break
                         total += len(block)
-                        if total > 150 * 1024 * 1024:
-                            raise ValueError("PDF exceeds 150 MB")
+                        if total > 512 * 1024 * 1024:
+                            raise ValueError("PDF exceeds 512 MiB")
                         dest.write(block)
                 if filename.stat().st_size < 100_000:
                     raise ValueError("Unexpectedly small PDF")
