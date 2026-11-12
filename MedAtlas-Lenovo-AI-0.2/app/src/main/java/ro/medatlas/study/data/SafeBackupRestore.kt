@@ -7,6 +7,7 @@ import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.util.UUID
+import java.util.zip.ZipFile
 import java.util.zip.ZipInputStream
 
 /**
@@ -30,16 +31,43 @@ internal object SafeBackupRestore {
         val id = UUID.randomUUID().toString()
         val staging = File(context.filesDir, ".medatlas-stage-$id")
         val rollback = File(context.filesDir, ".medatlas-rollback-$id")
-        check(staging.mkdirs() && rollback.mkdirs()) {
-            "Nu este suficient spațiu pentru pregătirea restaurării."
+        val archive = File(context.filesDir, ".medatlas-archive-$id.zip")
+        check(staging.mkdirs()) { "Nu se poate crea zona de restaurare." }
+        if (!rollback.mkdirs()) {
+            staging.deleteRecursively()
+            error("Nu se poate crea zona de recuperare.")
         }
         try {
-            val names = hashSetOf<String>()
-            var entries = 0
-            var total = 0L
+            // Content providers expose a stream, not necessarily a seekable file.
+            // Retain a temporary compressed copy to verify the ZIP central
+            // directory before unpacking. ZipInputStream alone would accept a
+            // truncated archive containing only its first local entries.
             val input = context.contentResolver.openInputStream(uri)
                 ?: error("Arhiva de backup nu poate fi deschisă.")
             input.use { source ->
+                archive.outputStream().use { destination ->
+                    val buffer = ByteArray(64 * 1024)
+                    var copied = 0L
+                    while (true) {
+                        val n = source.read(buffer)
+                        if (n < 0) break
+                        copied += n
+                        require(copied <= MAX_ARCHIVE_BYTES) {
+                            "Arhiva ZIP este prea mare pentru verificare."
+                        }
+                        destination.write(buffer, 0, n)
+                    }
+                }
+            }
+            ZipFile(archive).use { verified ->
+                require(verified.size() in 1..MAX_FILES) {
+                    "Arhiva ZIP nu are un index valid de fișiere."
+                }
+            }
+            val names = hashSetOf<String>()
+            var entries = 0
+            var total = 0L
+            archive.inputStream().use { source ->
                 ZipInputStream(source).use { zip ->
                     val buffer = ByteArray(64 * 1024)
                     while (true) {
@@ -157,6 +185,7 @@ internal object SafeBackupRestore {
         } finally {
             staging.deleteRecursively()
             rollback.deleteRecursively()
+            archive.delete()
         }
     }
 }
