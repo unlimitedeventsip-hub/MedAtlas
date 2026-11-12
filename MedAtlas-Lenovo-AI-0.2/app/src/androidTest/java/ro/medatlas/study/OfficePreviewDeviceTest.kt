@@ -50,7 +50,7 @@ class OfficePreviewDeviceTest {
         try {
             val preview = OfficeHtml.load(doc, store)
             assertEquals(1, preview.pages.size)
-            assertTrue(preview.pages[0].contains("Test medicină Word"))
+            assertTrue(preview.warning, preview.pages[0].contains("Test medicină Word"))
             assertTrue(preview.pages[0].contains("<table>"))
             assertTrue(preview.pages[0].contains("VEMS"))
             assertTrue(!preview.slides)
@@ -85,7 +85,7 @@ class OfficePreviewDeviceTest {
             val preview = OfficeHtml.load(doc, store)
             assertTrue(preview.slides)
             assertEquals(1, preview.pages.size)
-            assertTrue(preview.pages[0].contains("Prezentare pneumologie"))
+            assertTrue(preview.warning, preview.pages[0].contains("Prezentare pneumologie"))
             assertTrue(preview.pages[0].contains("position:absolute"))
             assertTrue(!preview.pages[0].contains("Previzualizare limitată"))
         } finally { file.delete() }
