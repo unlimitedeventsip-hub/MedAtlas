@@ -25,7 +25,7 @@ if (Test-Path -LiteralPath $Output) {
 $stream = [IO.File]::Open($Output, [IO.FileMode]::CreateNew)
 $archive = $null
 try {
-  $archive = New-Object IO.Compression.ZipArchive(
+  $archive = [IO.Compression.ZipArchive]::new(
     $stream, [IO.Compression.ZipArchiveMode]::Create, $false)
   $names = @{}
   $index = 0
