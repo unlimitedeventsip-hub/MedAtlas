@@ -13,6 +13,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
@@ -40,7 +41,7 @@ import ro.medatlas.study.data.*
 import ro.medatlas.study.ui.StudyCanvasView
 import java.util.UUID
 
-private val patterns = mapOf("LINES" to "Linii", "GRID" to "Caroiaj", "DOTS" to "Puncte")
+private val patterns = mapOf("BLANK" to "Albă", "LINES" to "Linii", "GRID" to "Caroiaj", "DOTS" to "Puncte")
 private val covers = listOf(Color(0xFF315C60), Color(0xFF6C4856), Color(0xFF465775), Color(0xFF796133),
     Color(0xFF536A4D), Color(0xFF79617E), Color(0xFF5B6772), Color(0xFF9B5C5F))
 private fun cover(name: String) = covers[Math.floorMod(name.hashCode(), covers.size)]
@@ -56,6 +57,7 @@ internal fun paperBitmap(note: StudyNote, legacy: Bitmap?, width: Int): Bitmap {
         return bitmap
     }
     canvas.drawColor(if (note.darkPaper) 0xff223039.toInt() else 0xfffffcf5.toInt())
+    if (note.paper == "BLANK") return bitmap
     val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = if (note.darkPaper) 0xff4b6068.toInt() else 0xffcbd8d4.toInt()
         strokeWidth = width / 720f
@@ -134,7 +136,8 @@ internal fun NotebookSettings(prefs: SharedPreferences) {
 
 @Composable
 internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onOpen: (StudyDocument) -> Unit,
-    unified: Boolean = false, onManage: () -> Unit = {}) {
+    unified: Boolean = false, onManage: () -> Unit = {}, initialNoteId: String? = null,
+    onExit: () -> Unit = {}) {
     val context = LocalContext.current
     val exportScope = rememberCoroutineScope()
     val prefs = remember { context.getSharedPreferences("medatlas_editor", 0) }
@@ -144,7 +147,7 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
     var newBoard by rememberSaveable { mutableStateOf(false) }
     var classic by rememberSaveable { mutableStateOf(false) }
     var book by rememberSaveable { mutableStateOf<String?>(null) }
-    var pageId by rememberSaveable { mutableStateOf<String?>(null) }
+    var pageId by rememberSaveable(initialNoteId) { mutableStateOf(initialNoteId) }
     var search by rememberSaveable { mutableStateOf("") }
     var naming by rememberSaveable { mutableStateOf(false) }
     var name by rememberSaveable { mutableStateOf("") }
@@ -165,7 +168,10 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
     fun back() {
         when {
             classic -> classic = false
-            pageId != null -> { pageId = null; notes = store.notes() }
+            pageId != null -> {
+                pageId = null; notes = store.notes()
+                if (initialNoteId != null) onExit()
+            }
             search.isNotBlank() -> search = ""
             else -> book = null
         }
@@ -480,10 +486,17 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
         Tool.CIRCLE to "Elipsă", Tool.RECTANGLE to "Dreptunghi", Tool.ARROW to "Săgeată",
         Tool.LASSO to "Lasou", Tool.ERASER to "Radieră", Tool.STICKER to "Imagine",
         Tool.PAN to "Deplasare")
-    val colors = mapOf("Grafit" to Color(0xff263943), "Petrol" to Color(0xff258b86),
-        "Trandafiriu" to Color(0xffd05b82), "Auriu" to Color(0xffe5ad43), "Fildeș" to Color(0xfffff8e8))
+    val colors = linkedMapOf(
+        "Grafit" to Color(0xff263943), "Albastru" to Color(0xff2388F5),
+        "Roșu" to Color(0xffEE4F62), "Verde" to Color(0xff29B88B),
+        "Galben" to Color(0xffF6D950), "Portocaliu" to Color(0xffF6A33F),
+        "Violet" to Color(0xff985CEB), "Roz" to Color(0xffF79CBC),
+        "Turcoaz" to Color(0xff55D7D2), "Petrol" to Color(0xff258b86),
+        "Trandafiriu" to Color(0xffD05B82), "Auriu" to Color(0xffE5AD43),
+        "Fildeș" to Color(0xffFFF8E8))
     var color by rememberSaveable { mutableStateOf(if (dark) "Fildeș" else "Grafit") }
     var width by rememberSaveable { mutableIntStateOf(2) }
+    var showTextPanel by rememberSaveable { mutableStateOf(original.paper != "BLANK" && original.body.isNotBlank()) }
     var delete by rememberSaveable { mutableStateOf(false) }
     var strokes by remember { mutableStateOf(store.ink(inkId(original.id), 0)) }
     var recognition by remember { mutableStateOf<List<Stroke>?>(null) }
@@ -508,6 +521,9 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             Choice(toolNames.getValue(tool), toolNames.values.toList()) { tool = toolNames.keys.elementAt(it) }
             Choice(color, colors.keys.toList()) { color = colors.keys.elementAt(it) }
             Choice("$width · grosime", listOf("Subțire", "Medie", "Groasă")) { width = listOf(2, 4, 7)[it] }
+            TextButton(onClick = { showTextPanel = !showTextPanel }) {
+                Text(if (showTextPanel) "Foaie liberă" else "+ Text")
+            }
             TextButton(onClick = { photoPicker.launch("image/*") }) { Text("+ Imagine") }
             if (tool == Tool.STICKER) {
                 TextButton(onClick = { view?.increaseStickerSize(-.04f) }) { Text("Imagine −") }
@@ -543,6 +559,21 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             document?.let { TextButton(onClick = { flush(); onOpen(it) }) { Text("Curs asociat") } }
             TextButton(onClick = { delete = true }) { Text("Șterge pagina") }
         }
+        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            colors.forEach { (name, shade) ->
+                Surface(shape = CircleShape, color = shade,
+                    border = BorderStroke(if (color == name) 3.dp else 1.dp,
+                        if (color == name) Color.White else Color.Gray.copy(alpha = .4f)),
+                    modifier = Modifier.size(if (color == name) 32.dp else 28.dp)
+                        .clickable { color = name }) {
+                    Box(contentAlignment = Alignment.Center) {
+                        if (color == name) Text("✓", color = if (name == "Fildeș" || name == "Galben") Color.Black else Color.White,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        }
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val ink: @Composable (Modifier) -> Unit = { modifier ->
                 AndroidView(factory = { ctx -> StudyCanvasView(ctx).also { view = it } }, modifier = modifier.testTag("notebook-ink"), update = {
@@ -573,7 +604,9 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             val text: @Composable (Modifier) -> Unit = { modifier ->
                 OutlinedTextField(body, { body = it }, modifier, label = { Text("Textul paginii") })
             }
-            if (maxWidth >= 600.dp) Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (!showTextPanel) {
+                ink(Modifier.fillMaxSize())
+            } else if (maxWidth >= 600.dp) Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ink(Modifier.weight(1.5f).fillMaxHeight()); text(Modifier.weight(1f).fillMaxHeight())
             } else Column(Modifier.fillMaxSize()) {
                 ink(Modifier.weight(1.5f).fillMaxWidth()); text(Modifier.weight(1f).fillMaxWidth())
