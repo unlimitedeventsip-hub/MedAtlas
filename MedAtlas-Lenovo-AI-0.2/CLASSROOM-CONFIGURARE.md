@@ -4,7 +4,7 @@ Fereastra **Classroom** este separată de cititorul PDF. Aplicația conține un 
 
 ## Obligatoriu înainte de prima conectare
 
-1. În [Google Cloud Console](https://console.cloud.google.com/) creează/selectează un proiect. Activează **Google Classroom API**. Configurează Google Auth Platform / OAuth consent screen, inclusiv utilizatorii de test dacă aplicația este în modul Testing.
+1. În [Google Cloud Console](https://console.cloud.google.com/) creează/selectează un proiect. Activează **Google Classroom API** și **Google Drive API**. Configurează Google Auth Platform / OAuth consent screen, inclusiv utilizatorii de test dacă aplicația este în modul Testing.
 2. Creează un **OAuth client pentru Android** cu numele pachetului exact: `ro.medatlas.study`.
 3. Pentru **SHA-1**, este important să folosești o cheie de semnare persistentă. GitHub Actions creează automat chei debug diferite pe rulări dacă nu configurezi secreții; un OAuth client asociat uneia dintre acele semnături se va rupe la APK-ul următor.
 4. Creează local un fișier de semnare (nu îl publica):
@@ -26,6 +26,7 @@ Fereastra **Classroom** este separată de cititorul PDF. Aplicația conține un 
 - `classroom.courses.readonly`
 - `classroom.courseworkmaterials.readonly`
 - `classroom.coursework.me.readonly`
+- `drive.readonly` (numai dacă dorești și importul automat al fișierelor Google Drive)
 
 Google poate impune verificări suplimentare ale aplicației/consimțământului sau restricții administratorului facultății. Modul Testing are limitări ale utilizatorilor și duratei consimțământului. Dacă autentificarea e blocată, verifică erorile returnate de fereastra Classroom.
 
@@ -33,7 +34,7 @@ Google poate impune verificări suplimentare ale aplicației/consimțământului
 
 La apăsarea **Classroom** din bara de jos se deschide o activitate Android separată. Butonul **Conectează / Actualizează** cere acord pentru permisiunile de mai sus și interoghează API-ul de cursuri și materiale și teme; afișează linkurile existente, dacă sunt furnizate de Google. Datele sunt citite în memorie la accesare, nu sunt sincronizate în fundal.
 
-**Nu include încă descărcare automată a fișierelor Google Drive** sau editarea temelor. Aceste acțiuni necesită permisiuni Drive și un flux de import separat. Nu presupune că un link Classroom permite descărcarea automată a materialului.
+**Include import opțional al fișierelor Google Drive**: în fereastra Classroom activează «Import automat PDF, Word, PowerPoint» sau folosește butonul de import manual. Limită: 25 de atașamente pe sincronizare, 30 MB fiecare; fișierele neacceptate și cele fără acces sunt omise. Materialele sunt copiate în Biblioteca MedAtlas, nu modificate în Drive. Google Docs și Slides pot fi exportate ca DOCX/PPTX. Nu include încă editarea temelor sau sincronizarea în fundal când aplicația este închisă. Nu presupune că un link Classroom permite descărcarea automată a materialului.
 
 ## Test
 
