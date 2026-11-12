@@ -62,6 +62,16 @@ object AnnotatedPdfExporter {
             strokeWidth = stroke.width * (w / 800f) * if (stroke.tool == Tool.HIGHLIGHT) 4f else 1f
         }
         when (stroke.tool) {
+            Tool.HIGHLIGHT -> {
+                val l = min(x(first), x(last))
+                val r = max(x(first), x(last))
+                val centerY = (y(first) + y(last)) / 2f
+                val height = max(13f * w / 800f, stroke.width * 6.5f * w / 800f)
+                paint.style = Paint.Style.FILL
+                paint.alpha = 78
+                canvas.drawRoundRect(RectF(l, centerY - height / 2f, r, centerY + height / 2f),
+                    5f * w / 800f, 5f * w / 800f, paint)
+            }
             Tool.CIRCLE -> canvas.drawOval(RectF(min(x(first), x(last)), min(y(first), y(last)), max(x(first), x(last)), max(y(first), y(last))), paint)
             Tool.RECTANGLE -> canvas.drawRect(RectF(min(x(first), x(last)), min(y(first), y(last)), max(x(first), x(last)), max(y(first), y(last))), paint)
             Tool.UNDERLINE -> canvas.drawLine(x(first), y(last), x(last), y(last), paint)
@@ -81,7 +91,7 @@ object AnnotatedPdfExporter {
                 canvas.drawLine(x(last), y(last), x(last) - head * cos(angle - .5f), y(last) - head * sin(angle - .5f), paint)
                 canvas.drawLine(x(last), y(last), x(last) - head * cos(angle + .5f), y(last) - head * sin(angle + .5f), paint)
             }
-            Tool.ERASER, Tool.LASSO, Tool.ANALYZE, Tool.PAN, Tool.STICKER -> Unit
+            Tool.ERASER, Tool.LASSO, Tool.ANALYZE, Tool.PAN, Tool.STICKER, Tool.COMMENT -> Unit
             else -> {
                 val path = Path().apply { moveTo(x(first), y(first)) }
                 for (i in 1 until pts.size) path.lineTo(x(pts[i]), y(pts[i]))
