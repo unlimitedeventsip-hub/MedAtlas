@@ -205,7 +205,8 @@ private fun MedAtlasApp() {
                         picker.launch(arrayOf(
                             "application/pdf",
                             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                            "application/vnd.ms-powerpoint"
                         ))
                     },
                     onDocumentChanged = { updated ->
