@@ -188,6 +188,69 @@ private object ClassroomApi {
         }
         return out
     }
+    fun download(token: String, driveId: String, directory: File): File {
+        require(driveId.matches(Regex("[A-Za-z0-9_-]{6,200}"))) { "Identificator Drive invalid" }
+        val metadata = get(token, "https://www.googleapis.com/drive/v3/files/" + driveId +
+            "?fields=id,name,mimeType,size")
+        val mime = metadata.optString("mimeType")
+        val ext: String
+        val url: String
+        when (mime) {
+            "application/pdf" -> {
+                ext = "pdf"
+                url = "https://www.googleapis.com/drive/v3/files/" + driveId + "?alt=media"
+            }
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> {
+                ext = "docx"
+                url = "https://www.googleapis.com/drive/v3/files/" + driveId + "?alt=media"
+            }
+            "application/vnd.openxmlformats-officedocument.presentationml.presentation" -> {
+                ext = "pptx"
+                url = "https://www.googleapis.com/drive/v3/files/" + driveId + "?alt=media"
+            }
+            "application/vnd.google-apps.document" -> {
+                ext = "docx"
+                url = "https://www.googleapis.com/drive/v3/files/" + driveId +
+                    "/export?mimeType=application%2Fvnd.openxmlformats-officedocument.wordprocessingml.document"
+            }
+            "application/vnd.google-apps.presentation" -> {
+                ext = "pptx"
+                url = "https://www.googleapis.com/drive/v3/files/" + driveId +
+                    "/export?mimeType=application%2Fvnd.openxmlformats-officedocument.presentationml.presentation"
+            }
+            else -> error("Tipul fișierului nu poate fi importat: " + mime)
+        }
+        require(metadata.optLong("size", 0) <= 30L * 1024 * 1024) { "Fișier prea mare" }
+        val safeName = metadata.optString("name")
+            .replace(Regex("[^A-Za-z0-9._ -]"), "_").take(120)
+        val filename = if (safeName.lowercase().endsWith("." + ext)) safeName
+            else safeName.substringBeforeLast(".").ifBlank { driveId } + "." + ext
+        directory.mkdirs()
+        val file = File(directory, filename)
+        val connection = URL(url).openConnection() as HttpURLConnection
+        try {
+            connection.setRequestProperty("Authorization", "Bearer " + token)
+            connection.connectTimeout = 15000
+            connection.readTimeout = 45000
+            if (connection.responseCode !in 200..299) error("Drive HTTP " + connection.responseCode)
+            var total = 0L
+            connection.inputStream.use { input ->
+                file.outputStream().use { output ->
+                    val buffer = ByteArray(8192)
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        total += n
+                        require(total <= 30L * 1024 * 1024) { "Limita de 30 MB depășită" }
+                        output.write(buffer, 0, n)
+                    }
+                }
+            }
+            return file
+        } catch (ex: Exception) { file.delete(); throw ex }
+        finally { connection.disconnect() }
+    }
+
     fun load(token: String): Pair<List<ClassroomActivity.ClassroomEntry>,
                                    List<ClassroomActivity.ClassroomEntry>> {
         val courses = pages(token,
