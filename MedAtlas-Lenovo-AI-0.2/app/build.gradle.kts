@@ -11,10 +11,24 @@ android {
         applicationId = "ro.medatlas.study"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0"
+        versionCode = 4
+        versionName = "0.4.0"
+    }
+    val stableKeystore = file("medatlas-signing.jks")
+    if (stableKeystore.exists()) {
+        signingConfigs {
+            create("medatlas") {
+                storeFile = stableKeystore
+                storePassword = System.getenv("MEDATLAS_STORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("MEDATLAS_KEY_ALIAS") ?: "medatlas"
+                keyPassword = System.getenv("MEDATLAS_KEY_PASSWORD") ?: ""
+            }
+        }
     }
     buildTypes {
+        getByName("debug") {
+            if (stableKeystore.exists()) signingConfig = signingConfigs.getByName("medatlas")
+        }
         release {
             isMinifyEnabled = false
         }
