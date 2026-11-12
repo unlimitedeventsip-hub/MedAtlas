@@ -30,7 +30,7 @@ import kotlin.math.sin
 class StudyCanvasView(context: Context) : View(context) {
     var onSave: (List<Stroke>) -> Unit = {}
     var onAnalyze: (Bitmap) -> Unit = {}
-    var onCommentCreate: (InkPoint, String) -> Unit = {}
+    var onCommentCreate: (InkPoint, String) -> Unit = { _, _ -> }
     var onCommentOpen: (PageComment) -> Unit = {}
     var comments: List<PageComment> = emptyList()
         set(value) { field = value; invalidate() }
