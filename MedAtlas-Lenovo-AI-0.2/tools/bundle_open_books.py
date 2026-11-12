@@ -17,12 +17,12 @@ OUTPUT = pathlib.Path("app/src/main/assets/open_books")
 BOOKS = [
     {
         "id": "anatomy-physiology-2e",
-        "title": "Anatomy & Physiology 2e — Oregon State edition",
+        "title": "Anatomy and Physiology 2e",
         "subject": "Anatomie și fiziologie",
-        "publisher": "Oregon State University Open Textbooks / OpenStax",
+        "publisher": "OpenStax",
         "file": "Anatomy_and_Physiology_2e.pdf",
         "url": "https://assets.openstax.org/oscms-prodcms/media/documents/anatomy-and-physiology-2e_-_WEB.pdf",
-        "source": "https://open.oregonstate.education/anatomy2e/",
+        "source": "https://openstax.org/details/books/anatomy-and-physiology-2e",
         "rights": "Verify edition's CC license. Keep original PDF attribution intact.",
     },
     {
