@@ -8,6 +8,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MedAtlas"
         android:usesCleartextTraffic="false">
+        <activity android:name=".classroom.ClassroomActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true" android:screenOrientation="unspecified">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
