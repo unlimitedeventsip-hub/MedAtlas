@@ -62,6 +62,7 @@ import ro.medatlas.study.data.*
 import ro.medatlas.study.study.StudyEngine
 import ro.medatlas.study.ui.StudyCanvasView
 import ro.medatlas.study.ui.HandwritingPadView
+import ro.medatlas.study.ui.PremiumIntro
 import ro.medatlas.study.pdf.AnnotatedPdfExporter
 import ro.medatlas.study.ai.AiClient
 import ro.medatlas.study.classroom.ClassroomActivity
@@ -106,6 +107,10 @@ private fun MedAtlasApp() {
     val docs = remember { mutableStateListOf<StudyDocument>().apply { addAll(store.documents()) } }
     var selected by remember { mutableStateOf<StudyDocument?>(null) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    val introPrefs = remember { context.getSharedPreferences("medatlas_editor", android.content.Context.MODE_PRIVATE) }
+    var showIntro by rememberSaveable {
+        mutableStateOf(introPrefs.getBoolean("show_premium_intro", true))
+    }
     var search by remember { mutableStateOf("") }
     var importError by remember { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
@@ -117,6 +122,10 @@ private fun MedAtlasApp() {
             val failures = outcomes.mapNotNull { it.exceptionOrNull()?.localizedMessage }
             if (failures.isNotEmpty()) importError = failures.first()
         }
+    }
+    if (showIntro) {
+        PremiumIntro(onFinish = { showIntro = false })
+        return
     }
     selected?.let { doc ->
         ReaderScreen(doc, store, onBack = { selected = null }, onRemove = {
@@ -164,7 +173,7 @@ private fun MedAtlasApp() {
                 }, onImport = { picker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation")) })
                 1 -> NotesScreen(store, docs, onOpen = { selected = it })
                 2 -> CardsScreen(store, docs, onOpen = { selected = it })
-                else -> SettingsScreen()
+                else -> SettingsScreen(onReplayIntro = { showIntro = true })
             }
         }
     }
@@ -1549,7 +1558,7 @@ private fun CardsScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: 
 }
 
 @Composable
-private fun SettingsScreen() {
+private fun SettingsScreen(onReplayIntro: () -> Unit) {
     val context = LocalContext.current
     var endpoint by remember { mutableStateOf(AiClient.endpoint(context)) }
     var token by remember { mutableStateOf(AiClient.token(context)) }
@@ -1557,6 +1566,7 @@ private fun SettingsScreen() {
     val editPrefs = remember { context.getSharedPreferences("medatlas_editor", android.content.Context.MODE_PRIVATE) }
     var smartUnderline by remember { mutableStateOf(editPrefs.getBoolean("smart_underline", true)) }
     var smartMarker by remember { mutableStateOf(editPrefs.getBoolean("smart_marker", true)) }
+    var introEnabled by remember { mutableStateOf(editPrefs.getBoolean("show_premium_intro", true)) }
     var showBibliography by remember { mutableStateOf(false) }
     val backupStore = remember { LibraryStore(context) }
     val backupSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
@@ -1573,7 +1583,22 @@ private fun SettingsScreen() {
         Text("Setări și confidențialitate", fontSize = 23.sp, fontWeight = FontWeight.Bold)
         SettingLine("Offline-first", "Documentele, notițele și desenele se păstrează pe dispozitiv.")
         SettingLine("Fără reclame", "Nu există publicitate, trackere publicitare sau cont obligatoriu.")
-        SettingLine("Pornire rapidă", "MedAtlas deschide direct biblioteca, fără animație și fără ecran introductiv.")
+        Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Intro pentru Nadia", fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Arată intro-ul elegant la deschiderea aplicației",
+                        modifier = Modifier.weight(1f), fontSize = 12.sp)
+                    Switch(checked = introEnabled, onCheckedChange = {
+                        introEnabled = it
+                        editPrefs.edit().putBoolean("show_premium_intro", it).apply()
+                    })
+                }
+                OutlinedButton(onClick = onReplayIntro,
+                    modifier = Modifier.fillMaxWidth()) { Text("Revezi intro-ul") }
+            }
+        }
         SettingLine("Portret / peisaj", "Interfață adaptabilă automat la orientarea tabletei.")
         Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.fillMaxWidth().padding(15.dp)) {
@@ -1646,7 +1671,7 @@ private fun SettingsScreen() {
         SettingLine("Rezumate și quiz", "Algoritmi offline simpli; nu sunt încă evaluări AI clinice.")
         SettingLine("Backup", "Poți exporta și restaura arhiva completă ZIP în Setări.")
         Spacer(Modifier.height(14.dp))
-        Text("MedAtlas • Beta 0.3 • construit pentru Nadia ♡", color = Slate, fontSize = 12.sp)
+        Text("MedAtlas • Beta 0.8 • construit pentru Nadia ♡", color = Slate, fontSize = 12.sp)
     }
     if (showBibliography) {
         val bibliography = remember(showBibliography) { backupStore.imageBibliography() }
