@@ -25,6 +25,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import androidx.core.content.FileProvider
+import ro.medatlas.study.data.LibraryStore
+import java.io.File
 import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.Identity
 import com.google.android.gms.common.api.Scope
@@ -39,12 +42,13 @@ import java.net.URLEncoder
 /* Independent Classroom window. Requires Android OAuth app registration in Google Cloud. */
 class ClassroomActivity : ComponentActivity() {
     data class ClassroomEntry(val id: String, val courseId: String, val name: String,
-        val detail: String, val link: String, val kind: String)
+        val detail: String, val link: String, val kind: String, val driveId: String = "")
     private val authorization by lazy { Identity.getAuthorizationClient(this) }
     private val scopes = listOf(
         Scope("https://www.googleapis.com/auth/classroom.courses.readonly"),
         Scope("https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly"),
-        Scope("https://www.googleapis.com/auth/classroom.coursework.me.readonly")
+        Scope("https://www.googleapis.com/auth/classroom.coursework.me.readonly"),
+        Scope("https://www.googleapis.com/auth/drive.readonly")
     )
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -207,8 +211,10 @@ private object ClassroomApi {
                 for (item in group) {
                     val a = item.optJSONArray("materials")
                     var url = item.optString("alternateLink")
+                    var driveId = ""
                     if (a != null && a.length() > 0) {
                         val first = a.optJSONObject(0)
+                        driveId = first?.optJSONObject("driveFile")?.optJSONObject("driveFile")?.optString("id").orEmpty()
                         val drive = first?.optJSONObject("driveFile")?.optJSONObject("driveFile")
                             ?.optString("alternateLink").orEmpty()
                         val link = first?.optJSONObject("link")?.optString("url").orEmpty()
@@ -216,7 +222,7 @@ private object ClassroomApi {
                     }
                     materials.add(ClassroomActivity.ClassroomEntry(
                         id + "_" + type + "_" + item.optString("id"), id,
-                        item.optString("title"), item.optString("description"), url, type))
+                        item.optString("title"), item.optString("description"), url, type, driveId))
                 }
             }
         }
