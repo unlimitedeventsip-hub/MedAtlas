@@ -219,7 +219,7 @@ class StudyCanvasView(context: Context) : View(context) {
                 textSize = fontSize
                 typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
             }
-            box.content.lines().take(18).forEachIndexed { line, row ->
+            box.content.lines().take(18).forEachIndexed { row, line ->
                 canvas.drawText(line.take(180), x, y + (row + 1) * fontSize * 1.22f, paint)
             }
             if (tool == Tool.TEXT) {
