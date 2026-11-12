@@ -127,6 +127,9 @@ class StudyCanvasView(context: Context) : View(context) {
         if (selectedTool == Tool.UNDERLINE || selectedTool == Tool.HIGHLIGHT || selectedTool == Tool.COMMENT) prepareTextRegions(bitmap)
         marks = strokes
         tool = selectedTool
+        val editorPrefs = context.getSharedPreferences("medatlas_editor", Context.MODE_PRIVATE)
+        smartUnderline = editorPrefs.getBoolean("smart_underline", true)
+        smartMarker = editorPrefs.getBoolean("smart_marker", true)
         inkColor = color
         penWidth = size
         fingerInk = allowFinger
