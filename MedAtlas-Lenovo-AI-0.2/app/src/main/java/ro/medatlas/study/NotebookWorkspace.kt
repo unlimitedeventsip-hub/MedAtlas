@@ -177,6 +177,28 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
             }
             NotebookPage(active, store, prefs, onBack = { back() },
                 position = index + 1, count = pages.size, move = ::move,
+                onDuplicate = {
+                    val source = store.notes().firstOrNull { it.id == active.id } ?: active
+                    val now = System.currentTimeMillis()
+                    val nextId = UUID.randomUUID().toString()
+                    val oldPicture = if (source.handwritingFile.isBlank()) null
+                        else store.notebookDrawing(source.handwritingFile)
+                    val duplicatedPicture = oldPicture?.let { image ->
+                        try { store.saveNotebookDrawing(image) } finally { image.recycle() }
+                    }.orEmpty()
+                    val copy = source.copy(id = nextId,
+                        heading = source.heading + " (copie)",
+                        handwritingFile = duplicatedPicture,
+                        createdAt = now, updatedAt = now)
+                    val all = store.notes().toMutableList()
+                    val position = all.indexOfFirst { it.id == source.id }
+                    all.add(if (position >= 0) position + 1 else all.size, copy)
+                    store.saveInk(inkId(nextId), 0, store.ink(inkId(source.id), 0)
+                        .map { it.copy(id = UUID.randomUUID().toString()) })
+                    store.saveNotes(all)
+                    notes = store.notes()
+                    pageId = nextId
+                },
                 onPrevious = { notes = store.notes(); pages.getOrNull(index - 1)?.let { pageId = it.id } },
                 onNext = {
                     notes = store.notes()
@@ -381,7 +403,7 @@ private fun PagePreview(note: StudyNote, store: LibraryStore) {
 
 @Composable
 private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: SharedPreferences,
-    position: Int, count: Int, move: (Int) -> Unit, onPrevious: () -> Unit,
+    position: Int, count: Int, move: (Int) -> Unit, onDuplicate: () -> Unit, onPrevious: () -> Unit,
     onBack: () -> Unit, onNext: () -> Unit, onDelete: () -> Unit, document: StudyDocument?, onOpen: (StudyDocument) -> Unit) {
     var title by rememberSaveable { mutableStateOf(original.heading) }
     var body by rememberSaveable { mutableStateOf(original.body) }
@@ -438,6 +460,7 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             TextButton(onClick = { view?.undo() }) { Text("Anulează trasarea") }
             TextButton(onClick = { view?.redo() }) { Text("Refă") }
             if (tool == Tool.LASSO) TextButton(onClick = { view?.eraseSelection() }) { Text("Șterge selecția") }
+            TextButton(onClick = { flush(); onDuplicate() }) { Text("Duplică pagina") }
             if (position > 1) TextButton(onClick = { flush(); move(-1) }) { Text("Mută mai devreme") }
             if (position < count) TextButton(onClick = { flush(); move(1) }) { Text("Mută mai târziu") }
             document?.let { TextButton(onClick = { flush(); onOpen(it) }) { Text("Curs asociat") } }
