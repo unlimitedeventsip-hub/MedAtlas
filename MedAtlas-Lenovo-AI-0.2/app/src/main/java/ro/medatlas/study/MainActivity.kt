@@ -395,6 +395,7 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
     var showRemove by remember { mutableStateOf(false) }
     var processing by remember { mutableStateOf(false) }
     var textVersion by remember { mutableIntStateOf(0) }
+    var showOcrLibrary by remember { mutableStateOf(false) }
     var marks by remember(doc.id, page) { mutableStateOf(store.ink(doc.id, page)) }
     var stickers by remember(doc.id, page) { mutableStateOf(store.stickers(doc.id, page)) }
     val stickerCache = remember(doc.id) { mutableMapOf<String, Bitmap>() }
@@ -425,7 +426,8 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             .addOnSuccessListener { result ->
                 store.savePageText(doc.id, page, result.text)
                 textVersion++
-                Toast.makeText(context, "Textul paginii a fost extras și salvat", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "OCR salvat. Deschide Text OCR pentru a-l citi și corecta.", Toast.LENGTH_LONG).show()
+                showOcrLibrary = true
             }
             .addOnFailureListener { Toast.makeText(context, it.localizedMessage ?: "OCR nereușit", Toast.LENGTH_LONG).show() }
             .addOnCompleteListener { processing = false; client.close() }
@@ -706,6 +708,11 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             TextButton(onClick = { runOcr(bitmap) }, enabled = !processing && bitmap != null) {
                 Text(if (processing) "OCR…" else "OCR pagină", fontSize = 11.sp)
             }
+            TextButton(onClick = { showOcrLibrary = true }) {
+                Icon(Icons.Rounded.TextSnippet, null)
+                Spacer(Modifier.width(4.dp))
+                Text("Text OCR", fontSize = 11.sp)
+            }
         }
     }
     if (!isWide && expanded) {
@@ -718,12 +725,64 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             }
         }
     }
+    if (showOcrLibrary) {
+        var ocrPage by remember { mutableIntStateOf(page) }
+        var ocrText by remember(ocrPage, textVersion) {
+            mutableStateOf(if (doc.kind == "PDF") store.pageText(doc.id, ocrPage) else store.extractedText(doc.id))
+        }
+        AlertDialog(onDismissRequest = { showOcrLibrary = false },
+            title = { Text("Text extras OCR · " + doc.title) },
+            text = {
+                Column(Modifier.heightIn(max = 540.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { ocrPage = (ocrPage - 1).coerceAtLeast(0) }) {
+                            Icon(Icons.Rounded.ChevronLeft, "Pagina precedentă")
+                        }
+                        Text("Pagina " + (ocrPage + 1) + " din " + pager.count,
+                            modifier = Modifier.weight(1f), color = Navy, fontSize = 13.sp)
+                        IconButton(onClick = { ocrPage = (ocrPage + 1).coerceAtMost(pager.count - 1) }) {
+                            Icon(Icons.Rounded.ChevronRight, "Pagina următoare")
+                        }
+                    }
+                    if (ocrText.isBlank()) Text("Nu există încă text OCR pentru această pagină. Închide și apasă OCR pagină.",
+                        color = Slate, fontSize = 12.sp)
+                    OutlinedTextField(value = ocrText, onValueChange = { ocrText = it },
+                        label = { Text("Text recunoscut — poți corecta erorile") },
+                        modifier = Modifier.fillMaxWidth(), minLines = 7, maxLines = 18)
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        OutlinedButton(onClick = {
+                            val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE)
+                                as android.content.ClipboardManager
+                            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("MedAtlas OCR", ocrText))
+                            Toast.makeText(context, "Text copiat", Toast.LENGTH_SHORT).show()
+                        }) { Text("Copiază") }
+                        TextButton(onClick = {
+                            shareText(context, "Text OCR din " + doc.title + ", pagina " + (ocrPage + 1) + ":\n\n" + ocrText)
+                        }) { Text("ChatGPT") }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    if (doc.kind == "PDF") store.savePageText(doc.id, ocrPage, ocrText)
+                    textVersion++
+                    showOcrLibrary = false
+                    Toast.makeText(context, "Text OCR salvat", Toast.LENGTH_SHORT).show()
+                }) { Text("Salvează modificările") }
+            },
+            dismissButton = { TextButton(onClick = { showOcrLibrary = false }) { Text("Închide") } }
+        )
+    }
     if (imageToCrop != null) {
         val image = imageToCrop!!
         var left by remember(image) { mutableFloatStateOf(0f) }
         var right by remember(image) { mutableFloatStateOf(1f) }
         var top by remember(image) { mutableFloatStateOf(0f) }
         var bottom by remember(image) { mutableFloatStateOf(1f) }
+        var imageSource by remember(image) { mutableStateOf("") }
+        var imageAuthor by remember(image) { mutableStateOf("") }
+        var imageLicense by remember(image) { mutableStateOf("") }
         val cx = (left * image.width).toInt().coerceIn(0, image.width - 1)
         val cy = (top * image.height).toInt().coerceIn(0, image.height - 1)
         val cw = ((right - left) * image.width).toInt().coerceIn(1, image.width - cx)
@@ -753,6 +812,13 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                     Text("Jos", fontSize = 11.sp)
                     Slider(value = bottom, onValueChange = { bottom = it.coerceAtLeast(top + .05f) },
                         valueRange = 0f..1f)
+                    OutlinedTextField(value = imageSource, onValueChange = { imageSource = it },
+                        label = { Text("Linkul original al imaginii") },
+                        placeholder = { Text("https://...") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = imageAuthor, onValueChange = { imageAuthor = it },
+                        label = { Text("Autor / sursă") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = imageLicense, onValueChange = { imageLicense = it },
+                        label = { Text("Licența (de ex. CC BY 4.0)") }, modifier = Modifier.fillMaxWidth())
                     TextButton(onClick = { left = 0f; right = 1f; top = 0f; bottom = 1f }) {
                         Text("Resetează decuparea")
                     }
@@ -762,7 +828,10 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                 runCatching {
                     val cropped = Bitmap.createBitmap(image, cx, cy, cw, ch)
                     val name = store.saveGeneratedSticker(cropped)
-                    stickers = stickers + PageSticker(imageName = name)
+                    stickers = stickers + PageSticker(
+                        imageName = name, sourceUrl = imageSource.trim(),
+                        attribution = imageAuthor.trim(), license = imageLicense.trim()
+                    )
                     store.saveStickers(doc.id, page, stickers)
                     tool = Tool.STICKER
                     imageToCrop = null
