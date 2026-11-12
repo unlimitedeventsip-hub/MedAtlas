@@ -167,6 +167,19 @@ class StudyCanvasView(context: Context) : View(context) {
         if (selectedIds.isNotEmpty()) { marks = marks.filterNot { it.id in selectedIds }; selectedIds = emptySet(); undone.clear(); onSave(marks) }
     }
 
+    private fun insideLasso(point: InkPoint, polygon: List<InkPoint>): Boolean {
+        var inside = false
+        var previous = polygon.last()
+        for (next in polygon) {
+            if ((previous.y > point.y) != (next.y > point.y)) {
+                val crossing = previous.x + (point.y - previous.y) * (next.x - previous.x) / (next.y - previous.y)
+                if (point.x < crossing) inside = !inside
+            }
+            previous = next
+        }
+        return inside
+    }
+
     private fun fitRect(): RectF {
         val b = pageBitmap ?: return RectF()
         val margin = 16f * resources.displayMetrics.density
@@ -460,7 +473,9 @@ class StudyCanvasView(context: Context) : View(context) {
                     Tool.ANALYZE -> cropFromSelection(completed)?.let(onAnalyze)
                     Tool.LASSO -> if (dragged) { onSave(marks) } else {
                         val region = bounds(completed)
-                        selectedIds = marks.filter { s -> s.points.any { region.contains(it.x, it.y) } }.map { it.id }.toSet()
+                        selectedIds = marks.filter { stroke ->
+                            stroke.points.any { region.contains(it.x, it.y) && insideLasso(it, completed) }
+                        }.map { it.id }.toSet()
                     }
                     Tool.ERASER, Tool.PAN -> Unit
                     else -> {

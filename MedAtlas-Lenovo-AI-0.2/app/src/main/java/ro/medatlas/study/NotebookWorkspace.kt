@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -220,6 +221,7 @@ private fun PagePreview(note: StudyNote, store: LibraryStore) {
         }
         val view = StudyCanvasView(context)
         view.bind(paper, strokes, Tool.PEN, 0, 2f, false)
+        view.smartMarker = false
         view.layout(0, 0, 650, 450)
         val thumb = Bitmap.createBitmap(260, 180, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(thumb)
@@ -291,7 +293,7 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
         }
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val ink: @Composable (Modifier) -> Unit = { modifier ->
-                AndroidView(factory = { ctx -> StudyCanvasView(ctx).also { view = it } }, modifier = modifier, update = {
+                AndroidView(factory = { ctx -> StudyCanvasView(ctx).also { view = it } }, modifier = modifier.testTag("notebook-ink"), update = {
                     it.pageBitmap = bitmap
                     it.tool = tool
                     it.inkColor = colors.getValue(color).toArgb()

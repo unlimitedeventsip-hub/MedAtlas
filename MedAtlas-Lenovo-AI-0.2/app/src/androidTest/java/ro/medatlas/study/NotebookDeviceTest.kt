@@ -27,6 +27,9 @@ class NotebookDeviceTest {
             ui.onNodeWithText("+ Caiet").performClick()
             ui.onNodeWithText("Numele caietului").performTextInput(book)
             ui.onNodeWithText("Creează caietul").performClick()
+            ui.onNodeWithText("Linii").performClick()
+            ui.onNodeWithText("Caroiaj").performClick()
+            ui.onNodeWithTag("notebook-ink").performTouchInput { swipe(centerLeft, centerRight, 300) }
             ui.onNodeWithText("Textul paginii").performTextInput(phrase)
             ui.onNodeWithText("‹ Pagini").performClick()
             ui.onNodeWithText("+ Pagină").performClick()
@@ -35,7 +38,13 @@ class NotebookDeviceTest {
             ui.onNodeWithText("Caută în toate caietele").performTextInput(phrase)
             ui.onNodeWithText("Pagina 1").performClick()
             ui.onNodeWithText(phrase).assertExists()
-            assertEquals(2, LibraryStore(context).notes().count { n -> n.course == book })
+            val store = LibraryStore(context)
+            val pages = store.notes().filter { n -> n.course == book }
+            assertEquals(2, pages.size)
+            val first = pages.single { page -> page.body == phrase }
+            assertEquals("GRID", first.paper)
+            val key = "notebook-" + UUID.nameUUIDFromBytes(first.id.toByteArray(Charsets.UTF_8))
+            assertEquals(1, store.ink(key, 0).size)
         }
     }
 }

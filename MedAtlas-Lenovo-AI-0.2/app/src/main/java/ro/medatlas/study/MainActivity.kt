@@ -1012,6 +1012,7 @@ private fun ToolBar(tool: Tool, onTool: (Tool) -> Unit, color: Int, onColor: (In
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             tools.forEach { (item, label) ->
                 val icon = when (item) {
+                    Tool.BRUSH -> Icons.Rounded.Brush
                     Tool.PEN -> Icons.Rounded.Edit; Tool.HIGHLIGHT -> Icons.Rounded.Brush; Tool.UNDERLINE -> Icons.Rounded.FormatUnderlined
                     Tool.WAVE -> Icons.Rounded.Waves; Tool.CIRCLE -> Icons.Rounded.Circle; Tool.RECTANGLE -> Icons.Rounded.CropSquare
                     Tool.ARROW -> Icons.Rounded.ArrowForward; Tool.LASSO -> Icons.Rounded.Gesture; Tool.ERASER -> Icons.Rounded.AutoFixOff
