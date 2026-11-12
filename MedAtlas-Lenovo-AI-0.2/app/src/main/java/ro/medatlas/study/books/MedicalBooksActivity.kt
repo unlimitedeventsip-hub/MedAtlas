@@ -53,7 +53,7 @@ class MedicalBooksActivity : ComponentActivity() {
     )
 
     data class BundledBook(val title: String, val subject: String,
-        val file: String, val publisher: String, val rights: String)
+        val file: String, val publisher: String, val rights: String, val bytes: Long)
     private fun bundled(): List<BundledBook> = runCatching {
         val entries = JSONArray(assets.open("open_books/catalog.json")
             .bufferedReader().use { it.readText() })
@@ -61,7 +61,7 @@ class MedicalBooksActivity : ComponentActivity() {
             val record = entries.getJSONObject(i)
             BundledBook(record.getString("title"), record.getString("subject"),
                 record.getString("file"), record.getString("publisher"),
-                record.getString("rights"))
+                record.getString("rights"), record.optLong("bytes"))
         }
     }.getOrDefault(emptyList())
 
@@ -77,6 +77,7 @@ class MedicalBooksActivity : ComponentActivity() {
         var status by remember { mutableStateOf("") }
         var busy by remember { mutableStateOf(false) }
         val packaged = remember { bundled() }
+        var confirmBulk by remember { mutableStateOf(false) }
         var packageProgress by remember { mutableIntStateOf(0) }
         suspend fun installBooks(books: List<BundledBook>) {
             busy = true
@@ -159,13 +160,17 @@ class MedicalBooksActivity : ComponentActivity() {
                             ". Referințe suplimentare cu link la editor: " + catalog.size + ".",
                             fontSize = 11.sp, color = Color.Gray)
                         if (packaged.isNotEmpty()) {
-                            Button(onClick = { lifecycleScope.launch { installBooks(packaged) } },
+                            Button(onClick = { confirmBulk = true },
                                 enabled = !busy) {
                                 Icon(Icons.Rounded.FileDownload, null)
                                 Spacer(Modifier.width(5.dp))
                                 Text("Adaugă cărțile incluse în Bibliotecă")
                             }
                         }
+                        Text("Spațiu aproximativ pentru cărțile incluse: " +
+                            (packaged.sumOf { it.bytes } / (1024L * 1024L)).toString() + " MiB; " +
+                            "copierea în Bibliotecă va necesita spațiu suplimentar.",
+                            fontSize = 11.sp, color = Color.Gray)
                         Text("Cărțile complete sunt în APK, cu atribuirea editorului " +
                             "în PDF-urile originale; nu sunt 100 de cărți încă.",
                             fontSize = 11.sp, color = Color.Gray)
@@ -214,6 +219,22 @@ class MedicalBooksActivity : ComponentActivity() {
                             label = { Text(tag) })
                     }
                 }
+                if (confirmBulk) AlertDialog(
+                    onDismissRequest = { confirmBulk = false },
+                    title = { Text("Adaugi toate manualele?") },
+                    text = { Text("Vor fi copiate în biblioteca MedAtlas " +
+                        packaged.size + " PDF-uri (aproximativ " +
+                        (packaged.sumOf { it.bytes } / (1024L * 1024L)) +
+                        " MiB). Asigură-te că există spațiu disponibil. " +
+                        "Manualele incluse pot fi citite offline.") },
+                    confirmButton = { Button(onClick = {
+                        confirmBulk = false
+                        lifecycleScope.launch { installBooks(packaged) }
+                    }) { Text("Importă") } },
+                    dismissButton = { TextButton(onClick = { confirmBulk = false }) {
+                        Text("Anulează")
+                    } }
+                )
                 LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     contentPadding = PaddingValues(bottom = 20.dp)) {
