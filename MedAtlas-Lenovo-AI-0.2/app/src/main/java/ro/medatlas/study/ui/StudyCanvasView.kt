@@ -11,6 +11,7 @@ import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
 import ro.medatlas.study.data.PageSticker
+import ro.medatlas.study.data.PageComment
 import ro.medatlas.study.data.InkPoint
 import ro.medatlas.study.data.Stroke
 import ro.medatlas.study.data.Tool
@@ -26,6 +27,10 @@ import kotlin.math.sin
 class StudyCanvasView(context: Context) : View(context) {
     var onSave: (List<Stroke>) -> Unit = {}
     var onAnalyze: (Bitmap) -> Unit = {}
+    var onCommentCreate: (InkPoint) -> Unit = {}
+    var onCommentOpen: (PageComment) -> Unit = {}
+    var comments: List<PageComment> = emptyList()
+        set(value) { field = value; invalidate() }
     var onStickersSave: (List<PageSticker>) -> Unit = {}
     var stickerResolver: (String) -> Bitmap? = { null }
     var stickers: List<PageSticker> = emptyList()
@@ -141,6 +146,21 @@ class StudyCanvasView(context: Context) : View(context) {
             }
         }
         for (stroke in marks) renderStroke(canvas, stroke, stroke.id in selectedIds)
+        val commentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(210, 131, 156); style = Paint.Style.FILL
+        }
+        val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE; typeface = android.graphics.Typeface.DEFAULT_BOLD
+            textSize = 12f * resources.displayMetrics.density
+            textAlign = Paint.Align.CENTER
+        }
+        comments.forEachIndexed { index, comment ->
+            val cx = pageRect.left + comment.x * pageRect.width()
+            val cy = pageRect.top + comment.y * pageRect.height()
+            val radius = 13f * resources.displayMetrics.density
+            canvas.drawCircle(cx, cy, radius, commentPaint)
+            canvas.drawText("${index + 1}", cx, cy + radius * 0.33f, labelPaint)
+        }
         if (pending.isNotEmpty()) renderStroke(canvas, Stroke(tool = tool, color = inkColor, width = penWidth, points = pending), false)
         canvas.restore()
     }
@@ -229,6 +249,14 @@ class StudyCanvasView(context: Context) : View(context) {
                 fingerNavigating = !fingerInk && !isStylus
                 if (tool == Tool.PAN || fingerNavigating) { priorMidX = event.x; priorMidY = event.y; return true }
                 val pt = pos(event.x, event.y, event.pressure)
+                if (tool == Tool.COMMENT) {
+                    val radius = 0.028f
+                    val hit = comments.lastOrNull {
+                        kotlin.math.abs(it.x - pt.x) < radius && kotlin.math.abs(it.y - pt.y) < radius
+                    }
+                    if (hit != null) onCommentOpen(hit) else onCommentCreate(pt)
+                    return true
+                }
                 if (tool == Tool.STICKER) {
                     currentStickerId = stickers.lastOrNull { sticker ->
                         val bmp = stickerResolver(sticker.imageName)
