@@ -387,7 +387,7 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
         }
     }
     var highlightSuggestions by remember { mutableStateOf<List<Stroke>>(emptyList()) }
-    var commentAnchor by remember { mutableStateOf<Pair<Int, InkPoint>?>(null) }
+    var commentAnchor by remember { mutableStateOf<Triple<Int, InkPoint, String>?>(null) }
     var selectedComment by remember { mutableStateOf<PageComment?>(null) }
     var commentsVersion by remember { mutableIntStateOf(0) }
     var showNote by remember { mutableStateOf(false) }
@@ -612,7 +612,7 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                                                         }
                                                         view.onAnalyze = { selectedImage -> page = index; crop = selectedImage }
                                                         view.comments = store.comments(doc.id, index).also { commentsVersion }
-                                                        view.onCommentCreate = { point -> commentAnchor = index to point }
+                                                        view.onCommentCreate = { point, word -> commentAnchor = Triple(index, point, word) }
                                                         view.onCommentOpen = { comment -> selectedComment = comment }
                                                         view.stickerResolver = { name -> stickerCache.getOrPut(name) {
                                                             store.stickerBitmap(name) ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
@@ -648,7 +648,7 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                             view.onSave = { strokes -> marks = strokes; store.saveInk(doc.id, page, strokes) }
                             view.onAnalyze = { crop = it }
                             view.comments = store.comments(doc.id, page).also { commentsVersion }
-                            view.onCommentCreate = { point -> commentAnchor = page to point }
+                            view.onCommentCreate = { point, word -> commentAnchor = Triple(page, point, word) }
                             view.onCommentOpen = { comment -> selectedComment = comment }
                             view.stickerResolver = { name -> stickerCache.getOrPut(name) {
                                 store.stickerBitmap(name) ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
@@ -903,6 +903,8 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Pagina ${commentPage + 1} • note marginale", color = Slate, fontSize = 12.sp)
+                    val quote = existing?.quote ?: commentAdding?.third.orEmpty()
+                    if (quote.isNotBlank()) Text("Cuvânt selectat: „$quote”", fontWeight = FontWeight.Medium, color = Teal)
                     OutlinedTextField(value = commentText, onValueChange = { commentText = it },
                         label = { Text("Explicația / ideea ta") }, modifier = Modifier.fillMaxWidth(),
                         minLines = 3, maxLines = 9)
@@ -915,7 +917,7 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                     val old = store.comments(doc.id, commentPage)
                     val comment = existing?.copy(body = commentText) ?: PageComment(
                         documentId = doc.id, page = commentPage,
-                        x = coords!!.x, y = coords.y, body = commentText
+                        x = coords!!.x, y = coords.y, body = commentText, quote = commentAdding?.third.orEmpty()
                     )
                     store.saveComments(doc.id, commentPage,
                         if (existing == null) old + comment else old.map { if (it.id == existing.id) comment else it })
