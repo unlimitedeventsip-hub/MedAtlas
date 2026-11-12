@@ -1270,6 +1270,10 @@ private fun SettingsScreen() {
     var endpoint by remember { mutableStateOf(AiClient.endpoint(context)) }
     var token by remember { mutableStateOf(AiClient.token(context)) }
     var message by remember { mutableStateOf("") }
+    val editPrefs = remember { context.getSharedPreferences("medatlas_editor", android.content.Context.MODE_PRIVATE) }
+    var smartUnderline by remember { mutableStateOf(editPrefs.getBoolean("smart_underline", true)) }
+    var smartMarker by remember { mutableStateOf(editPrefs.getBoolean("smart_marker", true)) }
+    var showBibliography by remember { mutableStateOf(false) }
     val backupStore = remember { LibraryStore(context) }
     val backupSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
         if (uri != null) runCatching { backupStore.exportBackup(uri) }
@@ -1287,6 +1291,38 @@ private fun SettingsScreen() {
         SettingLine("Fără reclame", "Nu există publicitate, trackere publicitare sau cont obligatoriu.")
         SettingLine("Intro personalizat", "Nadia, te iubesc — ECG și inimă animată la pornire.")
         SettingLine("Portret / peisaj", "Interfață adaptabilă automat la orientarea tabletei.")
+        Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp)) {
+                Text("Instrumente de adnotare", fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Subliniere inteligentă la text OCR", modifier = Modifier.weight(1f), fontSize = 13.sp)
+                    Switch(checked = smartUnderline, onCheckedChange = {
+                        smartUnderline = it
+                        editPrefs.edit().putBoolean("smart_underline", it).apply()
+                    })
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Marker drept și aliniat la text", modifier = Modifier.weight(1f), fontSize = 13.sp)
+                    Switch(checked = smartMarker, onCheckedChange = {
+                        smartMarker = it
+                        editPrefs.edit().putBoolean("smart_marker", it).apply()
+                    })
+                }
+                Text("OCR este salvat local. În fiecare document, apasă Text OCR pentru vizualizare și corectare.",
+                    color = Slate, fontSize = 12.sp)
+            }
+        }
+        Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp)) {
+                Text("Bibliografia imaginilor", fontWeight = FontWeight.SemiBold)
+                Text("Lista linkurilor și licențelor introduse la importul stickerelor.",
+                    color = Slate, fontSize = 12.sp)
+                OutlinedButton(onClick = { showBibliography = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Deschide bibliografia imaginilor")
+                }
+            }
+        }
+
         SettingLine("ChatGPT Plus", "Poți partaja textul sau selecția către ChatGPT fără API. Revii în MedAtlas după studiu.")
         Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -1327,6 +1363,31 @@ private fun SettingsScreen() {
         SettingLine("Backup", "Poți exporta și restaura arhiva completă ZIP în Setări.")
         Spacer(Modifier.height(14.dp))
         Text("MedAtlas • Beta 0.3 • construit pentru Nadia ♡", color = Slate, fontSize = 12.sp)
+    }
+    if (showBibliography) {
+        val bibliography = remember(showBibliography) { backupStore.imageBibliography() }
+        AlertDialog(onDismissRequest = { showBibliography = false },
+            title = { Text("Bibliografie · imagini folosite") },
+            text = {
+                Column(Modifier.heightIn(max = 500.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (bibliography.isEmpty()) Text(
+                        "Nu există încă imagini cu linkuri înregistrate. La import poți completa autorul, sursa și licența.",
+                        fontSize = 12.sp, color = Slate)
+                    bibliography.forEachIndexed { index, item ->
+                        Surface(color = Ivory, shape = RoundedCornerShape(10.dp)) {
+                            Column(Modifier.fillMaxWidth().padding(10.dp)) {
+                                Text("${index + 1}. " + item.attribution.ifBlank { "Imagine importată" },
+                                    fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                                if (item.license.isNotBlank()) Text("Licență: " + item.license, fontSize = 11.sp)
+                                if (item.sourceUrl.isNotBlank()) TextButton(onClick = {
+                                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.sourceUrl))) }
+                                }) { Text("Sursă: " + item.sourceUrl.take(70), fontSize = 11.sp) }
+                            }
+                        }
+                    }
+                }
+            }, confirmButton = { TextButton(onClick = { showBibliography = false }) { Text("Închide") } })
     }
 }
 
