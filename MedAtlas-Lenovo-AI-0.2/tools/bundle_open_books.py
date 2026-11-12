@@ -21,9 +21,16 @@ BOOKS = [
         "subject": "Anatomie și fiziologie",
         "publisher": "OpenStax",
         "file": "Anatomy_and_Physiology_2e.pdf",
-        "url": "https://assets.openstax.org/oscms-prodcms/media/documents/anatomy-and-physiology-2e_-_WEB.pdf",
-        "source": "https://openstax.org/details/books/anatomy-and-physiology-2e",
-        "rights": "Verify edition's CC license. Keep original PDF attribution intact.",
+        "url": "https://open.oregonstate.education/anatomy2e/open/download?type=pdf",
+        "source": "https://open.oregonstate.education/anatomy2e/",
+        "rights": "Oregon State 2025 adaptation: CC BY-SA 4.0 except where noted; attribution kept.",
+        "alternate": {
+            "url": "https://assets.openstax.org/oscms-prodcms/media/documents/anatomy-and-physiology-2e_-_WEB.pdf",
+            "title": "Anatomy and Physiology 2e",
+            "publisher": "OpenStax",
+            "source": "https://openstax.org/details/books/anatomy-and-physiology-2e",
+            "rights": "OpenStax edition: check CC terms; keep original PDF credit."
+        },
     },
     {
         "id": "microbiology",
@@ -31,9 +38,16 @@ BOOKS = [
         "subject": "Microbiologie",
         "publisher": "OpenStax",
         "file": "Microbiology.pdf",
-        "url": "https://assets.openstax.org/oscms-prodcms/media/documents/microbiology_-_WEB.pdf",
-        "source": "https://openstax.org/books/microbiology/pages/1-introduction",
-        "rights": "Verify edition's CC license. Keep original PDF attribution intact.",
+        "url": "https://openlibrary-repo.ecampusontario.ca/jspui/bitstream/123456789/351/1/Microbiology-LR.pdf",
+        "source": "https://openlibrary-repo.ecampusontario.ca/jspui/handle/123456789/351",
+        "rights": "OpenStax/ASM CC edition; keep original copyright and attribution pages.",
+        "alternate": {
+            "url": "https://assets.openstax.org/oscms-prodcms/media/documents/microbiology_-_WEB.pdf",
+            "title": "Microbiology",
+            "publisher": "OpenStax",
+            "source": "https://openstax.org/books/microbiology/pages/1-introduction",
+            "rights": "OpenStax publisher PDF; check edition license and credit."
+        },
     },
     {
         "id": "pharmacology-for-nurses",
@@ -59,12 +73,13 @@ BOOKS = [
 
 def download(book: dict) -> dict:
     filename = OUTPUT / book["file"]
-    if not filename.exists() or filename.stat().st_size < 100_000:
-        data = None
-        for attempt in range(3):
+    candidates = [book] + ([book["alternate"]] if "alternate" in book else [])
+    errors = []
+    for candidate in candidates:
+        for attempt in range(2):
             try:
-                req = urllib.request.Request(book["url"], headers={
-                    "User-Agent": "MedAtlasEduOfflineBundle/0.9 (non-commercial study; OpenStax attribution)"
+                req = urllib.request.Request(candidate["url"], headers={
+                    "User-Agent": "Mozilla/5.0 (compatible; MedAtlasEducationalBooks/1.0)"
                 })
                 with urllib.request.urlopen(req, timeout=150) as source, filename.open("wb") as dest:
                     first = source.read(16)
@@ -82,17 +97,21 @@ def download(book: dict) -> dict:
                         dest.write(block)
                 if filename.stat().st_size < 100_000:
                     raise ValueError("Unexpectedly small PDF")
-                break
-            except Exception:
+                record = {k: v for k, v in book.items() if k != "alternate"}
+                record.update({k: candidate[k] for k in
+                    ("title", "publisher", "source", "rights", "url") if k in candidate})
+                digest = hashlib.sha256()
+                with filename.open("rb") as stream:
+                    while chunk := stream.read(1024 * 1024):
+                        digest.update(chunk)
+                return {**record, "sha256": digest.hexdigest(),
+                        "bytes": filename.stat().st_size}
+            except Exception as exc:
                 filename.unlink(missing_ok=True)
-                if attempt == 2:
-                    raise
-                time.sleep(4 * (attempt + 1))
-    digest = hashlib.sha256()
-    with filename.open("rb") as stream:
-        while chunk := stream.read(1024 * 1024):
-            digest.update(chunk)
-    return {**book, "sha256": digest.hexdigest(), "bytes": filename.stat().st_size}
+                errors.append(str(exc))
+                if attempt == 0:
+                    time.sleep(2)
+    raise RuntimeError("All licensed publisher PDF downloads failed: " + "; ".join(errors))
 
 def main():
     OUTPUT.mkdir(parents=True, exist_ok=True)
