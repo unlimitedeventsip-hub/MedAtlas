@@ -10,6 +10,9 @@ import android.graphics.RectF
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
+import org.json.JSONArray
+import java.io.File
+import java.util.UUID
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
@@ -166,6 +169,72 @@ class StudyCanvasView(context: Context) : View(context) {
     fun clearSelection() { selectedIds = emptySet(); invalidate() }
     fun eraseSelection() {
         if (selectedIds.isNotEmpty()) { marks = marks.filterNot { it.id in selectedIds }; selectedIds = emptySet(); undone.clear(); onSave(marks) }
+    }
+
+    /** Clipboard for selected vector ink: private to this app, available across notebook pages. */
+    private fun inkClipboard() = File(context.filesDir, "medatlas/ink_clipboard.json")
+
+    fun copySelection(): Boolean {
+        val selected = marks.filter { it.id in selectedIds }
+        if (selected.isEmpty()) return false
+        return runCatching {
+            val file = inkClipboard()
+            file.parentFile?.mkdirs()
+            val contents = JSONArray().apply { selected.forEach { put(it.json()) } }
+            val tmp = File(file.parentFile, file.name + ".tmp")
+            tmp.writeText(contents.toString())
+            if (!tmp.renameTo(file)) {
+                tmp.copyTo(file, overwrite = true)
+                tmp.delete()
+            }
+            true
+        }.getOrDefault(false)
+    }
+
+    fun pasteSelection(): Boolean {
+        val copied = runCatching {
+            val file = inkClipboard()
+            val array = JSONArray(file.readText())
+            (0 until array.length()).map { Stroke.parse(array.getJSONObject(it)) }
+        }.getOrDefault(emptyList())
+        if (copied.isEmpty()) return false
+        val allPoints = copied.flatMap { it.points }
+        if (allPoints.isEmpty()) return false
+        val dx = if (allPoints.maxOf { it.x } < .95f) .035f else -.035f
+        val dy = if (allPoints.maxOf { it.y } < .95f) .035f else -.035f
+        val pasted = copied.map { stroke ->
+            stroke.copy(id = UUID.randomUUID().toString(),
+                points = stroke.points.map { point ->
+                    point.copy(x = (point.x + dx).coerceIn(0f, 1f),
+                        y = (point.y + dy).coerceIn(0f, 1f))
+                })
+        }
+        marks = marks + pasted
+        selectedIds = pasted.map { it.id }.toSet()
+        undone.clear()
+        onSave(marks)
+        invalidate()
+        return true
+    }
+
+    /** Resize selected ink proportionally about its center. Does not alter other page content. */
+    fun resizeSelection(factor: Float): Boolean {
+        if (!factor.isFinite() || factor <= 0f) return false
+        val selection = marks.filter { it.id in selectedIds }
+        val allPoints = selection.flatMap { it.points }
+        if (allPoints.isEmpty()) return false
+        val cx = (allPoints.minOf { it.x } + allPoints.maxOf { it.x }) / 2f
+        val cy = (allPoints.minOf { it.y } + allPoints.maxOf { it.y }) / 2f
+        marks = marks.map { stroke ->
+            if (stroke.id in selectedIds) stroke.copy(points = stroke.points.map { point ->
+                point.copy(x = (cx + (point.x - cx) * factor).coerceIn(0f, 1f),
+                    y = (cy + (point.y - cy) * factor).coerceIn(0f, 1f))
+            }) else stroke
+        }
+        undone.clear()
+        onSave(marks)
+        invalidate()
+        return true
     }
 
     private fun insideLasso(point: InkPoint, polygon: List<InkPoint>): Boolean {
