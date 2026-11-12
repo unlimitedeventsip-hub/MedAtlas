@@ -1201,6 +1201,17 @@ private fun SettingsScreen() {
     var endpoint by remember { mutableStateOf(AiClient.endpoint(context)) }
     var token by remember { mutableStateOf(AiClient.token(context)) }
     var message by remember { mutableStateOf("") }
+    val backupStore = remember { LibraryStore(context) }
+    val backupSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
+        if (uri != null) runCatching { backupStore.exportBackup(uri) }
+            .onSuccess { message = "Backup creat. Păstrează ZIP-ul în siguranță." }
+            .onFailure { message = it.localizedMessage ?: "Backup nereușit" }
+    }
+    val backupRestorer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) runCatching { backupStore.importBackup(uri) }
+            .onSuccess { message = "Restaurat. Închide și redeschide MedAtlas pentru a reîncărca biblioteca." }
+            .onFailure { message = it.localizedMessage ?: "Restaurare nereușită" }
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Setări și confidențialitate", fontSize = 23.sp, fontWeight = FontWeight.Bold)
         SettingLine("Offline-first", "Documentele, notițele și desenele se păstrează pe dispozitiv.")
@@ -1220,11 +1231,33 @@ private fun SettingsScreen() {
                 if (message.isNotBlank()) Text(message, color = Teal, fontSize = 12.sp)
             }
         }
-        SettingLine("Word și PowerPoint", "DOCX/PPTX se citesc ca text extras, fără păstrarea layoutului original. Documentele originale sunt păstrate.")
+        Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Siguranța cursurilor · Backup complet", fontWeight = FontWeight.SemiBold)
+                Text("Salvează documentele, adnotările, comentariile și stickerele înainte să reinstalezi APK-ul.",
+                    color = Slate, fontSize = 12.sp)
+                Button(onClick = { backupSaver.launch("MedAtlas-Nadia-backup.zip") },
+                    modifier = Modifier.fillMaxWidth()) { Text("Exportă backup ZIP") }
+                OutlinedButton(onClick = { backupRestorer.launch(arrayOf("application/zip", "application/octet-stream")) },
+                    modifier = Modifier.fillMaxWidth()) { Text("Restabilește din backup ZIP") }
+            }
+        }
+        Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
+            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Google Classroom · import manual sigur", fontWeight = FontWeight.SemiBold)
+                Text("Deschide cursurile Classroom, descarcă fișierul PDF/DOCX/PPTX și revino în Bibliotecă → Importă. Sincronizarea Google OAuth nu este configurată.",
+                    color = Slate, fontSize = 12.sp)
+                OutlinedButton(onClick = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://classroom.google.com/")))
+                }, modifier = Modifier.fillMaxWidth()) { Text("Deschide Google Classroom") }
+            }
+        }
+                SettingLine("Word și PowerPoint", "DOCX/PPTX se citesc ca text extras, fără păstrarea layoutului original. Documentele originale sunt păstrate.")
         SettingLine("Rezumate și quiz", "Algoritmi offline simpli; nu sunt încă evaluări AI clinice.")
-        SettingLine("Backup", "Exportul PDF este disponibil. Backup-ul complet al bibliotecii va fi adăugat ulterior.")
+        SettingLine("Backup", "Poți exporta și restaura arhiva completă ZIP în Setări.")
         Spacer(Modifier.height(14.dp))
-        Text("MedAtlas • MVP 0.2 • construit pentru Nadia ♡", color = Slate, fontSize = 12.sp)
+        Text("MedAtlas • Beta 0.3 • construit pentru Nadia ♡", color = Slate, fontSize = 12.sp)
     }
 }
 
