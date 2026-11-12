@@ -219,6 +219,11 @@ private fun MedAtlasApp() {
                         store.removeDocument(id)
                         docs.removeAll { it.id == id }
                     },
+                    onLibraryRestored = {
+                        docs.clear()
+                        docs.addAll(store.documents())
+                        libraryRevision++
+                    },
                     onNavigate = { tab = it }
                 )
                 1 -> NotebookLibrary(store, docs, onOpen = { selected = it }, unified = true)
