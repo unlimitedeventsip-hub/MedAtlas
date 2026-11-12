@@ -66,6 +66,7 @@ import ro.medatlas.study.ui.PremiumIntro
 import ro.medatlas.study.pdf.AnnotatedPdfExporter
 import ro.medatlas.study.ai.AiClient
 import ro.medatlas.study.classroom.ClassroomActivity
+import ro.medatlas.study.books.MedicalBooksActivity
 import ro.medatlas.study.simulation.ClinicalSimulatorActivity
 import ro.medatlas.study.simulation.ExamSimulatorActivity
 import ro.medatlas.study.anatomy.Anatomy3DActivity
@@ -1490,6 +1491,13 @@ private fun CardsScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: 
     Column(Modifier.fillMaxSize().padding(20.dp)) {
         Text("Pregătire pentru examen", fontSize = 23.sp, fontWeight = FontWeight.Bold)
         Text("Flashcarduri și materiale generate din cursuri", color = Slate, fontSize = 13.sp)
+        OutlinedButton(onClick = {
+            context.startActivity(Intent(context, MedicalBooksActivity::class.java))
+        }) {
+            Icon(Icons.Rounded.MenuBook, null)
+            Spacer(Modifier.width(6.dp))
+            Text("Cărți medicale · bibliografie și import PDF")
+        }
         Button(onClick = {
             context.startActivity(Intent(context, ClinicalSimulatorActivity::class.java))
         }) {
