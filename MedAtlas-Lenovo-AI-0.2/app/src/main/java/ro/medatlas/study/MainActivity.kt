@@ -1297,8 +1297,40 @@ private fun NoteDialog(store: LibraryStore, doc: StudyDocument, page: Int, onDis
 private fun NotesScreen(store: LibraryStore, docs: List<StudyDocument>) {
     var refresh by remember { mutableIntStateOf(0) }
     val notes = remember(refresh) { store.notes().sortedByDescending { it.createdAt } }
+    var showNotebookEditor by remember { mutableStateOf(false) }
+    var notebookTitle by remember { mutableStateOf("") }
+    var notebookText by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val speech = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val recognized = result.data
+            ?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull().orEmpty()
+        if (recognized.isNotBlank()) {
+            notebookText = (notebookText + " " + recognized).trim()
+            showNotebookEditor = true
+        }
+    }
+    fun dictate() {
+        runCatching {
+            speech.launch(Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                    android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "ro-RO")
+                putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Dictează nota medicală")
+            })
+        }.onFailure { Toast.makeText(context, "Dictarea nu este disponibilă pe dispozitiv.", Toast.LENGTH_LONG).show() }
+    }
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-        Text("Notițele mele", fontSize = 23.sp, fontWeight = FontWeight.Bold)
+        Text("Carnetul medicului", fontSize = 23.sp, fontWeight = FontWeight.Bold)
+        Text("Notițe personale, observații și dictare vocală", color = Slate, fontSize = 12.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { notebookTitle = ""; notebookText = ""; showNotebookEditor = true }) {
+                Icon(Icons.Rounded.Add, null); Spacer(Modifier.width(4.dp)); Text("Notă nouă")
+            }
+            OutlinedButton(onClick = { dictate() }) {
+                Icon(Icons.Rounded.Mic, null); Spacer(Modifier.width(4.dp)); Text("Dictează")
+            }
+        }
         Spacer(Modifier.height(13.dp))
         if (notes.isEmpty()) Text("Când adaugi notițe dintr-un curs, vor apărea aici.", color = Slate)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1309,12 +1341,37 @@ private fun NotesScreen(store: LibraryStore, docs: List<StudyDocument>) {
                             Text(note.heading, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                             IconButton(onClick = { store.saveNotes(store.notes().filterNot { it.id == note.id }); refresh++ }) { Icon(Icons.Rounded.DeleteOutline, "Șterge") }
                         }
-                        Text("${docs.firstOrNull { it.id == note.documentId }?.title ?: "Document"} • p. ${note.page + 1}", fontSize = 11.sp, color = Slate)
+                        Text("${docs.firstOrNull { it.id == note.documentId }?.title ?: "Carnetul medicului"} • p. ${note.page + 1}", fontSize = 11.sp, color = Slate)
                         Spacer(Modifier.height(6.dp)); Text(note.body)
                     }
                 }
             }
         }
+    }
+    if (showNotebookEditor) {
+        AlertDialog(onDismissRequest = { showNotebookEditor = false },
+            title = { Text("Carnet medical · notă") },
+            text = { Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(notebookTitle, { notebookTitle = it },
+                    label = { Text("Titlu") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(notebookText, { notebookText = it },
+                    label = { Text("Conținut") }, minLines = 6, maxLines = 14,
+                    modifier = Modifier.fillMaxWidth())
+                OutlinedButton(onClick = { dictate() }) {
+                    Icon(Icons.Rounded.Mic, null); Text("Adaugă prin voce")
+                }
+                Text("Folosește doar cazuri fictive sau anonimizate. Dictarea depinde de serviciul vocal al tabletei.",
+                    fontSize = 11.sp, color = Slate)
+            }},
+            confirmButton = { Button(onClick = {
+                store.saveNotes(store.notes() + StudyNote(
+                    documentId = "medical-notebook", page = 0,
+                    heading = notebookTitle.ifBlank { "Observație medicală" },
+                    body = notebookText))
+                refresh++; showNotebookEditor = false
+            }, enabled = notebookText.isNotBlank()) { Text("Salvează") } },
+            dismissButton = { TextButton(onClick = { showNotebookEditor = false }) { Text("Anulează") } })
     }
 }
 
