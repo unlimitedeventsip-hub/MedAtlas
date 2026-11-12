@@ -25,15 +25,26 @@ internal fun recognizeLine(strokes: List<Stroke>, width: Int, height: Int): Stri
     val manager = RemoteModelManager.getInstance()
     if (!Tasks.await(manager.isModelDownloaded(model), 15, TimeUnit.SECONDS))
         Tasks.await(manager.download(model, DownloadConditions.Builder().build()), 90, TimeUnit.SECONDS)
+    return DigitalInkRecognition.getClient(DigitalInkRecognizerOptions.builder(model).build()).use {
+        Tasks.await(it.recognize(createDigitalInk(strokes, width, height)), 25, TimeUnit.SECONDS)
+            .candidates.firstOrNull()?.text.orEmpty()
+    }
+}
+
+/** Pure vector-to-ML-Kit conversion: testable offline without downloading any ML model. */
+internal fun createDigitalInk(strokes: List<Stroke>, width: Int, height: Int): Ink {
+    require(width > 0 && height > 0) { "Invalid canvas size" }
     val ink = Ink.builder()
-    strokes.filter { it.points.isNotEmpty() }.forEach { s ->
+    strokes.filter { it.points.isNotEmpty() }.forEach { stroke ->
         val line = Ink.Stroke.builder()
-        s.points.forEach { point -> line.addPoint(Ink.Point.create(point.x * width, point.y * height)) }
+        stroke.points.forEach { point ->
+            val x = point.x * width
+            val y = point.y * height
+            if (x.isFinite() && y.isFinite()) line.addPoint(Ink.Point.create(x, y))
+        }
         ink.addStroke(line.build())
     }
-    return DigitalInkRecognition.getClient(DigitalInkRecognizerOptions.builder(model).build()).use {
-        Tasks.await(it.recognize(ink.build()), 25, TimeUnit.SECONDS).candidates.firstOrNull()?.text.orEmpty()
-    }
+    return ink.build()
 }
 
 @Composable
