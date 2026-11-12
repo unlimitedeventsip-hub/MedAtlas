@@ -59,6 +59,7 @@ internal object BookPackImporter {
                     }
                     val single = File(temporary, "entry_" + processed).apply { mkdirs() }
                     val target = File(single, sanitized)
+                    var exceedsLimit = false
                     try {
                         target.outputStream().buffered().use { output ->
                             val buffer = ByteArray(1024 * 1024)
@@ -68,8 +69,10 @@ internal object BookPackImporter {
                                 if (bytes == -1) break
                                 size += bytes
                                 expandedTotal += bytes
-                                if (size > individualLimit || expandedTotal > totalLimit)
+                                if (size > individualLimit || expandedTotal > totalLimit) {
+                                    exceedsLimit = true
                                     error("Arhiva este prea mare pentru importul sigur")
+                                }
                                 output.write(buffer, 0, bytes)
                             }
                         }
@@ -80,11 +83,11 @@ internal object BookPackImporter {
                         imported++
                     } catch (e: Exception) {
                         failed++
-                        if (expandedTotal > totalLimit) throw e
+                        if (exceedsLimit) throw e
                     } finally {
                         target.delete()
                         single.delete()
-                        archive.closeEntry()
+                        if (!exceedsLimit) archive.closeEntry()
                         progress(processed)
                     }
                 }
