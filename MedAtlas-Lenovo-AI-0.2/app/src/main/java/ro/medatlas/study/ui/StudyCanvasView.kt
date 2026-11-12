@@ -44,6 +44,8 @@ class StudyCanvasView(context: Context) : View(context) {
     var tool: Tool = Tool.PEN
     var inkColor: Int = Color.rgb(36, 75, 67)
     var penWidth: Float = 3.0f
+    var smartUnderline = true
+    var smartMarker = true
     var fingerInk = false
     /** In continuous PDF mode let finger gestures reach the outer page scroller. */
     var scrollThroughFingers = false
@@ -179,6 +181,21 @@ class StudyCanvasView(context: Context) : View(context) {
         val last = points.last()
         val path = Path()
         when (stroke.tool) {
+            Tool.HIGHLIGHT -> {
+                if (points.size >= 2 && smartMarker) {
+                    val left = min(x(first), x(last)); val right = max(x(first), x(last))
+                    val midY = (y(first) + y(last)) * .5f
+                    val lineHeight = max(10f * resources.displayMetrics.density,
+                        stroke.width * 6.5f * resources.displayMetrics.density)
+                    p.style = Paint.Style.FILL
+                    val oldColor = p.color
+                    p.alpha = 78
+                    canvas.drawRoundRect(RectF(left, midY - lineHeight / 2f,
+                        right, midY + lineHeight / 2f), 4f, 4f, p)
+                    p.color = oldColor; p.style = Paint.Style.STROKE; p.alpha = 255
+                    return
+                }
+            }
             Tool.CIRCLE -> { canvas.drawOval(RectF(min(x(first), x(last)), min(y(first), y(last)), max(x(first), x(last)), max(y(first), y(last))), p); return }
             Tool.RECTANGLE -> { canvas.drawRect(RectF(min(x(first), x(last)), min(y(first), y(last)), max(x(first), x(last)), max(y(first), y(last))), p); return }
             Tool.UNDERLINE -> { canvas.drawLine(x(first), y(last), x(last), y(last), p); return }
@@ -319,7 +336,28 @@ class StudyCanvasView(context: Context) : View(context) {
                         selectedIds = marks.filter { s -> s.points.any { region.contains(it.x, it.y) } }.map { it.id }.toSet()
                     }
                     Tool.ERASER, Tool.PAN -> Unit
-                    else -> { undone.clear(); marks = marks + Stroke(tool = tool, color = inkColor, width = penWidth, points = completed); onSave(marks) }
+                    else -> {
+                        val cleaned = when {
+                            tool == Tool.UNDERLINE && smartUnderline && completed.size >= 2 -> {
+                                val minX = completed.minOf { it.x }
+                                val maxX = completed.maxOf { it.x }
+                                // Slightly below the user's path; horizontal and elegant.
+                                val baseY = (completed.map { it.y }.average().toFloat() + .004f).coerceIn(0f, 1f)
+                                listOf(InkPoint(minX, baseY), InkPoint(maxX, baseY))
+                            }
+                            tool == Tool.HIGHLIGHT && smartMarker && completed.size >= 2 -> {
+                                // Store a normalized, horizontal rectangle as a two-point stroke.
+                                val minX = completed.minOf { it.x }
+                                val maxX = completed.maxOf { it.x }
+                                val centerY = completed.map { it.y }.average().toFloat().coerceIn(0f, 1f)
+                                listOf(InkPoint(minX, centerY), InkPoint(maxX, centerY))
+                            }
+                            else -> completed
+                        }
+                        undone.clear()
+                        marks = marks + Stroke(tool = tool, color = inkColor, width = penWidth, points = cleaned)
+                        onSave(marks)
+                    }
                 }
                 invalidate(); return true
             }
