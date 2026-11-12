@@ -10,6 +10,9 @@ import android.graphics.RectF
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import ro.medatlas.study.data.PageSticker
 import ro.medatlas.study.data.PageComment
 import ro.medatlas.study.data.InkPoint
@@ -27,7 +30,7 @@ import kotlin.math.sin
 class StudyCanvasView(context: Context) : View(context) {
     var onSave: (List<Stroke>) -> Unit = {}
     var onAnalyze: (Bitmap) -> Unit = {}
-    var onCommentCreate: (InkPoint) -> Unit = {}
+    var onCommentCreate: (InkPoint, String) -> Unit = {}
     var onCommentOpen: (PageComment) -> Unit = {}
     var comments: List<PageComment> = emptyList()
         set(value) { field = value; invalidate() }
@@ -50,6 +53,54 @@ class StudyCanvasView(context: Context) : View(context) {
     /** In continuous PDF mode let finger gestures reach the outer page scroller. */
     var scrollThroughFingers = false
     private var pending = mutableListOf<InkPoint>()
+    private var ocrBitmap: Bitmap? = null
+    private var wordRegions: List<Pair<RectF, String>> = emptyList()
+
+    private fun prepareTextRegions(bitmap: Bitmap?) {
+        if (bitmap == null || ocrBitmap === bitmap) return
+        ocrBitmap = bitmap
+        wordRegions = emptyList()
+        val client = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+        client.process(InputImage.fromBitmap(bitmap, 0))
+            .addOnSuccessListener { result ->
+                if (ocrBitmap !== bitmap) return@addOnSuccessListener
+                wordRegions = result.textBlocks.flatMap { it.lines }
+                    .flatMap { it.elements }.mapNotNull { element ->
+                        val rect = element.boundingBox ?: return@mapNotNull null
+                        RectF(rect.left / bitmap.width.toFloat(), rect.top / bitmap.height.toFloat(),
+                            rect.right / bitmap.width.toFloat(), rect.bottom / bitmap.height.toFloat()) to element.text
+                    }
+            }.addOnCompleteListener { client.close() }
+    }
+
+    private fun alignWithRecognizedText(tool: Tool, points: List<InkPoint>): List<InkPoint>? {
+        if (points.size < 2 || wordRegions.isEmpty()) return null
+        val left = points.minOf { it.x }
+        val right = points.maxOf { it.x }
+        val meanY = points.map { it.y }.average().toFloat()
+        val matched = wordRegions.filter { (rect, _) ->
+            val xOverlap = min(right, rect.right) - max(left, rect.left)
+            val verticalDistance = if (tool == Tool.UNDERLINE)
+                kotlin.math.abs(meanY - rect.bottom) else kotlin.math.abs(meanY - rect.centerY())
+            xOverlap >= -.012f && verticalDistance <= .025f
+        }
+        if (matched.isEmpty()) return null
+        val regionLeft = matched.minOf { it.first.left }.coerceIn(0f, 1f)
+        val regionRight = matched.maxOf { it.first.right }.coerceIn(0f, 1f)
+        val y = if (tool == Tool.UNDERLINE)
+            (matched.maxOf { it.first.bottom } + .004f).coerceAtMost(1f)
+        else (matched.minOf { it.first.top } + matched.maxOf { it.first.bottom }) / 2f
+        return listOf(InkPoint(regionLeft, y), InkPoint(regionRight, y))
+    }
+
+    private fun closestText(point: InkPoint): String {
+        return wordRegions.minByOrNull { (rect, _) ->
+            kotlin.math.abs(rect.centerX() - point.x) + kotlin.math.abs(rect.centerY() - point.y)
+        }?.takeIf { (rect, _) ->
+            kotlin.math.abs(rect.centerX() - point.x) < .065f &&
+                kotlin.math.abs(rect.centerY() - point.y) < .045f
+        }?.second.orEmpty()
+    }
     private var drawing = false
     private var multiTouch = false
     private var zoom = 1f
@@ -73,6 +124,7 @@ class StudyCanvasView(context: Context) : View(context) {
 
     fun bind(bitmap: Bitmap?, strokes: List<Stroke>, selectedTool: Tool, color: Int, size: Float, allowFinger: Boolean) {
         pageBitmap = bitmap
+        if (selectedTool == Tool.UNDERLINE || selectedTool == Tool.HIGHLIGHT || selectedTool == Tool.COMMENT) prepareTextRegions(bitmap)
         marks = strokes
         tool = selectedTool
         inkColor = color
@@ -271,7 +323,7 @@ class StudyCanvasView(context: Context) : View(context) {
                     val hit = comments.lastOrNull {
                         kotlin.math.abs(it.x - pt.x) < radius && kotlin.math.abs(it.y - pt.y) < radius
                     }
-                    if (hit != null) onCommentOpen(hit) else onCommentCreate(pt)
+                    if (hit != null) onCommentOpen(hit) else onCommentCreate(pt, closestText(pt))
                     return true
                 }
                 if (tool == Tool.STICKER) {
@@ -337,7 +389,10 @@ class StudyCanvasView(context: Context) : View(context) {
                     }
                     Tool.ERASER, Tool.PAN -> Unit
                     else -> {
-                        val cleaned = when {
+                        val snapped = if ((tool == Tool.UNDERLINE && smartUnderline) ||
+                            (tool == Tool.HIGHLIGHT && smartMarker))
+                            alignWithRecognizedText(tool, completed) else null
+                        val cleaned = snapped ?: when {
                             tool == Tool.UNDERLINE && smartUnderline && completed.size >= 2 -> {
                                 val minX = completed.minOf { it.x }
                                 val maxX = completed.maxOf { it.x }
