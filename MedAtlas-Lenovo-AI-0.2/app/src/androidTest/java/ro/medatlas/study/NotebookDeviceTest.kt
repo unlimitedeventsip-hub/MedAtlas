@@ -12,6 +12,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import ro.medatlas.study.data.LibraryStore
+import ro.medatlas.study.data.InkPoint
+import ro.medatlas.study.data.Tool
+import ro.medatlas.study.ui.PenGestures
 import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
@@ -40,6 +43,36 @@ class NotebookDeviceTest {
         assertEquals(80f, first[0].x)
         assertEquals(500f, first[0].y)
         assertTrue(ink.strokes.all { it.pointsInGlobalCoordinates.isNotEmpty() })
+    }
+
+    @Test fun penGesturesRecognizeClosedShapesAndOptInScratch() {
+        val ellipse = (0..40).map { i ->
+            val angle = 2.0 * Math.PI * i / 40
+            InkPoint(.5f + (.17 * kotlin.math.cos(angle)).toFloat(),
+                .47f + (.11 * kotlin.math.sin(angle)).toFloat())
+        }
+        assertEquals(Tool.CIRCLE, PenGestures.perfectShape(ellipse))
+
+        val corners = listOf(.25f to .26f, .75f to .26f, .75f to .75f,
+            .25f to .75f, .25f to .26f)
+        val rectangle = corners.zipWithNext().flatMap { (start, end) ->
+            (0..10).map { step ->
+                val progress = step / 10f
+                InkPoint(start.first + (end.first - start.first) * progress,
+                    start.second + (end.second - start.second) * progress)
+            }
+        }
+        assertEquals(Tool.RECTANGLE, PenGestures.perfectShape(rectangle))
+
+        val scratch = (0..6).flatMap { sweep ->
+            (0..8).map { step ->
+                val t = step / 8f
+                InkPoint(if (sweep % 2 == 0) .30f + .4f * t else .70f - .4f * t,
+                    .45f + sweep * .006f)
+            }
+        }
+        assertTrue(PenGestures.isScratch(scratch))
+        assertTrue(!PenGestures.isScratch(ellipse))
     }
 
     @Test fun exportIncludesEveryPageAndContinuesLongText() {
