@@ -156,6 +156,22 @@ class ClassroomActivity : ComponentActivity() {
                 Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(status, fontSize = 12.sp)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Checkbox(checked = autoImport, onCheckedChange = {
+                                autoImport = it
+                                preferences.edit().putBoolean("auto_import", it).apply()
+                            })
+                            Text("Import automat PDF, Word, PowerPoint din Drive",
+                                modifier = Modifier.weight(1f), fontSize = 11.sp)
+                        }
+                        Text("Maxim 25 de atașamente per sincronizare, 30 MB fiecare. Fișierele inaccesibile sunt omise. Accesul Google Drive este doar pentru citire.",
+                            fontSize = 10.sp, color = Color.Gray)
+                        if (!autoImport && currentToken != null &&
+                            materials.any { it.driveId.isNotBlank() }) {
+                            OutlinedButton(onClick = {
+                                importAttachments(currentToken!!, materials, courses)
+                            }, enabled = !busy) { Text("Importă fișiere în MedAtlas") }
+                        }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(onClick = { connect() }, enabled = !busy) { Text("Conectează / Actualizează") }
                             OutlinedButton(onClick = {
