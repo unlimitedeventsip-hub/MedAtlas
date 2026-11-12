@@ -20,7 +20,8 @@ import ro.medatlas.study.ui.StudyCanvasView
 internal suspend fun exportNotebook(context: Context, store: LibraryStore, pages: List<StudyNote>, out: OutputStream) {
     require(pages.isNotEmpty())
     withContext(Dispatchers.IO) {
-        PdfDocument().use { pdf ->
+        val pdf = PdfDocument()
+        try {
             var number = 0
             val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK; textSize = 13f }
             val heading = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -62,6 +63,8 @@ internal suspend fun exportNotebook(context: Context, store: LibraryStore, pages
                 } while (line < layout.lineCount)
             }
             pdf.writeTo(out)
+        } finally {
+            pdf.close()
         }
     }
 }
