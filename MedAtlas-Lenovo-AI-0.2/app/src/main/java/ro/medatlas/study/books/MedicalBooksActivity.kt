@@ -122,6 +122,32 @@ class MedicalBooksActivity : ComponentActivity() {
         var search by remember { mutableStateOf("") }
         var subject by remember { mutableStateOf("Toate") }
 
+        val zipPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            if (uri != null) {
+                busy = true
+                packageProgress = 0
+                status = "Se importă pachetul de cărți..."
+                lifecycleScope.launch {
+                    runCatching {
+                        withContext(Dispatchers.IO) {
+                            BookPackImporter.import(this@MedicalBooksActivity, uri, library) {
+                                progress -> runOnUiThread { packageProgress = progress }
+                            }
+                        }
+                    }.onSuccess { report ->
+                        imports = library.documents().size
+                        status = "ZIP: " + report.imported + " cărți importate, " +
+                            report.duplicates + " duplicate, " +
+                            report.unsupported + " fișiere neacceptate, " +
+                            report.failed + " erori. Deschide Bibliotecă."
+                    }.onFailure { e ->
+                        status = "Import ZIP nereușit: " +
+                            (e.localizedMessage ?: "arhivă invalidă")
+                    }
+                    busy = false
+                }
+            }
+        }
         val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             if (uris.isNotEmpty()) {
                 busy = true
@@ -179,6 +205,18 @@ class MedicalBooksActivity : ComponentActivity() {
                                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                 "application/vnd.openxmlformats-officedocument.presentationml.presentation"))
                         }) { Icon(Icons.Rounded.Add, null); Text("Importă cărți PDF în lot") }
+                        OutlinedButton(enabled = !busy, onClick = {
+                            zipPicker.launch(arrayOf("application/zip",
+                                "application/x-zip-compressed", "application/octet-stream"))
+                        }) {
+                            Icon(Icons.Rounded.FolderZip, null)
+                            Spacer(Modifier.width(5.dp))
+                            Text("Importă pachet ZIP cu până la 300 de cărți")
+                        }
+                        Text("Poți importa și o arhivă ZIP cu peste 100 de cărți " +
+                            "deținute legal. Nu publica PDF-uri personale în GitHub.",
+                            fontSize = 11.sp, color = Color.Gray)
+
                         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                         if (status.isNotBlank()) Text(status, fontSize = 12.sp)
                     }
