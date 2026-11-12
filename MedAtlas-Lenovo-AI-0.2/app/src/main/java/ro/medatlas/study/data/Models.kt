@@ -4,7 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-enum class Tool { PEN, HIGHLIGHT, UNDERLINE, WAVE, CIRCLE, RECTANGLE, ARROW, LASSO, ERASER, ANALYZE, PAN, STICKER, COMMENT }
+enum class Tool { PEN, HIGHLIGHT, UNDERLINE, WAVE, CIRCLE, RECTANGLE, ARROW, LASSO, ERASER, ANALYZE, PAN, STICKER, COMMENT, TEXT }
 
 data class InkPoint(val x: Float, val y: Float, val pressure: Float = 1f) {
     fun json() = JSONArray().put(x.toDouble()).put(y.toDouble()).put(pressure.toDouble())
@@ -131,6 +131,33 @@ data class PageComment(
             page = o.optInt("page"), x = o.optDouble("x").toFloat(),
             y = o.optDouble("y").toFloat(), body = o.optString("body"),
             quote = o.optString("quote"), createdAt = o.optLong("createdAt")
+        )
+    }
+}
+
+/** Editable text overlay anchored to normalized PDF coordinates. */
+data class PageTextBox(
+    val id: String = UUID.randomUUID().toString(),
+    val documentId: String,
+    val page: Int,
+    val x: Float,
+    val y: Float,
+    val content: String,
+    val sizeSp: Float = 17f,
+    val color: Int = android.graphics.Color.rgb(24, 37, 53)
+) {
+    fun json() = JSONObject().apply {
+        put("id", id); put("documentId", documentId); put("page", page)
+        put("x", x.toDouble()); put("y", y.toDouble()); put("content", content)
+        put("sizeSp", sizeSp.toDouble()); put("color", color)
+    }
+    companion object {
+        fun parse(o: JSONObject) = PageTextBox(
+            id = o.getString("id"), documentId = o.getString("documentId"),
+            page = o.optInt("page"), x = o.optDouble("x").toFloat(),
+            y = o.optDouble("y").toFloat(), content = o.optString("content"),
+            sizeSp = o.optDouble("sizeSp", 17.0).toFloat(),
+            color = o.optInt("color", android.graphics.Color.rgb(24, 37, 53))
         )
     }
 }
