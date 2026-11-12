@@ -61,5 +61,34 @@ class DocumentPager(doc: StudyDocument, private val store: LibraryStore) : Close
         return bitmap
     }
 
+    /**
+     * Small raster preview rendered directly from the PDF, never from a full-size
+     * page bitmap. Keep the same pager lock as regular page rendering.
+     */
+    fun renderThumbnail(position: Int, width: Int = 150): Bitmap {
+        val index = position.coerceIn(0, max(0, count - 1))
+        val targetWidth = width.coerceIn(72, 240)
+        val pdf = renderer
+        if (pdf != null) {
+            pdf.openPage(index).use { page ->
+                val targetHeight = max(1, (targetWidth * page.height.toFloat() /
+                    max(1, page.width)).toInt())
+                val result = Bitmap.createBitmap(targetWidth, targetHeight,
+                    Bitmap.Config.RGB_565)
+                result.eraseColor(Color.WHITE)
+                page.render(result, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                return result
+            }
+        }
+        // Office documents already use paginated extracted-text mode.
+        val full = render(index)
+        return try {
+            Bitmap.createScaledBitmap(full, targetWidth,
+                (targetWidth * full.height.toFloat() / full.width).toInt().coerceAtLeast(1), true)
+        } finally {
+            full.recycle()
+        }
+    }
+
     override fun close() { renderer?.close(); descriptor?.close() }
 }
