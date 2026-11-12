@@ -47,12 +47,7 @@ class ClassroomActivity : ComponentActivity() {
     data class ClassroomEntry(val id: String, val courseId: String, val name: String,
         val detail: String, val link: String, val kind: String, val driveId: String = "")
     private val authorization by lazy { Identity.getAuthorizationClient(this) }
-    private val scopes = listOf(
-        Scope("https://www.googleapis.com/auth/classroom.courses.readonly"),
-        Scope("https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly"),
-        Scope("https://www.googleapis.com/auth/classroom.coursework.me.readonly"),
-        Scope("https://www.googleapis.com/auth/drive.readonly")
-    )
+    private val scopes get() = ClassroomSync.requiredScopes
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { ClassroomScreen() }
@@ -60,10 +55,28 @@ class ClassroomActivity : ComponentActivity() {
 
     @Composable
     private fun ClassroomScreen() {
-        var status by remember { mutableStateOf("Conectează Google Classroom pentru a vedea cursurile și temele.") }
+        val cached = remember { ClassroomSync.cached(this@ClassroomActivity) }
+        var status by remember { mutableStateOf(
+            if (cached.syncedAt > 0) "Cursurile sunt disponibile offline; actualizarea rulează automat la pornire."
+            else "Conectează Google Classroom o singură dată pentru sincronizare automată."
+        ) }
         var busy by remember { mutableStateOf(false) }
-        var courses by remember { mutableStateOf<List<ClassroomEntry>>(emptyList()) }
-        var materials by remember { mutableStateOf<List<ClassroomEntry>>(emptyList()) }
+        val revision by ClassroomSync.revision.collectAsState()
+        val backgroundBusy by ClassroomSync.syncing.collectAsState()
+        var courses by remember { mutableStateOf(cached.courses) }
+        var materials by remember { mutableStateOf(cached.materials) }
+        LaunchedEffect(revision) {
+            val refreshed = ClassroomSync.cached(this@ClassroomActivity)
+            courses = refreshed.courses
+            materials = refreshed.materials
+            status = if (refreshed.error.isNotBlank())
+                "Ultima actualizare a eșuat: " + refreshed.error +
+                    if (refreshed.syncedAt > 0) " · cursurile salvate rămân disponibile." else ""
+            else if (refreshed.syncedAt > 0)
+                "Sincronizate " + courses.size + " cursuri și " + materials.size +
+                    " materiale. Disponibile și fără internet."
+            else "Conectează Google Classroom o singură dată pentru sincronizare automată."
+        }
         var selected by remember { mutableStateOf<String?>(null) }
         val navy = Color(0xFF182535)
         val library = remember { LibraryStore(this@ClassroomActivity) }
@@ -106,16 +119,22 @@ class ClassroomActivity : ComponentActivity() {
         }
         fun sync(token: String) {
             busy = true
-            currentToken = token
-            status = "Sincronizare în curs..."
+            currentToken = token // transient: never persisted
+            status = "Actualizez cursurile și materialele..."
             lifecycleScope.launch {
-                runCatching { withContext(Dispatchers.IO) { ClassroomApi.load(token) } }
-                    .onSuccess {
-                        courses = it.first; materials = it.second
-                        status = "Sincronizate " + courses.size + " cursuri și " + materials.size + " materiale / teme."
-                        if (autoImport) importAttachments(token, materials, courses)
-                    }.onFailure { status = "Sincronizare nereușită: " + (it.localizedMessage ?: "Eroare Google"); busy = false }
-                if (!autoImport) busy = false
+                try {
+                    val updated = ClassroomSync.synchronize(this@ClassroomActivity, token)
+                    courses = updated.courses
+                    materials = updated.materials
+                    status = "Actualizate " + courses.size + " cursuri și " +
+                        materials.size + " materiale / teme."
+                } catch (error: Exception) {
+                    status = "Nu pot actualiza acum: " +
+                        (error.localizedMessage ?: "eroare de conexiune") +
+                        ". Datele salvate rămân disponibile."
+                } finally {
+                    busy = false
+                }
             }
         }
         val launcher = rememberLauncherForActivityResult(
@@ -144,7 +163,7 @@ class ClassroomActivity : ComponentActivity() {
                     ". Verifică în Google Cloud OAuth, pachetul Android și SHA-1."
             }
         }
-        LaunchedEffect(Unit) { connect() }
+        // App launch has already requested a silent refresh. No surprise OAuth popup here.
         MedAtlasGlassTheme {
             Column(Modifier.fillMaxSize().background(GlassTokens.LightPage)
                 .statusBarsPadding().navigationBarsPadding()) {
@@ -152,10 +171,10 @@ class ClassroomActivity : ComponentActivity() {
                     IconButton(onClick = { finish() }) { Icon(Icons.Rounded.ArrowBack, "Înapoi") }
                     Column(Modifier.weight(1f)) {
                         Text("Google Classroom", fontWeight = FontWeight.Bold, fontSize = 21.sp, color = navy)
-                        Text("Fereastră separată • numai citire", fontSize = 11.sp, color = Color.Gray)
+                        Text("Sincronizare automată · acces offline", fontSize = 11.sp, color = Color.Gray)
                     }
                 }
-                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (busy || backgroundBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(status, fontSize = 12.sp)
@@ -164,10 +183,12 @@ class ClassroomActivity : ComponentActivity() {
                                 autoImport = it
                                 preferences.edit().putBoolean("auto_import", it).apply()
                             })
-                            Text("Import automat PDF, Word, PowerPoint din Drive",
+                            Text("Importă automat și fișierele PDF, Word și PowerPoint",
                                 modifier = Modifier.weight(1f), fontSize = 11.sp)
                         }
-                        Text("Maxim 25 de atașamente per sincronizare, 30 MB fiecare. Fișierele inaccesibile sunt omise. Accesul Google Drive este doar pentru citire.",
+                        Text("Cursurile și temele se actualizează automat la pornirea MedAtlas, " +
+                            "după prima conectare. Opțiunea de mai sus descarcă și fișierele în " +
+                            "bibliotecă (maximum 25 per sincronizare, 30 MB fiecare).",
                             fontSize = 10.sp, color = Color.Gray)
                         if (!autoImport && currentToken != null &&
                             materials.any { it.driveId.isNotBlank() }) {
@@ -175,11 +196,12 @@ class ClassroomActivity : ComponentActivity() {
                                 importAttachments(currentToken!!, materials, courses)
                             }, enabled = !busy) { Text("Importă fișiere în MedAtlas") }
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { connect() }, enabled = !busy) { Text("Conectează / Actualizează") }
-                            OutlinedButton(onClick = {
-                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://classroom.google.com")))
-                            }) { Text("Web") }
+                        Button(onClick = { connect() }, enabled = !busy && !backgroundBusy) {
+                            Icon(if (cached.connected || courses.isNotEmpty())
+                                Icons.Rounded.Refresh else Icons.Rounded.AccountCircle, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (cached.connected || courses.isNotEmpty()) "Actualizează acum"
+                                else "Conectează Google Classroom")
                         }
                     }
                 }
@@ -218,7 +240,7 @@ class ClassroomActivity : ComponentActivity() {
     }
 }
 
-private object ClassroomApi {
+internal object ClassroomApi {
     private fun get(token: String, url: String): JSONObject {
         val c = URL(url).openConnection() as HttpURLConnection
         try {
