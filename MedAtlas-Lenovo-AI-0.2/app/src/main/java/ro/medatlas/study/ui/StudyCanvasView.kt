@@ -280,6 +280,16 @@ class StudyCanvasView(context: Context) : View(context) {
                     return
                 }
             }
+            Tool.BRUSH -> {
+                for (index in 1 until points.size) {
+                    val a = points[index - 1]
+                    val b = points[index]
+                    p.strokeWidth = stroke.width * resources.displayMetrics.density *
+                        ((a.pressure + b.pressure) / 2).coerceIn(.25f, 2f)
+                    canvas.drawLine(x(a), y(a), x(b), y(b), p)
+                }
+                return
+            }
             Tool.CIRCLE -> { canvas.drawOval(RectF(min(x(first), x(last)), min(y(first), y(last)), max(x(first), x(last)), max(y(first), y(last))), p); return }
             Tool.RECTANGLE -> { canvas.drawRect(RectF(min(x(first), x(last)), min(y(first), y(last)), max(x(first), x(last)), max(y(first), y(last))), p); return }
             Tool.UNDERLINE -> { canvas.drawLine(x(first), y(last), x(last), y(last), p); return }

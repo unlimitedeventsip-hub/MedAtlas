@@ -171,7 +171,7 @@ private fun MedAtlasApp() {
                     store.saveDocuments(store.documents().map { if (it.id == doc.id) changed else it })
                     val i = docs.indexOfFirst { it.id == doc.id }; if (i >= 0) docs[i] = changed
                 }, onImport = { picker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation")) })
-                1 -> NotesScreen(store, docs, onOpen = { selected = it })
+                1 -> NotebookLibrary(store, docs, onOpen = { selected = it })
                 2 -> CardsScreen(store, docs, onOpen = { selected = it })
                 else -> SettingsScreen(onReplayIntro = { showIntro = true })
             }
@@ -1209,7 +1209,7 @@ private fun NoteDialog(store: LibraryStore, doc: StudyDocument, page: Int, onDis
 }
 
 @Composable
-private fun NotesScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: (StudyDocument) -> Unit) {
+internal fun NotesScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: (StudyDocument) -> Unit) {
     val context = LocalContext.current
     var refresh by remember { mutableIntStateOf(0) }
     LaunchedEffect(docs.size) {
@@ -1581,6 +1581,7 @@ private fun SettingsScreen(onReplayIntro: () -> Unit) {
     }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Setări și confidențialitate", fontSize = 23.sp, fontWeight = FontWeight.Bold)
+        NotebookSettings(editPrefs)
         SettingLine("Offline-first", "Documentele, notițele și desenele se păstrează pe dispozitiv.")
         SettingLine("Fără reclame", "Nu există publicitate, trackere publicitare sau cont obligatoriu.")
         Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {

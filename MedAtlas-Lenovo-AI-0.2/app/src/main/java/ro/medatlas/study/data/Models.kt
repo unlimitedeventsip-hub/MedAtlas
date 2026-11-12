@@ -4,7 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-enum class Tool { PEN, HIGHLIGHT, UNDERLINE, WAVE, CIRCLE, RECTANGLE, ARROW, LASSO, ERASER, ANALYZE, PAN, STICKER, COMMENT, TEXT }
+enum class Tool { PEN, BRUSH, HIGHLIGHT, UNDERLINE, WAVE, CIRCLE, RECTANGLE, ARROW, LASSO, ERASER, ANALYZE, PAN, STICKER, COMMENT, TEXT }
 
 data class InkPoint(val x: Float, val y: Float, val pressure: Float = 1f) {
     fun json() = JSONArray().put(x.toDouble()).put(y.toDouble()).put(pressure.toDouble())
@@ -63,12 +63,13 @@ data class StudyDocument(
 data class StudyNote(
     val id: String = UUID.randomUUID().toString(), val documentId: String,
     val page: Int, val heading: String, val body: String, val createdAt: Long = System.currentTimeMillis(),
-    val course: String = "", val handwritingFile: String = "", val updatedAt: Long = createdAt
+    val course: String = "", val handwritingFile: String = "", val updatedAt: Long = createdAt,
+    val paper: String = "LINES", val darkPaper: Boolean = false
 ) {
-    fun json() = JSONObject().apply { put("id", id); put("documentId", documentId); put("page", page); put("heading", heading); put("body", body); put("createdAt", createdAt); put("course", course); put("handwritingFile", handwritingFile); put("updatedAt", updatedAt) }
+    fun json() = JSONObject().apply { put("id", id); put("documentId", documentId); put("page", page); put("heading", heading); put("body", body); put("createdAt", createdAt); put("course", course); put("handwritingFile", handwritingFile); put("updatedAt", updatedAt); put("paper", paper); put("darkPaper", darkPaper) }
     companion object {
         fun parse(o: JSONObject) = StudyNote(o.getString("id"), o.getString("documentId"), o.optInt("page"), o.optString("heading"), o.optString("body"), o.optLong("createdAt"),
-        o.optString("course"), o.optString("handwritingFile"), o.optLong("updatedAt", o.optLong("createdAt")))
+        o.optString("course"), o.optString("handwritingFile"), o.optLong("updatedAt", o.optLong("createdAt")), o.optString("paper", "LINES"), o.optBoolean("darkPaper"))
     }
 }
 
