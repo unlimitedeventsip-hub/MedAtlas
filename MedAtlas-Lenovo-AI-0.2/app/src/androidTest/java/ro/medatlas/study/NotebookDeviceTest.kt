@@ -7,6 +7,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -17,7 +18,12 @@ import java.util.UUID
 class NotebookDeviceTest {
     @get:Rule val ui = createEmptyComposeRule()
 
-    @Test fun romanianModelReturnsCandidateForVectorInk() {
+    /**
+     * Regression for the actual deterministic input path. The ML Kit Romanian
+     * model is downloaded on first real use; emulators in CI may have no
+     * internet/model service and cannot reliably exercise that remote step.
+     */
+    @Test fun convertsVectorStrokesIntoDigitalInkOffline() {
         fun stroke(vararg xy: Pair<Float, Float>) = ro.medatlas.study.data.Stroke(points = xy.map {
             ro.medatlas.study.data.InkPoint(it.first, it.second)
         })
@@ -27,8 +33,12 @@ class NotebookDeviceTest {
             stroke(.28f to .50f, .28f to .34f, .29f to .42f, .32f to .35f, .36f to .36f, .37f to .50f),
             stroke(.50f to .36f, .46f to .34f, .42f to .39f, .42f to .48f, .46f to .50f, .50f to .44f, .50f to .34f, .51f to .50f)
         )
-        val candidate = recognizeLine(sample, 800, 1000)
-        org.junit.Assert.assertTrue("No candidate from the Romanian model", candidate.isNotBlank())
+        val ink = createDigitalInk(sample, 800, 1000)
+        assertEquals(4, ink.strokes.size)
+        assertEquals(3, ink.strokes[0].points.size)
+        assertEquals(80f, ink.strokes[0].points[0].x)
+        assertEquals(500f, ink.strokes[0].points[0].y)
+        assertTrue(ink.strokes.all { it.points.isNotEmpty() })
     }
 
     @Test fun exportIncludesEveryPageAndContinuesLongText() {
