@@ -60,6 +60,10 @@ class StudyCanvasView(context: Context) : View(context) {
     var smartUnderline = true
     var smartMarker = true
     var fingerInk = false
+    var smartShapes = false
+    var scratchToErase = false
+    private var lastMeaningfulMoveTime = 0L
+    private var lastMeaningfulPoint: InkPoint? = null
     /** In continuous PDF mode let finger gestures reach the outer page scroller. */
     var scrollThroughFingers = false
     private var pending = mutableListOf<InkPoint>()
@@ -140,6 +144,8 @@ class StudyCanvasView(context: Context) : View(context) {
         val editorPrefs = context.getSharedPreferences("medatlas_editor", Context.MODE_PRIVATE)
         smartUnderline = editorPrefs.getBoolean("smart_underline", true)
         smartMarker = editorPrefs.getBoolean("smart_marker", true)
+        smartShapes = editorPrefs.getBoolean("smart_shapes", false)
+        scratchToErase = editorPrefs.getBoolean("scratch_to_erase", false)
         inkColor = color
         penWidth = size
         fingerInk = allowFinger
@@ -443,6 +449,8 @@ class StudyCanvasView(context: Context) : View(context) {
                 fingerNavigating = !fingerInk && !isStylus
                 if (tool == Tool.PAN || fingerNavigating) { priorMidX = event.x; priorMidY = event.y; return true }
                 val pt = pos(event.x, event.y, event.pressure)
+                lastMeaningfulMoveTime = event.eventTime
+                lastMeaningfulPoint = pt
                 if (tool == Tool.TEXT) {
                     val hit = textBoxes.lastOrNull { box ->
                         val boxX = box.x
@@ -515,6 +523,14 @@ class StudyCanvasView(context: Context) : View(context) {
                 }
                 if (!drawing) return true
                 val pt = pos(event.x, event.y, event.pressure)
+                if (tool == Tool.PEN || tool == Tool.BRUSH) {
+                    val earlier = lastMeaningfulPoint
+                    if (earlier == null || hypot((pt.x - earlier.x).toDouble(),
+                            (pt.y - earlier.y).toDouble()) > .009) {
+                        lastMeaningfulMoveTime = event.eventTime
+                        lastMeaningfulPoint = pt
+                    }
+                }
                 if (dragged && pending.isNotEmpty()) {
                     val old = pending.last(); val dx = pt.x - old.x; val dy = pt.y - old.y
                     marks = marks.map { s -> if (s.id in selectedIds) s.copy(points = s.points.map { ip -> ip.copy(x = (ip.x + dx).coerceIn(0f, 1f), y = (ip.y + dy).coerceIn(0f, 1f)) }) else s }
@@ -549,6 +565,24 @@ class StudyCanvasView(context: Context) : View(context) {
                     }
                     Tool.ERASER, Tool.PAN -> Unit
                     else -> {
+                        val erasedIds = if (scratchToErase &&
+                            (tool == Tool.PEN || tool == Tool.BRUSH) &&
+                            PenGestures.isScratch(completed)) {
+                            val area = bounds(completed).apply { inset(-.015f, -.015f) }
+                            marks.filter { stroke ->
+                                stroke.points.any { point -> area.contains(point.x, point.y) }
+                            }.map { it.id }.toSet()
+                        } else emptySet()
+                        if (erasedIds.isNotEmpty()) {
+                            marks = marks.filterNot { it.id in erasedIds }
+                            selectedIds = emptySet()
+                            undone.clear()
+                            onSave(marks)
+                        } else {
+                        val heldAtEnd = event.eventTime - lastMeaningfulMoveTime >= 550L
+                        val perfect = if (smartShapes && heldAtEnd &&
+                            (tool == Tool.PEN || tool == Tool.BRUSH))
+                            PenGestures.perfectShape(completed) else null
                         val snapped = if ((tool == Tool.UNDERLINE && smartUnderline) ||
                             (tool == Tool.HIGHLIGHT && smartMarker))
                             alignWithRecognizedText(tool, completed) else null
@@ -569,9 +603,15 @@ class StudyCanvasView(context: Context) : View(context) {
                             }
                             else -> completed
                         }
+                        val finalPoints = if (perfect != null) listOf(
+                            InkPoint(completed.minOf { it.x }, completed.minOf { it.y }),
+                            InkPoint(completed.maxOf { it.x }, completed.maxOf { it.y })
+                        ) else cleaned
                         undone.clear()
-                        marks = marks + Stroke(tool = tool, color = inkColor, width = penWidth, points = cleaned)
+                        marks = marks + Stroke(tool = perfect ?: tool,
+                            color = inkColor, width = penWidth, points = finalPoints)
                         onSave(marks)
+                        }
                     }
                 }
                 invalidate(); return true
