@@ -59,5 +59,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:digital-ink-recognition:19.0.0")
     implementation("com.google.android.gms:play-services-auth:21.3.0")
 }

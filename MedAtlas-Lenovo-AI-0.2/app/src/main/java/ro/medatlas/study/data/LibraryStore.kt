@@ -116,6 +116,8 @@ class LibraryStore(private val context: Context) {
     }
 
     fun documents(): List<StudyDocument> = loadArray("documents.json", StudyDocument::parse).sortedByDescending { it.importedAt }
+    fun boards(): List<StudyNote> = loadArray("boards.json", StudyNote::parse)
+    fun saveBoards(items: List<StudyNote>) = saveArray("boards.json", items.map { it.json() })
     fun notes(): List<StudyNote> = loadArray("notes.json", StudyNote::parse)
     fun cards(): List<Flashcard> = loadArray("cards.json", Flashcard::parse)
     fun saveNotes(items: List<StudyNote>) = saveArray("notes.json", items.map { it.json() })

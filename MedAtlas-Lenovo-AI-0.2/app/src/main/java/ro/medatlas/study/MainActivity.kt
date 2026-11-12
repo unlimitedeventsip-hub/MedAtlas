@@ -112,7 +112,9 @@ private fun MedAtlasApp() {
     var showIntro by rememberSaveable {
         mutableStateOf(introPrefs.getBoolean("show_premium_intro", true))
     }
+    var manageFiles by rememberSaveable { mutableStateOf(false) }
     var search by remember { mutableStateOf("") }
+    BackHandler(manageFiles && tab == 0 && selected == null) { manageFiles = false }
     var importError by remember { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
         scope.launch {
@@ -167,11 +169,14 @@ private fun MedAtlasApp() {
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (tab) {
-                0 -> LibraryScreen(docs, search, onSearch = { search = it }, onOpen = { selected = it }, onCourse = { doc, course ->
+                0 -> if (!manageFiles) NotebookLibrary(store, docs, onOpen = { selected = it }, unified = true, onManage = { manageFiles = true }) else Column {
+                    TextButton(onClick = { manageFiles = false }) { Text("‹ Toată biblioteca") }
+                    LibraryScreen(docs, search, onSearch = { search = it }, onOpen = { selected = it }, onCourse = { doc, course ->
                     val changed = doc.copy(course = course.trim().ifBlank { "Fără materie" })
                     store.saveDocuments(store.documents().map { if (it.id == doc.id) changed else it })
                     val i = docs.indexOfFirst { it.id == doc.id }; if (i >= 0) docs[i] = changed
                 }, onImport = { picker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation")) })
+                }
                 1 -> NotebookLibrary(store, docs, onOpen = { selected = it })
                 2 -> CardsScreen(store, docs, onOpen = { selected = it })
                 else -> SettingsScreen(onReplayIntro = { showIntro = true })

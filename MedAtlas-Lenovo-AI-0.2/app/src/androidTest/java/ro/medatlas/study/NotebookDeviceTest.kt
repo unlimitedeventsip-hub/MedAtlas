@@ -17,6 +17,27 @@ import java.util.UUID
 class NotebookDeviceTest {
     @get:Rule val ui = createEmptyComposeRule()
 
+    @Test fun boardInkSurvivesPanAndReopen() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("medatlas_editor", 0).edit().putBoolean("show_premium_intro", false).commit()
+        val title = "Schema-" + UUID.randomUUID().toString().take(8)
+        ActivityScenario.launch(MainActivity::class.java).use {
+            ui.onNodeWithText("+ Planșă").performClick()
+            ui.onNodeWithText("Numele planșei").performTextInput(title)
+            ui.onNodeWithText("Creează planșa").performClick()
+            ui.onNodeWithTag("board-surface").performTouchInput { swipe(centerLeft, centerRight, 200) }
+            ui.onNodeWithText("Deplasează").performClick()
+            ui.onNodeWithTag("board-surface").performTouchInput { swipe(centerLeft, centerRight, 200) }
+            ui.onNodeWithText("‹ Bibliotecă").performClick()
+            ui.onNodeWithText("Caută în bibliotecă").performTextInput(title)
+            ui.onNodeWithText(title).performClick()
+            ui.onNodeWithText("Încadrează tot").performClick()
+            val store = LibraryStore(context)
+            val board = store.boards().single { it.heading == title }
+            assertEquals(1, store.ink(inkId(board.id), 0).size)
+        }
+    }
+
     @Test fun createWriteReopenAndSearchFromAnotherBook() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("medatlas_editor", 0).edit().putBoolean("show_premium_intro", false).commit()
@@ -30,7 +51,9 @@ class NotebookDeviceTest {
             ui.onNodeWithText("Linii").performClick()
             ui.onNodeWithText("Caroiaj").performClick()
             ui.onNodeWithTag("notebook-ink").performTouchInput { swipe(centerLeft, centerRight, 300) }
-            ui.onNodeWithText("Textul paginii").performTextInput(phrase)
+            ui.onNodeWithText("Transcrie").performClick()
+            ui.onNodeWithText("Verifică transcrierea").performTextInput(phrase)
+            ui.onNodeWithText("Adaugă în pagină").performClick()
             ui.onNodeWithText("‹ Pagini").performClick()
             ui.onNodeWithText("+ Pagină").performClick()
             ui.onNodeWithText("‹ Pagini").performClick()

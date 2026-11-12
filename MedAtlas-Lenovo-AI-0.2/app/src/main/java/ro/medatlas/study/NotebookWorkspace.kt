@@ -38,7 +38,7 @@ import java.util.UUID
 private val patterns = mapOf("LINES" to "Linii", "GRID" to "Caroiaj", "DOTS" to "Puncte")
 private val covers = listOf(Color(0xFF315C60), Color(0xFF6C4856), Color(0xFF465775), Color(0xFF796133))
 private fun cover(name: String) = covers[Math.floorMod(name.hashCode(), covers.size)]
-private fun inkId(id: String) = "notebook-" + UUID.nameUUIDFromBytes(id.toByteArray(Charsets.UTF_8))
+internal fun inkId(id: String) = "notebook-" + UUID.nameUUIDFromBytes(id.toByteArray(Charsets.UTF_8))
 
 private fun paperBitmap(note: StudyNote, legacy: Bitmap?, width: Int): Bitmap {
     val height = if (legacy == null) width * 5 / 4 else
@@ -66,7 +66,7 @@ private fun paperBitmap(note: StudyNote, legacy: Bitmap?, width: Int): Bitmap {
 }
 
 @Composable
-private fun Choice(label: String, options: List<String>, select: (Int) -> Unit) {
+internal fun Choice(label: String, options: List<String>, select: (Int) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         OutlinedButton(onClick = { expanded = true }) { Text(label, maxLines = 1) }
@@ -103,9 +103,14 @@ internal fun NotebookSettings(prefs: SharedPreferences) {
 }
 
 @Composable
-internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onOpen: (StudyDocument) -> Unit) {
+internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onOpen: (StudyDocument) -> Unit,
+    unified: Boolean = false, onManage: () -> Unit = {}) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("medatlas_editor", 0) }
+    var boards by remember { mutableStateOf(store.boards()) }
+    var boardId by rememberSaveable { mutableStateOf<String?>(null) }
+    var section by rememberSaveable { mutableStateOf("Toate") }
+    var newBoard by rememberSaveable { mutableStateOf(false) }
     var classic by rememberSaveable { mutableStateOf(false) }
     var book by rememberSaveable { mutableStateOf<String?>(null) }
     var pageId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -140,6 +145,10 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
         }
         return
     }
+    boards.find { it.id == boardId }?.let { board ->
+        key(board.id) { BoardEditor(board, store) { boardId = null; boards = store.boards() } }
+        return
+    }
     val active = notes.find { it.id == pageId }
     if (active != null) {
         key(active.id) {
@@ -172,25 +181,72 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
         return
     }
     val groups = notes.groupBy(::course)
+    val home = unified && book == null
+    val showDocs = home && section in listOf("Toate", "Documente")
+    val showBoards = home && section in listOf("Toate", "Planșe")
+    val showNotes = !home || section in listOf("Toate", "Caiete")
+    val query = search.trim()
+    val fileHits by produceState<Set<String>>(emptySet(), query, docs.toList(), showDocs) {
+        value = emptySet()
+        if (showDocs && query.isNotEmpty()) {
+            delay(180)
+            val snapshot = docs.toList()
+            value = withContext(Dispatchers.IO) {
+                snapshot.filter { store.studyText(it).contains(query, true) }.map { it.id }.toSet()
+            }
+        }
+    }
+    val files = if (showDocs) docs.filter { it.title.contains(query,true) || it.course.contains(query,true) ||
+        it.kind.contains(query,true) || it.id in fileHits } else emptyList()
+    val visibleBoards = if (showBoards) boards.filter { it.heading.contains(query,true) } else emptyList()
     val matching = if (search.isNotBlank()) notes.filter {
         listOf(course(it), it.heading, it.body).any { field -> field.contains(search.trim(), ignoreCase = true) }
     } else groups[book].orEmpty()
     Column(Modifier.fillMaxSize().padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (book != null) TextButton(onClick = { book = null; search = "" }) { Text("‹ Caiete") }
-            Text(book ?: "Caietele mele", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
-            TextButton(onClick = { classic = true }) { Text("Carnet clasic") }
+            Text(book ?: if (unified) "Biblioteca mea" else "Caietele mele", Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall)
+            if (home) TextButton(onClick = { onManage() }) { Text("Organizează fișiere") }
+            if (!home) TextButton(onClick = { classic = true }) { Text("Carnet clasic") }
             Button(onClick = { val folder = book; if (folder == null) { name = ""; naming = true } else addPage(folder) }) {
                 Text(if (book == null) "+ Caiet" else "+ Pagină")
             }
         }
+        if (home) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf("Toate", "Caiete", "Planșe", "Documente").forEach { option ->
+                FilterChip(section == option, { section = option }, { Text(option) })
+            }
+            OutlinedButton(onClick = { name = ""; newBoard = true }) { Text("+ Planșă") }
+        }
         OutlinedTextField(search, { search = it }, Modifier.fillMaxWidth(), singleLine = true,
-            label = { Text("Caută în toate caietele") })
-        if (search.isBlank() && book == null) {
-            if (groups.isEmpty()) Text("Creează un caiet pentru prima ta pagină.")
-            LazyVerticalGrid(GridCells.Adaptive(190.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(groups.keys.sorted(), key = { it }) { title ->
+            label = { Text(if (home) "Caută în bibliotecă" else "Caută în toate caietele") })
+        val showCovers = showNotes && book == null && search.isBlank()
+        val pages = if (showNotes && !showCovers) matching else emptyList()
+        if ((!showCovers || groups.isEmpty()) && pages.isEmpty() && files.isEmpty() && visibleBoards.isEmpty())
+            Text(if (query.isEmpty()) "Adaugă primul material." else "Niciun rezultat.")
+        LazyVerticalGrid(GridCells.Adaptive(190.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(files, key = { "file-" + it.id }) { doc ->
+                Card(Modifier.fillMaxWidth().clickable { onOpen(doc) }) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text(doc.kind, style = MaterialTheme.typography.labelMedium)
+                        Spacer(Modifier.height(12.dp))
+                        Text(doc.title, fontWeight = FontWeight.Bold)
+                        Text(doc.course, style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+            items(visibleBoards, key = { "board-" + it.id }) { board ->
+                Card(Modifier.fillMaxWidth().clickable { boardId = board.id }) {
+                    Column(Modifier.padding(14.dp)) {
+                        Text("PLANȘĂ", style = MaterialTheme.typography.labelMedium)
+                        Spacer(Modifier.height(12.dp))
+                        Text(board.heading, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+            if (showCovers) {
+                items(groups.keys.sorted(), key = { "course-" + it }) { title ->
                     Column(Modifier.fillMaxWidth().background(cover(title), RoundedCornerShape(12.dp))
                         .clickable { book = title }.padding(start = 12.dp)) {
                         Column(Modifier.fillMaxWidth().padding(16.dp)) {
@@ -202,11 +258,7 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
                     }
                 }
             }
-        } else {
-            if (matching.isEmpty()) Text("Nicio pagină găsită.")
-            LazyVerticalGrid(GridCells.Adaptive(185.dp), horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(matching, key = { it.id }) { note ->
+            items(pages, key = { "page-" + it.id }) { note ->
                     Card(Modifier.fillMaxWidth().clickable { pageId = note.id }) {
                         PagePreview(note, store)
                         Column(Modifier.padding(12.dp)) {
@@ -215,9 +267,15 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
                         }
                     }
                 }
-            }
         }
     }
+    if (newBoard) AlertDialog(onDismissRequest = { newBoard = false }, title = { Text("Planșă nouă") },
+        text = { OutlinedTextField(name, { name = it }, singleLine = true, label = { Text("Numele planșei") }) },
+        confirmButton = { Button(enabled = name.isNotBlank(), onClick = {
+            val board = StudyNote(documentId = "board", page = 0, heading = name.trim(), body = "")
+            store.saveBoards(store.boards() + board); boards = store.boards()
+            boardId = board.id; newBoard = false; section = "Planșe"; search = ""
+        }) { Text("Creează planșa") } }, dismissButton = { TextButton(onClick = { newBoard = false }) { Text("Anulează") } })
     if (naming) AlertDialog(onDismissRequest = { naming = false }, title = { Text("Caiet nou") },
         text = { OutlinedTextField(name, { name = it }, singleLine = true, label = { Text("Numele caietului") }) },
         confirmButton = { Button(enabled = name.isNotBlank() && name.trim() !in groups, onClick = {
@@ -282,6 +340,7 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
     var width by rememberSaveable { mutableIntStateOf(2) }
     var delete by rememberSaveable { mutableStateOf(false) }
     var strokes by remember { mutableStateOf(store.ink(inkId(original.id), 0)) }
+    var recognition by remember { mutableStateOf<List<Stroke>?>(null) }
     var view by remember { mutableStateOf<StudyCanvasView?>(null) }
     val bitmap by produceState<Bitmap?>(null, paper, dark) {
         value = withContext(Dispatchers.IO) {
@@ -297,6 +356,9 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             TextButton(onClick = { flush(); onNext() }) { Text(if (position == count) "+ Pagină" else "Următoarea ›") }
         }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            TextButton(enabled = bitmap != null && (original.handwritingFile.isNotBlank() || strokes.any { it.tool == Tool.PEN || it.tool == Tool.BRUSH }), onClick = {
+                recognition = (view?.selectedInk() ?: strokes).filter { it.tool == Tool.PEN || it.tool == Tool.BRUSH }
+            }) { Text("Transcrie") }
             Choice(toolNames.getValue(tool), toolNames.values.toList()) { tool = toolNames.keys.elementAt(it) }
             Choice(color, colors.keys.toList()) { color = colors.keys.elementAt(it) }
             Choice("$width · grosime", listOf("Subțire", "Medie", "Groasă")) { width = listOf(2, 4, 7)[it] }
@@ -338,6 +400,12 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             }
         }
     }
+    recognition?.let { input -> bitmap?.let { page ->
+        TranscriptionDialog(input, page, onAdd = {
+            body = if (body.isBlank()) it else body.trimEnd() + "\n" + it
+            flush(); recognition = null
+        }, close = { recognition = null })
+    } }
     if (delete) AlertDialog(onDismissRequest = { delete = false }, title = { Text("Ștergi pagina?") },
         text = { Text(title) }, confirmButton = { TextButton(onClick = { delete = false; onDelete() }) { Text("Șterge") } },
         dismissButton = { TextButton(onClick = { delete = false }) { Text("Păstrează") } })

@@ -162,6 +162,7 @@ class StudyCanvasView(context: Context) : View(context) {
     fun redo() {
         if (undone.isNotEmpty()) { marks = marks + undone.removeAt(undone.lastIndex); onSave(marks) }
     }
+    fun selectedInk(): List<Stroke> = if (selectedIds.isEmpty()) marks else marks.filter { it.id in selectedIds }
     fun clearSelection() { selectedIds = emptySet(); invalidate() }
     fun eraseSelection() {
         if (selectedIds.isNotEmpty()) { marks = marks.filterNot { it.id in selectedIds }; selectedIds = emptySet(); undone.clear(); onSave(marks) }
