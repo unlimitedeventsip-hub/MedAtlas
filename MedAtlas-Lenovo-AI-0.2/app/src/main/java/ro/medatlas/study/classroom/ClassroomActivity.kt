@@ -63,16 +63,56 @@ class ClassroomActivity : ComponentActivity() {
         var materials by remember { mutableStateOf<List<ClassroomEntry>>(emptyList()) }
         var selected by remember { mutableStateOf<String?>(null) }
         val navy = Color(0xFF182535)
+        val library = remember { LibraryStore(this@ClassroomActivity) }
+        val preferences = remember { getSharedPreferences("classroom_sync", MODE_PRIVATE) }
+        var autoImport by remember { mutableStateOf(preferences.getBoolean("auto_import", false)) }
+        var currentToken by remember { mutableStateOf<String?>(null) }
+        fun importAttachments(token: String, source: List<ClassroomEntry>, classrooms: List<ClassroomEntry>) {
+            busy = true
+            status = "Import Classroom în biblioteca locală..."
+            lifecycleScope.launch {
+                val counts = withContext(Dispatchers.IO) {
+                    var copied = 0
+                    var existing = 0
+                    var failed = 0
+                    for (attachment in source.filter { it.driveId.isNotBlank() }.take(25)) {
+                        val courseName = classrooms.firstOrNull { it.id == attachment.courseId }
+                            ?.name ?: "Classroom"
+                        runCatching {
+                            val downloaded = ClassroomApi.download(token, attachment.driveId,
+                                File(cacheDir, "classroom"))
+                            try {
+                                if (library.documents().any {
+                                    it.originalName == downloaded.name && it.course == courseName
+                                }) existing++
+                                else {
+                                    val uri = FileProvider.getUriForFile(
+                                        this@ClassroomActivity, packageName + ".files", downloaded)
+                                    library.import(uri, courseName)
+                                    copied++
+                                }
+                            } finally { downloaded.delete() }
+                        }.onFailure { failed++ }
+                    }
+                    Triple(copied, existing, failed)
+                }
+                status = "Fișiere importate: " + counts.first + "; deja existente: " +
+                    counts.second + "; indisponibile: " + counts.third
+                busy = false
+            }
+        }
         fun sync(token: String) {
             busy = true
+            currentToken = token
             status = "Sincronizare în curs..."
             lifecycleScope.launch {
                 runCatching { withContext(Dispatchers.IO) { ClassroomApi.load(token) } }
                     .onSuccess {
                         courses = it.first; materials = it.second
                         status = "Sincronizate " + courses.size + " cursuri și " + materials.size + " materiale / teme."
+                        if (autoImport) importAttachments(token, materials, courses)
                     }.onFailure { status = "Sincronizare nereușită: " + (it.localizedMessage ?: "Eroare Google") }
-                busy = false
+                if (!autoImport) busy = false
             }
         }
         val launcher = rememberLauncherForActivityResult(
