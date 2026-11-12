@@ -17,6 +17,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -41,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import android.content.res.Configuration
 import androidx.compose.ui.platform.LocalContext
@@ -269,6 +271,7 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
     // AI stays hidden until the reader explicitly requests it.
     var expanded by rememberSaveable(doc.id) { mutableStateOf(false) }
     var continuous by rememberSaveable(doc.id) { mutableStateOf(true) }
+    var showThumbnails by rememberSaveable(doc.id) { mutableStateOf(false) }
     var documentScale by rememberSaveable(doc.id) { mutableFloatStateOf(1f) }
     val scrollState = rememberLazyListState(initialFirstVisibleItemIndex = page)
     LaunchedEffect(continuous) {
@@ -491,6 +494,45 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             onStickerRemove = { canvasView?.deleteSelectedSticker() })
 
         Row(Modifier.fillMaxWidth().weight(1f)) {
+            if (showThumbnails) {
+                LazyColumn(Modifier.width(112.dp).fillMaxHeight()
+                    .background(Color(0xFFF1F3F0)),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    contentPadding = PaddingValues(vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(pager.count, key = { "thumb_" + it }) { index ->
+                        val preview by produceState<Bitmap?>(null, doc.id, index, pager) {
+                            value = runCatching {
+                                withContext(Dispatchers.IO) {
+                                    synchronized(pager) { pager.renderThumbnail(index) }
+                                }
+                            }.getOrNull()
+                        }
+                        Column(Modifier.fillMaxWidth().padding(horizontal = 7.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (page == index) Color(0xFFDAEAE3) else Color.White)
+                            .clickable {
+                                page = index
+                                if (continuous) scope.launch { scrollState.animateScrollToItem(index) }
+                            }
+                            .padding(5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                            val image = preview
+                            if (image != null) Image(image.asImageBitmap(),
+                                "Pagina ${index + 1}",
+                                modifier = Modifier.fillMaxWidth().aspectRatio(
+                                    image.width.toFloat() / image.height.coerceAtLeast(1)),
+                                contentScale = ContentScale.FillBounds)
+                            else Box(Modifier.fillMaxWidth().height(100.dp),
+                                contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            }
+                            Text("${index + 1}", fontSize = 11.sp,
+                                color = if (page == index) Teal else Slate)
+                        }
+                    }
+                }
+                VerticalDivider()
+            }
             Box(Modifier.weight(1f).fillMaxHeight()) {
                 if (continuous) {
                     BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -611,6 +653,11 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
         // Fixed reader controls. No longer hidden below an oversized PDF or quiz panel.
         Row(Modifier.fillMaxWidth().background(Color.White).horizontalScroll(rememberScrollState())
             .padding(horizontal = 6.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { showThumbnails = !showThumbnails }) {
+                Icon(Icons.Rounded.ViewSidebar, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(4.dp))
+                Text(if (showThumbnails) "Ascunde pagini" else "Miniaturi", fontSize = 12.sp)
+            }
             TextButton(onClick = { continuous = !continuous }) {
                 Icon(if (continuous) Icons.Rounded.ViewDay else Icons.Rounded.Description, null)
                 Spacer(Modifier.width(4.dp))
