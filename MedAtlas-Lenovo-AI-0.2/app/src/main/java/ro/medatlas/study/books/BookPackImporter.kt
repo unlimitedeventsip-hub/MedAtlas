@@ -50,14 +50,15 @@ internal object BookPackImporter {
                         archive.closeEntry()
                         continue
                     }
-                    if (store.documents().any { it.originalName == filename }) {
+                    val sanitized = filename.take(140)
+                    if (store.documents().any { it.originalName == sanitized }) {
                         duplicates++
                         archive.closeEntry()
                         progress(processed)
                         continue
                     }
-                    val sanitized = filename.replace(Regex("[^A-Za-z0-9._ -]"), "_").take(140)
-                    val target = File(temporary, "book_" + processed + "_" + sanitized)
+                    val single = File(temporary, "entry_" + processed).apply { mkdirs() }
+                    val target = File(single, sanitized)
                     try {
                         target.outputStream().buffered().use { output ->
                             val buffer = ByteArray(1024 * 1024)
@@ -82,6 +83,7 @@ internal object BookPackImporter {
                         if (expandedTotal > totalLimit) throw e
                     } finally {
                         target.delete()
+                        single.delete()
                         archive.closeEntry()
                         progress(processed)
                     }
