@@ -84,18 +84,24 @@ data class Flashcard(
 data class PageSticker(
     val id: String = UUID.randomUUID().toString(),
     val imageName: String,
+    val sourceUrl: String = "",
+    val attribution: String = "",
+    val license: String = "",
     val x: Float = 0.25f,
     val y: Float = 0.25f,
     val size: Float = 0.32f
 ) {
     fun json() = JSONObject().apply {
-        put("id", id); put("imageName", imageName); put("x", x.toDouble());
+        put("id", id); put("imageName", imageName); put("sourceUrl", sourceUrl); put("attribution", attribution); put("license", license); put("x", x.toDouble());
         put("y", y.toDouble()); put("size", size.toDouble())
     }
     companion object {
         fun parse(o: JSONObject) = PageSticker(
             id = o.optString("id", UUID.randomUUID().toString()),
             imageName = o.getString("imageName"),
+            sourceUrl = o.optString("sourceUrl"),
+            attribution = o.optString("attribution"),
+            license = o.optString("license"),
             x = o.optDouble("x", 0.25).toFloat(),
             y = o.optDouble("y", 0.25).toFloat(),
             size = o.optDouble("size", 0.32).toFloat()
