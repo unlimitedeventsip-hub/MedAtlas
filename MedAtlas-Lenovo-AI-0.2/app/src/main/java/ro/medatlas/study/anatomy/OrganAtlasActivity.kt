@@ -201,6 +201,7 @@ class OrganAtlasActivity : ComponentActivity() {
                                     }
                                 }
                             }
+                            SystemSchematic(organ.system, modifier = Modifier.fillMaxWidth())
                             Text("Contextul sistemului", fontWeight = FontWeight.Bold)
                             Text(system.overview)
                             Text("Carnetul meu pentru această structură", fontWeight = FontWeight.Bold)
