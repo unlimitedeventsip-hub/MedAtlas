@@ -327,7 +327,8 @@ internal fun UnifiedLibraryScreen(
                     Column(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 16.dp)) {
                         listOf("Bibliotecă" to Icons.Rounded.FolderOpen, "Recente" to Icons.Rounded.History,
                             "Favorite" to Icons.Rounded.Star, "Notițe & planșe" to Icons.Rounded.EditNote,
-                            "Studiu" to Icons.Rounded.School, "Setări" to Icons.Rounded.Settings).forEach { (title, icon) ->
+                            "Studiu" to Icons.Rounded.School, "Classroom" to Icons.Rounded.Class,
+                            "Setări" to Icons.Rounded.Settings).forEach { (title, icon) ->
                             val active = section == title
                             Row(Modifier.fillMaxWidth()
                                 .clip(RoundedCornerShape(14.dp))
@@ -336,6 +337,7 @@ internal fun UnifiedLibraryScreen(
                                     when (title) {
                                         "Notițe & planșe" -> onNavigate(1)
                                         "Studiu" -> onNavigate(2)
+                                        "Classroom" -> onNavigate(4)
                                         "Setări" -> onNavigate(3)
                                         else -> { section = title; selectedFolder = null }
                                     }

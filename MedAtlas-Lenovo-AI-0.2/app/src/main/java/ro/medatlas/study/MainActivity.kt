@@ -73,6 +73,8 @@ import ro.medatlas.study.ui.PremiumIntro
 import ro.medatlas.study.pdf.AnnotatedPdfExporter
 import ro.medatlas.study.ai.AiClient
 import ro.medatlas.study.classroom.ClassroomActivity
+import ro.medatlas.study.classroom.ClassroomWorkspace
+import ro.medatlas.study.classroom.ClassroomSync
 import ro.medatlas.study.books.MedicalBooksActivity
 import ro.medatlas.study.simulation.ClinicalSimulatorActivity
 import ro.medatlas.study.simulation.ExamSimulatorActivity
@@ -95,6 +97,9 @@ private val PaleRose = Color(0xFFFFEFF2)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // One non-blocking, silent sync at every app launch when Classroom was
+        // already authorized. Never opens a Google login prompt automatically.
+        ClassroomSync.refreshOnAppOpen(applicationContext)
         window.statusBarColor = android.graphics.Color.rgb(12, 29, 52)
         window.navigationBarColor = android.graphics.Color.rgb(12, 29, 52)
         @Suppress("DEPRECATION")
@@ -117,6 +122,17 @@ private fun MedAtlasApp() {
     var officeTextMode by remember { mutableStateOf(false) }
     var libraryNoteId by remember { mutableStateOf<String?>(null) }
     var libraryRevision by remember { mutableIntStateOf(0) }
+    // Keep the unified library in step with optional Classroom attachment imports,
+    // without forcing the user to restart the application.
+    val classroomRevision by ClassroomSync.revision.collectAsState()
+    LaunchedEffect(classroomRevision) {
+        if (classroomRevision > 0) {
+            val latest = withContext(Dispatchers.IO) { store.documents() }
+            docs.clear()
+            docs.addAll(latest)
+            libraryRevision++
+        }
+    }
     var importFolderId by remember { mutableStateOf<String?>(null) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val introPrefs = remember { context.getSharedPreferences("medatlas_editor", android.content.Context.MODE_PRIVATE) }
@@ -185,8 +201,7 @@ private fun MedAtlasApp() {
                 val options = listOf(Triple("Bibliotecă", Icons.Rounded.FolderOpen, 0), Triple("Notițe", Icons.Rounded.EditNote, 1), Triple("Studiu", Icons.Rounded.School, 2), Triple("Classroom", Icons.Rounded.Class, 4), Triple("Setări", Icons.Rounded.Settings, 3))
                 options.forEach { (name, icon, number) ->
                     NavigationBarItem(selected = tab == number, onClick = {
-                        if (number == 4) context.startActivity(Intent(context, ClassroomActivity::class.java))
-                        else tab = number
+                        tab = number
                     }, icon = { Icon(icon, name) }, label = { Text(name, fontSize = 11.sp) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Color.White,
@@ -228,6 +243,7 @@ private fun MedAtlasApp() {
                     when (tab) {
                         1 -> NotebookLibrary(store, docs, onOpen = { selected = it }, unified = true)
                         2 -> CardsScreen(store, docs, onOpen = { selected = it })
+                        4 -> ClassroomWorkspace(onBack = { tab = 0 })
                         else -> SettingsScreen(onReplayIntro = { showIntro = true })
                     }
                 }
@@ -1834,22 +1850,19 @@ private fun SettingsScreen(onReplayIntro: () -> Unit) {
     var smartMarker by remember { mutableStateOf(editPrefs.getBoolean("smart_marker", true)) }
     var introEnabled by remember { mutableStateOf(editPrefs.getBoolean("show_premium_intro", true)) }
     var showBibliography by remember { mutableStateOf(false) }
+    var showAdvanced by rememberSaveable { mutableStateOf(false) }
+    var showNadiaConfig by rememberSaveable { mutableStateOf(!AiClient.configured(context)) }
     val backupStore = remember { LibraryStore(context) }
-    val backupSaver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        if (uri != null) runCatching { backupStore.exportBackup(uri) }
-            .onSuccess { message = "Backup creat. Păstrează ZIP-ul în siguranță." }
-            .onFailure { message = it.localizedMessage ?: "Backup nereușit" }
-    }
-    val backupRestorer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) runCatching { backupStore.importBackup(uri) }
-            .onSuccess { message = "Restaurat. Închide și redeschide MedAtlas pentru a reîncărca biblioteca." }
-            .onFailure { message = it.localizedMessage ?: "Restaurare nereușită" }
-    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Setări și confidențialitate", fontSize = 23.sp, fontWeight = FontWeight.Bold)
         NotebookSettings(editPrefs)
-        SettingLine("Offline-first", "Documentele, notițele și desenele se păstrează pe dispozitiv.")
-        SettingLine("Fără reclame", "Nu există publicitate, trackere publicitare sau cont obligatoriu.")
+        SettingLine("Google Classroom",
+            "Cursurile și temele se actualizează automat la pornire, după prima conectare. " +
+                "Fișierele locale rămân disponibile offline.")
+        OutlinedButton(onClick = { showAdvanced = !showAdvanced }) {
+            Text(if (showAdvanced) "Ascunde opțiunile avansate" else "Opțiuni avansate")
+        }
+        if (showAdvanced) {
         Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.fillMaxWidth().padding(15.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1866,7 +1879,6 @@ private fun SettingsScreen(onReplayIntro: () -> Unit) {
                     modifier = Modifier.fillMaxWidth()) { Text("Revezi intro-ul") }
             }
         }
-        SettingLine("Portret / peisaj", "Interfață adaptabilă automat la orientarea tabletei.")
         Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.fillMaxWidth().padding(15.dp)) {
                 Text("Instrumente de adnotare", fontWeight = FontWeight.SemiBold)
@@ -1899,16 +1911,17 @@ private fun SettingsScreen(onReplayIntro: () -> Unit) {
             }
         }
 
-        SettingLine("ChatGPT Plus", "Poți partaja textul sau selecția către ChatGPT fără API. Revii în MedAtlas după studiu.")
-        Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
+        }
+        OutlinedButton(onClick = { showNadiaConfig = !showNadiaConfig }) {
+            Text(if (showNadiaConfig) "Ascunde configurarea Nadia AI"
+                else "Nadia AI · configurare conexiune")
+        }
+        if (showNadiaConfig) Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
             Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 Text("Nadia AI • conectare backend", fontWeight = FontWeight.SemiBold)
                 Text("Adresa Nadia AI este pregătită. Lipește tokenul privat MedAtlas o singură dată pe această tabletă. Testul trimite un mesaj de probă fără conținut din caiete.", fontSize = 12.sp, color = Slate)
                 OutlinedTextField(endpoint, { if (endpoint != it) token = ""; endpoint = it }, enabled = !testingAi, label = { Text("URL backend HTTPS") }, placeholder = { Text(AiClient.DEFAULT_ENDPOINT) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(token, { token = it }, enabled = !testingAi, label = { Text("Token privat MedAtlas") }, singleLine = true, modifier = Modifier.fillMaxWidth(), visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation())
-                Button(onClick = {
-                    runCatching { AiClient.configure(context, endpoint, token) }.onSuccess { message = "Setările Nadia AI au fost salvate local." }.onFailure { message = it.localizedMessage ?: "Date invalide." }
-                }, modifier = Modifier.fillMaxWidth()) { Text("Salvează configurarea AI") }
                 OutlinedButton(enabled = !testingAi && token.isNotBlank(), onClick = {
                     runCatching { AiClient.configure(context, endpoint, token) }.onSuccess {
                         testingAi = true
@@ -1926,33 +1939,12 @@ private fun SettingsScreen(onReplayIntro: () -> Unit) {
                 if (message.isNotBlank()) Text(message, color = Teal, fontSize = 12.sp)
             }
         }
-        Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
-            Column(Modifier.fillMaxWidth().padding(15.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Siguranța cursurilor · Backup complet", fontWeight = FontWeight.SemiBold)
-                Text("Salvează documentele, adnotările, comentariile și stickerele înainte să reinstalezi APK-ul.",
-                    color = Slate, fontSize = 12.sp)
-                Button(onClick = { backupSaver.launch("MedAtlas-Nadia-backup.zip") },
-                    modifier = Modifier.fillMaxWidth()) { Text("Exportă backup ZIP") }
-                OutlinedButton(onClick = { backupRestorer.launch(arrayOf("application/zip", "application/octet-stream")) },
-                    modifier = Modifier.fillMaxWidth()) { Text("Restabilește din backup ZIP") }
-            }
-        }
-        Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
-            Column(Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Google Classroom · import manual sigur", fontWeight = FontWeight.SemiBold)
-                Text("Deschide cursurile Classroom, descarcă fișierul PDF/DOCX/PPTX și revino în Bibliotecă → Importă. Sincronizarea Google OAuth nu este configurată.",
-                    color = Slate, fontSize = 12.sp)
-                OutlinedButton(onClick = {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://classroom.google.com/")))
-                }, modifier = Modifier.fillMaxWidth()) { Text("Deschide Google Classroom") }
-            }
-        }
-                SettingLine("Word și PowerPoint", "DOCX/PPTX se citesc ca text extras, fără păstrarea layoutului original. Documentele originale sunt păstrate.")
-        SettingLine("Rezumate și quiz", "Algoritmi offline simpli; nu sunt încă evaluări AI clinice.")
-        SettingLine("Backup", "Poți exporta și restaura arhiva completă ZIP în Setări.")
+        SettingLine("Fișiere și backup",
+            "Importul, organizarea și backupul Google Drive sunt într-un singur loc: Bibliotecă.")
+        SettingLine("Word și PowerPoint",
+            "DOCX și PPTX se deschid în MedAtlas. Documentele Office complexe pot avea diferențe de afișare.")
         Spacer(Modifier.height(14.dp))
-        Text("MedAtlas • Beta 0.8 • construit pentru Nadia ♡", color = Slate, fontSize = 12.sp)
+        Text("MedAtlas · Spațiul tău de studiu", color = Slate, fontSize = 12.sp)
     }
     if (showBibliography) {
         val bibliography = remember(showBibliography) { backupStore.imageBibliography() }

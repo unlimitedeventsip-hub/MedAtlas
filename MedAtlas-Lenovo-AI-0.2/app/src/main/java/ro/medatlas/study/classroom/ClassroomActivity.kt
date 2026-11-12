@@ -1,5 +1,7 @@
 package ro.medatlas.study.classroom
 
+import ro.medatlas.study.classroom.ClassroomActivity.ClassroomEntry
+
 import ro.medatlas.study.GlassTokens
 import ro.medatlas.study.MedAtlasGlassTheme
 
@@ -41,39 +43,61 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-/* Independent Classroom window. Requires Android OAuth app registration in Google Cloud. */
+/** Compatibility entry point for existing shortcuts; normal navigation stays in-app. */
 class ClassroomActivity : ComponentActivity() {
     data class ClassroomEntry(val id: String, val courseId: String, val name: String,
         val detail: String, val link: String, val kind: String, val driveId: String = "")
-    private val authorization by lazy { Identity.getAuthorizationClient(this) }
-    private val scopes = listOf(
-        Scope("https://www.googleapis.com/auth/classroom.courses.readonly"),
-        Scope("https://www.googleapis.com/auth/classroom.courseworkmaterials.readonly"),
-        Scope("https://www.googleapis.com/auth/classroom.coursework.me.readonly"),
-        Scope("https://www.googleapis.com/auth/drive.readonly")
-    )
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { ClassroomScreen() }
+        setContent { ClassroomWorkspace(onBack = { finish() }, embedded = false) }
     }
+}
 
-    @Composable
-    private fun ClassroomScreen() {
-        var status by remember { mutableStateOf("Conectează Google Classroom pentru a vedea cursurile și temele.") }
+@Composable
+internal fun ClassroomWorkspace(onBack: () -> Unit, embedded: Boolean = true) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val authorization = remember(context) { Identity.getAuthorizationClient(context) }
+    val scopes = ClassroomSync.requiredScopes
+    val scope = rememberCoroutineScope()
+
+        val cached = remember { ClassroomSync.cached(context) }
+        var status by remember { mutableStateOf(
+            if (cached.syncedAt > 0) "Cursurile sunt disponibile offline; actualizarea rulează automat la pornire."
+            else "Conectează Google Classroom o singură dată pentru sincronizare automată."
+        ) }
         var busy by remember { mutableStateOf(false) }
-        var courses by remember { mutableStateOf<List<ClassroomEntry>>(emptyList()) }
-        var materials by remember { mutableStateOf<List<ClassroomEntry>>(emptyList()) }
+        val revision by ClassroomSync.revision.collectAsState()
+        val backgroundBusy by ClassroomSync.syncing.collectAsState()
+        val liveSnapshot = remember(revision) { ClassroomSync.cached(context) }
+        var courses by remember { mutableStateOf(cached.courses) }
+        var materials by remember { mutableStateOf(cached.materials) }
+        LaunchedEffect(revision) {
+            val refreshed = ClassroomSync.cached(context)
+            courses = refreshed.courses
+            materials = refreshed.materials
+            status = if (refreshed.error.isNotBlank())
+                "Ultima actualizare a eșuat: " + refreshed.error +
+                    if (refreshed.syncedAt > 0) " · cursurile salvate rămân disponibile." else ""
+            else if (refreshed.syncedAt > 0)
+                "Sincronizate " + courses.size + " cursuri și " + materials.size +
+                    " materiale. Disponibile și fără internet."
+            else "Conectează Google Classroom o singură dată pentru sincronizare automată."
+        }
         var selected by remember { mutableStateOf<String?>(null) }
         val navy = Color(0xFF182535)
-        val library = remember { LibraryStore(this@ClassroomActivity) }
-        val preferences = remember { getSharedPreferences("classroom_sync", MODE_PRIVATE) }
+        val library = remember { LibraryStore(context) }
+        val preferences = remember { context.getSharedPreferences("classroom_sync", android.content.Context.MODE_PRIVATE) }
         var autoImport by remember { mutableStateOf(preferences.getBoolean("auto_import", false)) }
         var currentToken by remember { mutableStateOf<String?>(null) }
+        var showImportOptions by remember { mutableStateOf(false) }
         fun importAttachments(token: String, source: List<ClassroomEntry>, classrooms: List<ClassroomEntry>) {
             busy = true
             status = "Import Classroom în biblioteca locală..."
-            lifecycleScope.launch {
+            scope.launch {
                 val counts = withContext(Dispatchers.IO) {
                     var copied = 0
                     var existing = 0
@@ -83,14 +107,14 @@ class ClassroomActivity : ComponentActivity() {
                             ?.name ?: "Classroom"
                         runCatching {
                             val downloaded = ClassroomApi.download(token, attachment.driveId,
-                                File(cacheDir, "classroom"))
+                                File(context.cacheDir, "classroom"))
                             try {
                                 if (library.documents().any {
                                     it.originalName == downloaded.name && it.course == courseName
                                 }) existing++
                                 else {
                                     val uri = FileProvider.getUriForFile(
-                                        this@ClassroomActivity, packageName + ".files", downloaded)
+                                        context, context.packageName + ".files", downloaded)
                                     library.import(uri, courseName)
                                     copied++
                                 }
@@ -106,16 +130,22 @@ class ClassroomActivity : ComponentActivity() {
         }
         fun sync(token: String) {
             busy = true
-            currentToken = token
-            status = "Sincronizare în curs..."
-            lifecycleScope.launch {
-                runCatching { withContext(Dispatchers.IO) { ClassroomApi.load(token) } }
-                    .onSuccess {
-                        courses = it.first; materials = it.second
-                        status = "Sincronizate " + courses.size + " cursuri și " + materials.size + " materiale / teme."
-                        if (autoImport) importAttachments(token, materials, courses)
-                    }.onFailure { status = "Sincronizare nereușită: " + (it.localizedMessage ?: "Eroare Google"); busy = false }
-                if (!autoImport) busy = false
+            currentToken = token // transient: never persisted
+            status = "Actualizez cursurile și materialele..."
+            scope.launch {
+                try {
+                    val updated = ClassroomSync.synchronize(context, token)
+                    courses = updated.courses
+                    materials = updated.materials
+                    status = "Actualizate " + courses.size + " cursuri și " +
+                        materials.size + " materiale / teme."
+                } catch (error: Exception) {
+                    status = "Nu pot actualiza acum: " +
+                        (error.localizedMessage ?: "eroare de conexiune") +
+                        ". Datele salvate rămân disponibile."
+                } finally {
+                    busy = false
+                }
             }
         }
         val launcher = rememberLauncherForActivityResult(
@@ -144,42 +174,64 @@ class ClassroomActivity : ComponentActivity() {
                     ". Verifică în Google Cloud OAuth, pachetul Android și SHA-1."
             }
         }
-        LaunchedEffect(Unit) { connect() }
+        // App launch has already requested a silent refresh. No surprise OAuth popup here.
         MedAtlasGlassTheme {
-            Column(Modifier.fillMaxSize().background(GlassTokens.LightPage)
-                .statusBarsPadding().navigationBarsPadding()) {
+            Column((if (embedded) Modifier.fillMaxSize().background(GlassTokens.LightPage)
+                else Modifier.fillMaxSize().background(GlassTokens.LightPage)
+                    .statusBarsPadding().navigationBarsPadding())) {
                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { finish() }) { Icon(Icons.Rounded.ArrowBack, "Înapoi") }
+                    if (!embedded) IconButton(onClick = onBack) {
+                        Icon(Icons.Rounded.ArrowBack, "Înapoi")
+                    }
                     Column(Modifier.weight(1f)) {
                         Text("Google Classroom", fontWeight = FontWeight.Bold, fontSize = 21.sp, color = navy)
-                        Text("Fereastră separată • numai citire", fontSize = 11.sp, color = Color.Gray)
+                        Text("Sincronizare automată · acces offline", fontSize = 11.sp, color = Color.Gray)
                     }
                 }
-                if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
+                if (busy || backgroundBusy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(status, fontSize = 12.sp)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = autoImport, onCheckedChange = {
-                                autoImport = it
-                                preferences.edit().putBoolean("auto_import", it).apply()
-                            })
-                            Text("Import automat PDF, Word, PowerPoint din Drive",
-                                modifier = Modifier.weight(1f), fontSize = 11.sp)
+                        if (liveSnapshot.syncedAt > 0L) {
+                            Text(
+                                "Ultima actualizare: " +
+                                    SimpleDateFormat("dd.MM.yyyy, HH:mm", Locale.getDefault())
+                                        .format(Date(liveSnapshot.syncedAt)),
+                                fontSize = 10.sp, color = Color(0xFF627D99)
+                            )
                         }
-                        Text("Maxim 25 de atașamente per sincronizare, 30 MB fiecare. Fișierele inaccesibile sunt omise. Accesul Google Drive este doar pentru citire.",
-                            fontSize = 10.sp, color = Color.Gray)
-                        if (!autoImport && currentToken != null &&
-                            materials.any { it.driveId.isNotBlank() }) {
-                            OutlinedButton(onClick = {
-                                importAttachments(currentToken!!, materials, courses)
-                            }, enabled = !busy) { Text("Importă fișiere în MedAtlas") }
+                        TextButton(onClick = { showImportOptions = !showImportOptions }) {
+                            Icon(Icons.Rounded.CloudDownload, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text(if (showImportOptions) "Ascunde opțiunile de import"
+                                else "Opțiuni import fișiere")
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = { connect() }, enabled = !busy) { Text("Conectează / Actualizează") }
-                            OutlinedButton(onClick = {
-                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://classroom.google.com")))
-                            }) { Text("Web") }
+                        if (showImportOptions) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = autoImport, onCheckedChange = {
+                                    autoImport = it
+                                    preferences.edit().putBoolean("auto_import", it).apply()
+                                })
+                                Text("Importă automat și fișierele PDF, Word și PowerPoint",
+                                    modifier = Modifier.weight(1f), fontSize = 11.sp)
+                            }
+                            Text("Cursurile și temele se actualizează automat la pornirea MedAtlas, " +
+                                "după prima conectare. Opțiunea de mai sus descarcă și fișierele în " +
+                                "bibliotecă (maximum 25 per sincronizare, 30 MB fiecare).",
+                                fontSize = 10.sp, color = Color.Gray)
+                            if (!autoImport && currentToken != null &&
+                                materials.any { it.driveId.isNotBlank() }) {
+                                OutlinedButton(onClick = {
+                                    importAttachments(currentToken!!, materials, courses)
+                                }, enabled = !busy) { Text("Importă fișiere în MedAtlas") }
+                            }
+                            }
+                        Button(onClick = { connect() }, enabled = !busy && !backgroundBusy) {
+                            Icon(if (liveSnapshot.connected || courses.isNotEmpty())
+                                Icons.Rounded.Refresh else Icons.Rounded.AccountCircle, null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (liveSnapshot.connected || courses.isNotEmpty()) "Actualizează acum"
+                                else "Conectează Google Classroom")
                         }
                     }
                 }
@@ -188,6 +240,14 @@ class ClassroomActivity : ComponentActivity() {
                 }
                 LazyColumn(Modifier.fillMaxSize().padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (selected == null && courses.isEmpty() && !backgroundBusy && !busy) {
+                        item {
+                            Text("Nu există cursuri în biblioteca Classroom. " +
+                                "Conectează-te sau actualizează pentru a le încărca.",
+                                color = Color(0xFF617A99), fontSize = 13.sp,
+                                modifier = Modifier.padding(16.dp))
+                        }
+                    }
                     if (selected == null) items(courses, key = { it.id }) { course ->
                         Card(Modifier.fillMaxWidth().clickable { selected = course.id }) {
                             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -207,8 +267,8 @@ class ClassroomActivity : ComponentActivity() {
                                 Text(item.name, fontWeight = FontWeight.SemiBold)
                                 if (item.detail.isNotBlank()) Text(item.detail, fontSize = 12.sp)
                                 if (item.link.isNotBlank()) TextButton(onClick = {
-                                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.link)))
-                                }) { Text("Deschide material") }
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.link)))
+                                }) { Text("Deschide linkul extern") }
                             }
                         }
                     }
@@ -216,9 +276,8 @@ class ClassroomActivity : ComponentActivity() {
             }
         }
     }
-}
 
-private object ClassroomApi {
+internal object ClassroomApi {
     private fun get(token: String, url: String): JSONObject {
         val c = URL(url).openConnection() as HttpURLConnection
         try {
