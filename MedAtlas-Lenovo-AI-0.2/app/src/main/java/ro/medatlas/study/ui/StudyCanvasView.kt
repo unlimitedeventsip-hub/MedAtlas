@@ -15,6 +15,7 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import ro.medatlas.study.data.PageSticker
 import ro.medatlas.study.data.PageComment
+import ro.medatlas.study.data.PageTextBox
 import ro.medatlas.study.data.InkPoint
 import ro.medatlas.study.data.Stroke
 import ro.medatlas.study.data.Tool
@@ -32,6 +33,12 @@ class StudyCanvasView(context: Context) : View(context) {
     var onAnalyze: (Bitmap) -> Unit = {}
     var onCommentCreate: (InkPoint, String) -> Unit = { _, _ -> }
     var onCommentOpen: (PageComment) -> Unit = {}
+    var onTextCreate: (InkPoint) -> Unit = {}
+    var onTextOpen: (PageTextBox) -> Unit = {}
+    var onTextsSave: (List<PageTextBox>) -> Unit = {}
+    var textBoxes: List<PageTextBox> = emptyList()
+        set(value) { field = value; invalidate() }
+    private var draggingTextId: String? = null
     var comments: List<PageComment> = emptyList()
         set(value) { field = value; invalidate() }
     var onStickersSave: (List<PageSticker>) -> Unit = {}
@@ -203,6 +210,28 @@ class StudyCanvasView(context: Context) : View(context) {
             }
         }
         for (stroke in marks) renderStroke(canvas, stroke, stroke.id in selectedIds)
+        textBoxes.forEach { box ->
+            val x = pageRect.left + box.x * pageRect.width()
+            val y = pageRect.top + box.y * pageRect.height()
+            val fontSize = box.sizeSp * resources.displayMetrics.scaledDensity
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = box.color
+                textSize = fontSize
+                typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
+            }
+            box.content.lines().take(18).forEachIndexed { line, row ->
+                canvas.drawText(line.take(180), x, y + (row + 1) * fontSize * 1.22f, paint)
+            }
+            if (tool == Tool.TEXT) {
+                val widthText = box.content.lines().maxOfOrNull { paint.measureText(it.take(180)) } ?: 20f
+                val highlight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                    color = Color.rgb(58, 128, 123); style = Paint.Style.STROKE; strokeWidth = 1.8f
+                }
+                canvas.drawRoundRect(RectF(x-4f, y, x+widthText+4f,
+                    y + box.content.lines().size.coerceAtMost(18) * fontSize * 1.22f + 4f),
+                    4f, 4f, highlight)
+            }
+        }
         val commentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(210, 131, 156); style = Paint.Style.FILL
         }
@@ -321,6 +350,19 @@ class StudyCanvasView(context: Context) : View(context) {
                 fingerNavigating = !fingerInk && !isStylus
                 if (tool == Tool.PAN || fingerNavigating) { priorMidX = event.x; priorMidY = event.y; return true }
                 val pt = pos(event.x, event.y, event.pressure)
+                if (tool == Tool.TEXT) {
+                    val hit = textBoxes.lastOrNull { box ->
+                        val boxX = box.x
+                        val boxY = box.y
+                        pt.x >= boxX - .018f && pt.x <= (boxX + .40f).coerceAtMost(1f) &&
+                            pt.y >= boxY - .025f && pt.y <= (boxY + .09f + box.content.lines().size * .028f)
+                    }
+                    if (hit != null) {
+                        draggingTextId = hit.id
+                        priorMidX = event.x; priorMidY = event.y
+                    } else onTextCreate(pt)
+                    return true
+                }
                 if (tool == Tool.COMMENT) {
                     val radius = 0.028f
                     val hit = comments.lastOrNull {
@@ -355,6 +397,19 @@ class StudyCanvasView(context: Context) : View(context) {
                 }
                 if (multiTouch) return true
                 if (tool == Tool.PAN || fingerNavigating) { panX += event.x - priorMidX; panY += event.y - priorMidY; priorMidX = event.x; priorMidY = event.y; invalidate(); return true }
+                if (tool == Tool.TEXT && draggingTextId != null) {
+                    val start = pos(priorMidX, priorMidY, 1f)
+                    val end = pos(event.x, event.y, 1f)
+                    textBoxes = textBoxes.map { item ->
+                        if (item.id == draggingTextId) item.copy(
+                            x = (item.x + end.x - start.x).coerceIn(0f, .96f),
+                            y = (item.y + end.y - start.y).coerceIn(0f, .96f)
+                        ) else item
+                    }
+                    priorMidX = event.x; priorMidY = event.y
+                    dragged = true
+                    return true
+                }
                 if (tool == Tool.STICKER && currentStickerId != null) {
                     val start = pos(priorMidX, priorMidY, 1f)
                     val end = pos(event.x, event.y, 1f)
@@ -377,6 +432,13 @@ class StudyCanvasView(context: Context) : View(context) {
             }
             MotionEvent.ACTION_UP -> {
                 parent?.requestDisallowInterceptTouchEvent(false)
+                if (tool == Tool.TEXT && draggingTextId != null) {
+                    val id = draggingTextId
+                    draggingTextId = null
+                    if (!dragged) textBoxes.firstOrNull { it.id == id }?.let(onTextOpen)
+                    onTextsSave(textBoxes)
+                    return true
+                }
                 if (tool == Tool.STICKER && currentStickerId != null) { onStickersSave(stickers); return true }
                 if (multiTouch) { multiTouch = false; return true }
                 if (!drawing) return true
