@@ -3,6 +3,8 @@ package ro.medatlas.study.anatomy
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import ro.medatlas.study.data.LibraryStore
+import ro.medatlas.study.data.StudyNote
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
@@ -94,6 +96,12 @@ class OrganAtlasActivity : ComponentActivity() {
         var query by remember { mutableStateOf("") }
         var activeSystem by remember { mutableStateOf("Toate") }
         var selected by remember { mutableStateOf<Organ?>(null) }
+        val store = remember { LibraryStore(this@OrganAtlasActivity) }
+        val activeKey = selected?.let { "atlas:" + it.system + ":" + it.name }.orEmpty()
+        var organNotes by remember(activeKey) {
+            mutableStateOf(store.notes().firstOrNull { it.documentId == activeKey }?.body.orEmpty())
+        }
+        var saved by remember(activeKey) { mutableStateOf(false) }
         val total = groups.sumOf { it.organs.size }
         MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF38786E))) {
             Column(Modifier.fillMaxSize().background(Color(0xFFFAF8F4))
@@ -180,6 +188,27 @@ class OrganAtlasActivity : ComponentActivity() {
                             }
                             Text("Contextul sistemului", fontWeight = FontWeight.Bold)
                             Text(system.overview)
+                            Text("Carnetul meu pentru această structură", fontWeight = FontWeight.Bold)
+                            OutlinedTextField(value = organNotes, onValueChange = {
+                                organNotes = it
+                                saved = false
+                            }, modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Note de anatomie, întrebări sau explicații") },
+                                minLines = 4, maxLines = 12)
+                            Button(onClick = {
+                                val old = store.notes()
+                                val existing = old.firstOrNull { it.documentId == activeKey }
+                                val update = if (existing != null)
+                                    existing.copy(body = organNotes, updatedAt = System.currentTimeMillis())
+                                else StudyNote(documentId = activeKey, page = 0,
+                                    heading = "Atlas · " + organ.name, body = organNotes,
+                                    course = "Anatomie • " + organ.system)
+                                store.saveNotes(if (existing == null) old + update
+                                    else old.map { if (it.id == existing.id) update else it })
+                                saved = true
+                            }, enabled = organNotes.isNotBlank()) { Text("Salvează în carnet") }
+                            if (saved) Text("Notița a fost salvată local și este vizibilă și la Notițe.",
+                                color = Color(0xFF38786E), fontSize = 11.sp)
                             Text("Fișă de aprofundare", fontWeight = FontWeight.Bold)
                             Text("De completat din surse verificate: localizare, raporturi anatomice, "
                                 + "histologie, vascularizație, inervație, fiziologie, patologii, "
