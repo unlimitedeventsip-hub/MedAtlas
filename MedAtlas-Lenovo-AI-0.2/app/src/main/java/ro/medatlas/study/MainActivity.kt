@@ -67,6 +67,7 @@ import ro.medatlas.study.ai.AiClient
 import ro.medatlas.study.classroom.ClassroomActivity
 import ro.medatlas.study.simulation.ClinicalSimulatorActivity
 import ro.medatlas.study.anatomy.Anatomy3DActivity
+import ro.medatlas.study.reference.MedicalReferenceActivity
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -1467,6 +1468,13 @@ private fun CardsScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: 
             Icon(Icons.Rounded.AccessibilityNew, null)
             Spacer(Modifier.width(6.dp))
             Text("Anatomie 3D · organe, straturi, ECG și CT")
+        }
+        OutlinedButton(onClick = {
+            context.startActivity(Intent(context, MedicalReferenceActivity::class.java))
+        }) {
+            Icon(Icons.Rounded.MonitorHeart, null)
+            Spacer(Modifier.width(6.dp))
+            Text("Laborator medical · ECG, RX, monitoare, medicamente")
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("De repetat acum: " + dueCount + " / " + cards.size, color = Slate,
