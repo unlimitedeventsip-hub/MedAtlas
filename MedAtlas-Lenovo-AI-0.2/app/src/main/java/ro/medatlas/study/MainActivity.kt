@@ -306,6 +306,8 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
     var color by remember { mutableIntStateOf(AndroidColor.rgb(41, 93, 82)) }
     var width by remember { mutableFloatStateOf(3f) }
     var fingerInk by remember { mutableStateOf(false) }
+    // Always open documents in safe reading mode; edit is explicit.
+    var readOnly by rememberSaveable(doc.id) { mutableStateOf(true) }
     // AI stays hidden until the reader explicitly requests it.
     var expanded by rememberSaveable(doc.id) { mutableStateOf(false) }
     var continuous by rememberSaveable(doc.id) { mutableStateOf(true) }
@@ -490,14 +492,22 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
         FullDocumentOcrWorker.enqueue(context, doc.id)
         Toast.makeText(context, "OCR pentru documentul complet a fost programat în fundal.", Toast.LENGTH_LONG).show()
     }
-    Column(Modifier.fillMaxSize().background(Ivory).statusBarsPadding().navigationBarsPadding()) {
-        // Always visible, independent from the PDF scrolling surface.
-        Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 8.dp, vertical = 3.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Bibliotecă") }
+    Column(Modifier.fillMaxSize()
+        .background(if (readOnly) Color(0xFF0B1C32) else Ivory)
+        .statusBarsPadding().navigationBarsPadding()) {
+        // The reading/editing switch is always visible, independent from PDF scrolling.
+        Row(Modifier.fillMaxWidth().background(if (readOnly) Color(0xFF122A49) else Color.White)
+            .padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Rounded.ArrowBack, "Bibliotecă",
+                    tint = if (readOnly) Color.White else Navy)
+            }
             Column(Modifier.weight(1f)) {
-                Text(doc.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                Text("${doc.kind} • pagina ${page + 1}/${pager.count}", fontSize = 11.sp, color = Slate)
+                Text(doc.title, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                    color = if (readOnly) Color.White else Navy)
+                Text("${doc.kind} • pagina ${page + 1}/${pager.count}", fontSize = 11.sp,
+                    color = if (readOnly) Color(0xFFB9CDE6) else Slate)
                 if (fullOcrStatus != null && fullOcrStatus.state == WorkInfo.State.RUNNING) {
                     val done = fullOcrStatus.progress.getInt(FullDocumentOcrWorker.KEY_DONE, 0)
                     val total = fullOcrStatus.progress.getInt(FullDocumentOcrWorker.KEY_TOTAL, pager.count)
@@ -508,12 +518,51 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                     Text("OCR întrerupt; reîncearcă din panoul Studiu", fontSize = 11.sp, color = Rose)
                 }
             }
-            TextButton(onClick = { expanded = !expanded }) {
+            Row(
+                Modifier.clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFF0E2948)).padding(3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf(true to "Citire", false to "Editare").forEach { (reading, label) ->
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (readOnly == reading) Color(0xFF338DFA) else Color.Transparent,
+                        modifier = Modifier.clickable {
+                            readOnly = reading
+                            if (reading) {
+                                expanded = false
+                                crop = null
+                                highlightSuggestions = emptyList()
+                                textAnchor = null
+                                selectedText = null
+                                commentAnchor = null
+                                selectedComment = null
+                                showNote = false
+                                showRemove = false
+                                showOcrLibrary = false
+                                imageToCrop = null
+                                canvasView?.clearSelection()
+                            }
+                        }
+                    ) {
+                        Row(Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Icon(if (reading) Icons.Rounded.Visibility else Icons.Rounded.Edit,
+                                label, tint = if (readOnly == reading) Color.White else Color(0xFFB7CAE3),
+                                modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(5.dp))
+                            Text(label, color = if (readOnly == reading) Color.White else Color(0xFFB7CAE3),
+                                fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+            if (!readOnly) TextButton(onClick = { expanded = !expanded }) {
                 Icon(Icons.Rounded.AutoAwesome, "Nadia AI", tint = Rose)
                 Spacer(Modifier.width(4.dp))
                 Text(if (expanded) "Ascunde AI" else "Nadia AI", fontSize = 12.sp, color = Navy)
             }
-            IconButton(enabled = !exporting, onClick = {
+            if (!readOnly) IconButton(enabled = !exporting, onClick = {
                 exporting = true
                 scope.launch {
                     runCatching { withContext(Dispatchers.IO) { AnnotatedPdfExporter.export(context, doc, store) } }
@@ -522,14 +571,29 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                     exporting = false
                 }
             }) { Icon(Icons.Rounded.IosShare, "Export PDF") }
-            IconButton(onClick = { showRemove = true }) { Icon(Icons.Rounded.MoreVert, "Mai multe") }
+            if (!readOnly) IconButton(onClick = { showRemove = true }) {
+                Icon(Icons.Rounded.MoreVert, "Mai multe")
+            }
         }
-        ToolBar(tool = tool, onTool = { tool = it }, color = color, onColor = { color = it },
-            width = width, onWidth = { width = it }, onUndo = { canvasView?.undo() },
-            onRedo = { canvasView?.redo() }, onImportSticker = { imagePicker.launch("image/*") },
-            onAtlas = { showAtlas = true }, onClearSelection = { canvasView?.eraseSelection() },
-            onStickerResize = { canvasView?.increaseStickerSize(it) },
-            onStickerRemove = { canvasView?.deleteSelectedSticker() })
+        if (!readOnly) {
+            ToolBar(tool = tool, onTool = { tool = it }, color = color, onColor = { color = it },
+                width = width, onWidth = { width = it }, onUndo = { canvasView?.undo() },
+                onRedo = { canvasView?.redo() }, onImportSticker = { imagePicker.launch("image/*") },
+                onAtlas = { showAtlas = true }, onClearSelection = { canvasView?.eraseSelection() },
+                onStickerResize = { canvasView?.increaseStickerSize(it) },
+                onStickerRemove = { canvasView?.deleteSelectedSticker() })
+        } else {
+            Row(
+                Modifier.fillMaxWidth().background(Color(0xFF183452))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Rounded.Lock, null, tint = Color(0xFF9CD8FF), modifier = Modifier.size(15.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Mod Citire · adnotările sunt vizibile, dar protejate",
+                    fontSize = 11.sp, color = Color(0xFFD2E5FA))
+            }
+        }
 
         Row(Modifier.fillMaxWidth().weight(1f)) {
             if (showThumbnails) {
