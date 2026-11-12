@@ -50,12 +50,12 @@ class ClassroomActivity : ComponentActivity() {
         val detail: String, val link: String, val kind: String, val driveId: String = "")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { ClassroomWorkspace(onBack = { finish() }) }
+        setContent { ClassroomWorkspace(onBack = { finish() }, embedded = false) }
     }
 }
 
 @Composable
-internal fun ClassroomWorkspace(onBack: () -> Unit) {
+internal fun ClassroomWorkspace(onBack: () -> Unit, embedded: Boolean = true) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val authorization = remember(context) { Identity.getAuthorizationClient(context) }
     val scopes = ClassroomSync.requiredScopes
@@ -89,6 +89,7 @@ internal fun ClassroomWorkspace(onBack: () -> Unit) {
         val preferences = remember { context.getSharedPreferences("classroom_sync", android.content.Context.MODE_PRIVATE) }
         var autoImport by remember { mutableStateOf(preferences.getBoolean("auto_import", false)) }
         var currentToken by remember { mutableStateOf<String?>(null) }
+        var showImportOptions by remember { mutableStateOf(false) }
         fun importAttachments(token: String, source: List<ClassroomEntry>, classrooms: List<ClassroomEntry>) {
             busy = true
             status = "Import Classroom în biblioteca locală..."
@@ -171,10 +172,13 @@ internal fun ClassroomWorkspace(onBack: () -> Unit) {
         }
         // App launch has already requested a silent refresh. No surprise OAuth popup here.
         MedAtlasGlassTheme {
-            Column(Modifier.fillMaxSize().background(GlassTokens.LightPage)
-                .statusBarsPadding().navigationBarsPadding()) {
+            Column((if (embedded) Modifier.fillMaxSize().background(GlassTokens.LightPage)
+                else Modifier.fillMaxSize().background(GlassTokens.LightPage)
+                    .statusBarsPadding().navigationBarsPadding())) {
                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Înapoi") }
+                    if (!embedded) IconButton(onClick = onBack) {
+                        Icon(Icons.Rounded.ArrowBack, "Înapoi")
+                    }
                     Column(Modifier.weight(1f)) {
                         Text("Google Classroom", fontWeight = FontWeight.Bold, fontSize = 21.sp, color = navy)
                         Text("Sincronizare automată · acces offline", fontSize = 11.sp, color = Color.Gray)
@@ -184,24 +188,32 @@ internal fun ClassroomWorkspace(onBack: () -> Unit) {
                 Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(status, fontSize = 12.sp)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = autoImport, onCheckedChange = {
-                                autoImport = it
-                                preferences.edit().putBoolean("auto_import", it).apply()
-                            })
-                            Text("Importă automat și fișierele PDF, Word și PowerPoint",
-                                modifier = Modifier.weight(1f), fontSize = 11.sp)
+                        TextButton(onClick = { showImportOptions = !showImportOptions }) {
+                            Icon(Icons.Rounded.FolderDownload, null)
+                            Spacer(Modifier.width(6.dp))
+                            Text(if (showImportOptions) "Ascunde opțiunile de import"
+                                else "Opțiuni import fișiere")
                         }
-                        Text("Cursurile și temele se actualizează automat la pornirea MedAtlas, " +
-                            "după prima conectare. Opțiunea de mai sus descarcă și fișierele în " +
-                            "bibliotecă (maximum 25 per sincronizare, 30 MB fiecare).",
-                            fontSize = 10.sp, color = Color.Gray)
-                        if (!autoImport && currentToken != null &&
-                            materials.any { it.driveId.isNotBlank() }) {
-                            OutlinedButton(onClick = {
-                                importAttachments(currentToken!!, materials, courses)
-                            }, enabled = !busy) { Text("Importă fișiere în MedAtlas") }
-                        }
+                        if (showImportOptions) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = autoImport, onCheckedChange = {
+                                    autoImport = it
+                                    preferences.edit().putBoolean("auto_import", it).apply()
+                                })
+                                Text("Importă automat și fișierele PDF, Word și PowerPoint",
+                                    modifier = Modifier.weight(1f), fontSize = 11.sp)
+                            }
+                            Text("Cursurile și temele se actualizează automat la pornirea MedAtlas, " +
+                                "după prima conectare. Opțiunea de mai sus descarcă și fișierele în " +
+                                "bibliotecă (maximum 25 per sincronizare, 30 MB fiecare).",
+                                fontSize = 10.sp, color = Color.Gray)
+                            if (!autoImport && currentToken != null &&
+                                materials.any { it.driveId.isNotBlank() }) {
+                                OutlinedButton(onClick = {
+                                    importAttachments(currentToken!!, materials, courses)
+                                }, enabled = !busy) { Text("Importă fișiere în MedAtlas") }
+                            }
+                            }
                         Button(onClick = { connect() }, enabled = !busy && !backgroundBusy) {
                             Icon(if (cached.connected || courses.isNotEmpty())
                                 Icons.Rounded.Refresh else Icons.Rounded.AccountCircle, null)
