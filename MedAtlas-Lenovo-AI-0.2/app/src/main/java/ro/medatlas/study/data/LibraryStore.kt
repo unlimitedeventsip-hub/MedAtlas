@@ -254,6 +254,33 @@ class LibraryStore(private val context: Context) {
     fun pageText(documentId: String, page: Int): String = runCatching {
         File(ocrDir, "${documentId}_${page}.txt").readText()
     }.getOrDefault("")
+    /**
+     * Search OCR page text without concatenating an entire medical textbook into memory.
+     * Called on Dispatchers.IO by the library UI, not on the main thread.
+     */
+    fun containsIndexedText(doc: StudyDocument, phrase: String): Boolean {
+        val keyword = phrase.trim()
+        if (keyword.isBlank()) return false
+        return if (doc.kind != "PDF") {
+            val source = File(docsDir, "${doc.id}.txt")
+            source.isFile && runCatching {
+                source.bufferedReader().useLines { lines ->
+                    lines.any { it.contains(keyword, ignoreCase = true) }
+                }
+            }.getOrDefault(false)
+        } else {
+            ocrDir.listFiles { file ->
+                file.isFile && file.name.startsWith("${doc.id}_") && file.name.endsWith(".txt")
+            }.orEmpty().any { file ->
+                runCatching {
+                    file.bufferedReader().useLines { lines ->
+                        lines.any { it.contains(keyword, ignoreCase = true) }
+                    }
+                }.getOrDefault(false)
+            }
+        }
+    }
+
     fun studyText(doc: StudyDocument): String = if (doc.kind != "PDF") extractedText(doc.id) else
         ocrDir.listFiles().orEmpty().filter { it.name.startsWith("${doc.id}_") && it.name.endsWith(".txt") }
             .sortedBy { it.name.substringAfter("${doc.id}_").substringBefore('.').toIntOrNull() ?: 0 }
