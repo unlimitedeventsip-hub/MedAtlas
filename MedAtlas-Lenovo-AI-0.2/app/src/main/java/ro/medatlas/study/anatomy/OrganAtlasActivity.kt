@@ -27,7 +27,7 @@ import androidx.compose.ui.unit.sp
 /**
  * Organ-level atlas index and study guide, not a certified clinical reference.
  * OpenStax links point to the original open-access textbook; MedAtlas does not
- * reproduce its figures and does not claim generated pictures are validated.
+ * reproduce OpenStax figures and does not claim generated pictures are validated.
  */
 class OrganAtlasActivity : ComponentActivity() {
     data class Organ(
@@ -183,6 +183,7 @@ class OrganAtlasActivity : ComponentActivity() {
                             Text(organ.system, color = Color(0xFF38786E))
                             Text("Localizare și raporturi", fontWeight = FontWeight.Bold)
                             Text(organ.location)
+                            AtlasPlate(organ.name)
                             if (organ.role.isNotBlank()) {
                                 Card(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(15.dp)) {
