@@ -1,5 +1,7 @@
 package ro.medatlas.study.classroom
 
+import ro.medatlas.study.classroom.ClassroomActivity.ClassroomEntry
+
 import ro.medatlas.study.GlassTokens
 import ro.medatlas.study.MedAtlasGlassTheme
 
