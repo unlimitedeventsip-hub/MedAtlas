@@ -13,6 +13,7 @@ import org.junit.runner.RunWith
 import ro.medatlas.study.anatomy.OrganAtlasActivity
 import ro.medatlas.study.reference.MedicalReferenceActivity
 import ro.medatlas.study.simulation.ClinicalSimulatorActivity
+import ro.medatlas.study.simulation.ExamSimulatorActivity
 
 @RunWith(AndroidJUnit4::class)
 class WorkbookDeviceTest {
@@ -86,4 +87,14 @@ class WorkbookDeviceTest {
             ui.onNodeWithText("Corect!").assertExists()
         }
     }
+    @Test fun startsOfflineExamAndNavigatesQuestions() {
+        ActivityScenario.launch(ExamSimulatorActivity::class.java).use {
+            ui.onNodeWithText("Simulare examen").assertExists()
+            ui.onNodeWithText("Începe examenul").performClick()
+            ui.onNodeWithText("Întrebarea 1 / 20").assertExists()
+            ui.onNodeWithText("Următoarea").performClick()
+            ui.onNodeWithText("Întrebarea 2 / 20").assertExists()
+        }
+    }
+
 }
