@@ -1,10 +1,10 @@
-# MedAtlas Nadia — Android Beta 0.4
+# MedAtlas Nadia — Android Beta 0.5
 
 Aplicație de studiu medical pentru tableta Lenovo, construită cu Kotlin + Jetpack Compose. Aplicația este un prototip educațional, **nu un dispozitiv medical**. Codul este în subfolderul `MedAtlas-Lenovo-AI-0.2/`; istoricul folderului a fost păstrat pentru compatibilitatea workflow-ului.
 
 ## Implementat în cod și compilat prin GitHub Actions
 
-- Intro ECG și inimă reinterpretate pentru Nadia, mod portret/peisaj.
+- Lansare directă în bibliotecă fără ecran introductiv sau animație. Mod portret/peisaj.
 - Biblioteca PDF/DOCX/PPTX; Word/PowerPoint sunt redate ca text extras, nu layout original.
 - Cititor PDF cu scroll continuu, zoom și pix, marker, smart underline, forme, Lasso, radieră.
 - OCR local, text extras editabil, quiz și rezumate offline.
@@ -12,7 +12,7 @@ Aplicație de studiu medical pentru tableta Lenovo, construită cu Kotlin + Jetp
 - Comentarii ancorate de pagină, stickere și bibliografie link/sursă/licență.
 - Import imagine cu decupare dreptunghiulară; atlas cu căutare externă după termeni.
 - Nadia AI: partajare către ChatGPT Plus; client pentru backend OpenAI (backend neconfigurat implicit).
-- Carnetul medicului: note, dictare vocală prin serviciul Android și transcriere experimentală a scrisului cu pen-ul folosind OCR.
+- Carnet de curs pe materii: note căutabile și editabile, asociere cu documente, desen cu pen-ul păstrat ca imagine, dictare vocală prin serviciul Android și OCR opțional pentru manuscris.
 - Studiu: flashcarduri cu repetare spațiată; Spital Virtual cu 6 cazuri fictive interactive și voce TTS.
 - Laborator medical: fișe introductive și quiz-uri pentru ECG, radiografie, CT, monitor, instrumente și farmacologie.
 - Anatomie 3D: fereastră cu atlase *externe* și posibilitatea de a le deschide în browser; modelele NU sunt incluse offline.
