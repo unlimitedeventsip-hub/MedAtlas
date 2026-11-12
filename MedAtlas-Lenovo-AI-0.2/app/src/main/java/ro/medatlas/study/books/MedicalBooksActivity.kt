@@ -1,5 +1,8 @@
 package ro.medatlas.study.books
 
+import ro.medatlas.study.GlassTokens
+import ro.medatlas.study.MedAtlasGlassTheme
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -167,8 +170,8 @@ class MedicalBooksActivity : ComponentActivity() {
                 (search.isBlank() || it.title.contains(search, true) ||
                     it.subject.contains(search, true))
         }
-        MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF38786E))) {
-            Column(Modifier.fillMaxSize().background(Color(0xFFFAF8F4))
+        MedAtlasGlassTheme {
+            Column(Modifier.fillMaxSize().background(GlassTokens.LightPage)
                 .statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { finish() }) { Icon(Icons.Rounded.ArrowBack, "Înapoi") }
