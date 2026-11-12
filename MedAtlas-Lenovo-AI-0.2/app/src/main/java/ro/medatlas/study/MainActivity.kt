@@ -389,6 +389,9 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
     var highlightSuggestions by remember { mutableStateOf<List<Stroke>>(emptyList()) }
     var commentAnchor by remember { mutableStateOf<Triple<Int, InkPoint, String>?>(null) }
     var selectedComment by remember { mutableStateOf<PageComment?>(null) }
+    var textAnchor by remember { mutableStateOf<Pair<Int, InkPoint>?>(null) }
+    var selectedText by remember { mutableStateOf<PageTextBox?>(null) }
+    var textBoxesVersion by remember { mutableIntStateOf(0) }
     var commentsVersion by remember { mutableIntStateOf(0) }
     var showNote by remember { mutableStateOf(false) }
     var showAtlas by remember { mutableStateOf(false) }
@@ -614,6 +617,13 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                                                         }
                                                         view.onAnalyze = { selectedImage -> page = index; crop = selectedImage }
                                                         view.comments = store.comments(doc.id, index).also { commentsVersion }
+                                                        view.textBoxes = store.textBoxes(doc.id, index).also { textBoxesVersion }
+                                                        view.onTextCreate = { point -> textAnchor = index to point }
+                                                        view.onTextOpen = { box -> selectedText = box }
+                                                        view.onTextsSave = { list ->
+                                                            store.saveTextBoxes(doc.id, index, list)
+                                                            textBoxesVersion++
+                                                        }
                                                         view.onCommentCreate = { point, word -> commentAnchor = Triple(index, point, word) }
                                                         view.onCommentOpen = { comment -> selectedComment = comment }
                                                         view.stickerResolver = { name -> stickerCache.getOrPut(name) {
@@ -650,6 +660,12 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                             view.onSave = { strokes -> marks = strokes; store.saveInk(doc.id, page, strokes) }
                             view.onAnalyze = { crop = it }
                             view.comments = store.comments(doc.id, page).also { commentsVersion }
+                            view.textBoxes = store.textBoxes(doc.id, page).also { textBoxesVersion }
+                            view.onTextCreate = { point -> textAnchor = page to point }
+                            view.onTextOpen = { box -> selectedText = box }
+                            view.onTextsSave = { list ->
+                                store.saveTextBoxes(doc.id, page, list); textBoxesVersion++
+                            }
                             view.onCommentCreate = { point, word -> commentAnchor = Triple(page, point, word) }
                             view.onCommentOpen = { comment -> selectedComment = comment }
                             view.stickerResolver = { name -> stickerCache.getOrPut(name) {
@@ -958,6 +974,64 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             tool = Tool.STICKER
         }.onSuccess { aiIllustration = null }.onFailure { aiError = it.localizedMessage }
     }) { Text("Adaugă pe pagină") } }, dismissButton = { TextButton(onClick = { aiIllustration = null }) { Text("Renunță") } })
+    val textEditing = selectedText
+    val textAdding = textAnchor
+    if (textEditing != null || textAdding != null) {
+        val targetPage = textEditing?.page ?: textAdding!!.first
+        var typed by remember(textEditing?.id, textAdding) { mutableStateOf(textEditing?.content.orEmpty()) }
+        var fontSize by remember(textEditing?.id, textAdding) { mutableFloatStateOf(textEditing?.sizeSp ?: 17f) }
+        var fontColor by remember(textEditing?.id, textAdding) { mutableIntStateOf(textEditing?.color ?: AndroidColor.rgb(24,37,53)) }
+        AlertDialog(
+            onDismissRequest = { selectedText = null; textAnchor = null },
+            title = { Text(if (textEditing == null) "Adaugă text pe pagină" else "Editează textul") },
+            text = {
+                Column(Modifier.heightIn(max = 450.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                    Text("Pagina ${targetPage + 1} • text poziționat pe PDF",
+                        fontSize = 12.sp, color = Slate)
+                    OutlinedTextField(typed, { typed = it }, modifier = Modifier.fillMaxWidth(),
+                        minLines = 3, maxLines = 8, label = { Text("Scrie textul aici") })
+                    Text("Dimensiune: ${fontSize.toInt()} sp", fontSize = 12.sp)
+                    Slider(value = fontSize, onValueChange = { fontSize = it }, valueRange = 10f..38f)
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        listOf(0xFF182535, 0xFFD58EA2, 0xFF38786E, 0xFFAC6B1E).forEach { c ->
+                            val actual = c.toInt()
+                            Box(Modifier.size(if (fontColor == actual) 29.dp else 24.dp)
+                                .clip(CircleShape).background(Color(actual))
+                                .clickable { fontColor = actual })
+                        }
+                    }
+                    Text("Pentru mutare: selectează unealta Text și trage textul cu pen-ul.",
+                        color = Slate, fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val current = store.textBoxes(doc.id, targetPage)
+                    val obj = textEditing?.copy(content = typed, sizeSp = fontSize, color = fontColor)
+                        ?: PageTextBox(documentId = doc.id, page = targetPage,
+                            x = textAdding!!.second.x, y = textAdding.second.y,
+                            content = typed, sizeSp = fontSize, color = fontColor)
+                    store.saveTextBoxes(doc.id, targetPage,
+                        if (textEditing == null) current + obj
+                        else current.map { if (it.id == textEditing.id) obj else it })
+                    textBoxesVersion++
+                    textAnchor = null; selectedText = null
+                }, enabled = typed.isNotBlank()) { Text("Salvează textul") }
+            },
+            dismissButton = {
+                Row {
+                    if (textEditing != null) TextButton(onClick = {
+                        store.saveTextBoxes(doc.id, targetPage,
+                            store.textBoxes(doc.id, targetPage).filterNot { it.id == textEditing.id })
+                        textBoxesVersion++
+                        textAnchor = null; selectedText = null
+                    }) { Text("Șterge", color = Color.Red) }
+                    TextButton(onClick = { textAnchor = null; selectedText = null }) { Text("Anulează") }
+                }
+            }
+        )
+    }
     val commentEditing = selectedComment
     val commentAdding = commentAnchor
     if (commentEditing != null || commentAdding != null) {
@@ -1014,7 +1088,7 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
 
 @Composable
 private fun ToolBar(tool: Tool, onTool: (Tool) -> Unit, color: Int, onColor: (Int) -> Unit, width: Float, onWidth: (Float) -> Unit, onUndo: () -> Unit, onRedo: () -> Unit, onImportSticker: () -> Unit, onAtlas: () -> Unit, onClearSelection: () -> Unit, onStickerResize: (Float) -> Unit, onStickerRemove: () -> Unit) {
-    val tools = listOf(Tool.PEN to "Pix", Tool.HIGHLIGHT to "Marker", Tool.UNDERLINE to "Subliniază", Tool.WAVE to "Valuri", Tool.CIRCLE to "Cerc", Tool.RECTANGLE to "Dreptunghi", Tool.ARROW to "Săgeată", Tool.LASSO to "Lasso", Tool.ERASER to "Radieră", Tool.ANALYZE to "Încercuiește AI", Tool.PAN to "Mută", Tool.STICKER to "Sticker", Tool.COMMENT to "Comentariu")
+    val tools = listOf(Tool.PEN to "Pix", Tool.HIGHLIGHT to "Marker", Tool.UNDERLINE to "Subliniază", Tool.WAVE to "Valuri", Tool.CIRCLE to "Cerc", Tool.RECTANGLE to "Dreptunghi", Tool.ARROW to "Săgeată", Tool.LASSO to "Lasso", Tool.ERASER to "Radieră", Tool.ANALYZE to "Încercuiește AI", Tool.PAN to "Mută", Tool.STICKER to "Sticker", Tool.COMMENT to "Comentariu", Tool.TEXT to "Text")
     Column(Modifier.background(Color(0xFFF6F1F0))) {
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             tools.forEach { (item, label) ->
@@ -1024,6 +1098,7 @@ private fun ToolBar(tool: Tool, onTool: (Tool) -> Unit, color: Int, onColor: (In
                     Tool.ARROW -> Icons.Rounded.ArrowForward; Tool.LASSO -> Icons.Rounded.Gesture; Tool.ERASER -> Icons.Rounded.AutoFixOff
                     Tool.ANALYZE -> Icons.Rounded.AutoAwesome; Tool.PAN -> Icons.Rounded.PanTool; Tool.STICKER -> Icons.Rounded.Image
                     Tool.COMMENT -> Icons.Rounded.Comment
+                    Tool.TEXT -> Icons.Rounded.TextFields
                 }
                 Surface(shape = RoundedCornerShape(10.dp), color = if (tool == item) Color(0xFFF4DDE4) else Color.Transparent, modifier = Modifier.padding(end = 3.dp).clickable { onTool(item) }) {
                     Column(Modifier.padding(horizontal = 9.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
