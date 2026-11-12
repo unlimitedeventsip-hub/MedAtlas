@@ -1,5 +1,8 @@
 package ro.medatlas.study.classroom
 
+import ro.medatlas.study.GlassTokens
+import ro.medatlas.study.MedAtlasGlassTheme
+
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -142,8 +145,8 @@ class ClassroomActivity : ComponentActivity() {
             }
         }
         LaunchedEffect(Unit) { connect() }
-        MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF38786E))) {
-            Column(Modifier.fillMaxSize().background(Color(0xFFFAF8F4))
+        MedAtlasGlassTheme {
+            Column(Modifier.fillMaxSize().background(GlassTokens.LightPage)
                 .statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { finish() }) { Icon(Icons.Rounded.ArrowBack, "Înapoi") }
