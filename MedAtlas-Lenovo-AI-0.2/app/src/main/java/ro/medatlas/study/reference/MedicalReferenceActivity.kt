@@ -1,5 +1,8 @@
 package ro.medatlas.study.reference
 
+import ro.medatlas.study.GlassTokens
+import ro.medatlas.study.MedAtlasGlassTheme
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -102,8 +105,8 @@ class MedicalReferenceActivity : ComponentActivity() {
     private fun MedicalReferenceScreen() {
         var selected by remember { mutableIntStateOf(-1) }
         var answer by remember(selected) { mutableIntStateOf(-1) }
-        MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF38786E))) {
-            Column(Modifier.fillMaxSize().background(Color(0xFFFAF8F4)).statusBarsPadding().navigationBarsPadding()) {
+        MedAtlasGlassTheme {
+            Column(Modifier.fillMaxSize().background(GlassTokens.LightPage).statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { if (selected >= 0) selected = -1 else finish() }) {
                         Icon(Icons.Rounded.ArrowBack, "Înapoi")

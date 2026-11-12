@@ -1,5 +1,8 @@
 package ro.medatlas.study.simulation
 
+import ro.medatlas.study.GlassTokens
+import ro.medatlas.study.MedAtlasGlassTheme
+
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
@@ -141,8 +144,8 @@ class ClinicalSimulatorActivity : ComponentActivity() {
         var therapyShown by remember(current?.id) { mutableStateOf(prefs.getBoolean("$currentId.feedback", false)) }
         val dark = Color(0xFF182535)
 
-        MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF38786E))) {
-            Column(Modifier.fillMaxSize().background(Color(0xFFFAF8F4)).statusBarsPadding().navigationBarsPadding()) {
+        MedAtlasGlassTheme {
+            Column(Modifier.fillMaxSize().background(GlassTokens.LightPage).statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = { if (current == null) finish() else currentId = null }) {
                         Icon(Icons.Rounded.ArrowBack, "Înapoi")

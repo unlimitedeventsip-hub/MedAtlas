@@ -483,10 +483,11 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             }
         }
     }
-    val toolNames = mapOf(Tool.PEN to "Fineliner", Tool.BRUSH to "Pensulă", Tool.HIGHLIGHT to "Marker",
-        Tool.CIRCLE to "Elipsă", Tool.RECTANGLE to "Dreptunghi", Tool.ARROW to "Săgeată",
-        Tool.LASSO to "Lasou", Tool.ERASER to "Radieră", Tool.STICKER to "Imagine",
-        Tool.PAN to "Deplasare")
+    val advancedTools = mapOf(
+        Tool.CIRCLE to "Elipsă", Tool.RECTANGLE to "Dreptunghi",
+        Tool.ARROW to "Săgeată", Tool.UNDERLINE to "Subliniază",
+        Tool.STICKER to "Imagine", Tool.PAN to "Deplasare"
+    )
     val colors = linkedMapOf(
         "Grafit" to Color(0xff263943), "Albastru" to Color(0xff2388F5),
         "Roșu" to Color(0xffEE4F62), "Verde" to Color(0xff29B88B),
@@ -515,13 +516,27 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             Text("$position / $count", style = MaterialTheme.typography.labelSmall)
             TextButton(onClick = { flush(); onNext() }) { Text(if (position == count) "+ Pagină" else "Următoarea ›") }
         }
+        NotebookPenToolbar(
+            activeTool = tool,
+            onTool = { tool = it },
+            selectedColor = color,
+            onColor = { color = it },
+            colors = colors,
+            width = width,
+            onWidth = { width = it },
+            onUndo = { view?.undo() },
+            onRedo = { view?.redo() }
+        )
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            TextButton(enabled = bitmap != null && (original.handwritingFile.isNotBlank() || strokes.any { it.tool == Tool.PEN || it.tool == Tool.BRUSH }), onClick = {
-                recognition = (view?.selectedInk() ?: strokes).filter { it.tool == Tool.PEN || it.tool == Tool.BRUSH }
+            TextButton(enabled = bitmap != null && (original.handwritingFile.isNotBlank() ||
+                strokes.any { it.tool in listOf(Tool.PEN, Tool.PENCIL, Tool.BRUSH) }), onClick = {
+                recognition = (view?.selectedInk() ?: strokes).filter {
+                    it.tool in listOf(Tool.PEN, Tool.PENCIL, Tool.BRUSH)
+                }
             }) { Text("Transcrie") }
-            Choice(toolNames.getValue(tool), toolNames.values.toList()) { tool = toolNames.keys.elementAt(it) }
-            Choice(color, colors.keys.toList()) { color = colors.keys.elementAt(it) }
-            Choice("$width · grosime", listOf("Subțire", "Medie", "Groasă")) { width = listOf(2, 4, 7)[it] }
+            Choice("Forme și opțiuni", advancedTools.values.toList()) {
+                tool = advancedTools.keys.elementAt(it)
+            }
             TextButton(onClick = { showTextPanel = !showTextPanel }) {
                 Text(if (showTextPanel) "Foaie liberă" else "+ Text")
             }
@@ -535,8 +550,6 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
                 Choice(patterns[paper] ?: "Linii", patterns.values.toList()) { paper = patterns.keys.elementAt(it) }
                 TextButton(onClick = { dark = !dark; color = if (dark) "Fildeș" else "Grafit" }) { Text(if (dark) "Hârtie deschisă" else "Hârtie închisă") }
             }
-            TextButton(onClick = { view?.undo() }) { Text("Anulează trasarea") }
-            TextButton(onClick = { view?.redo() }) { Text("Refă") }
             if (tool == Tool.LASSO) {
                 TextButton(onClick = {
                     if (view?.copySelection() != true) {
@@ -559,21 +572,6 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             if (position < count) TextButton(onClick = { flush(); move(1) }) { Text("Mută mai târziu") }
             document?.let { TextButton(onClick = { flush(); onOpen(it) }) { Text("Curs asociat") } }
             TextButton(onClick = { delete = true }) { Text("Șterge pagina") }
-        }
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            colors.forEach { (name, shade) ->
-                Surface(shape = CircleShape, color = shade,
-                    border = BorderStroke(if (color == name) 3.dp else 1.dp,
-                        if (color == name) Color.White else Color.Gray.copy(alpha = .4f)),
-                    modifier = Modifier.size(if (color == name) 32.dp else 28.dp)
-                        .clickable { color = name }) {
-                    Box(contentAlignment = Alignment.Center) {
-                        if (color == name) Text("✓", color = if (name == "Fildeș" || name == "Galben") Color.Black else Color.White,
-                            style = MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
         }
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val ink: @Composable (Modifier) -> Unit = { modifier ->

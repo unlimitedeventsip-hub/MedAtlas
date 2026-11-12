@@ -283,24 +283,8 @@ internal fun UnifiedLibraryScreen(
     }
 
     fun openOriginal(doc: StudyDocument) {
-        runCatching {
-            val uri = FileProvider.getUriForFile(context, context.packageName + ".files", store.fileOf(doc))
-            val mime = when (doc.kind) {
-                "PPTX" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                "PPT" -> "application/vnd.ms-powerpoint"
-                "DOCX" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                else -> "application/pdf"
-            }
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, mime)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-            context.startActivity(Intent.createChooser(intent, "Deschide fișierul original"))
-        }.onFailure {
-            Toast.makeText(context, "Nu există aplicație compatibilă. Se afișează textul extras în MedAtlas.",
-                Toast.LENGTH_LONG).show()
-            onOpenDocument(doc)
-        }
+        // Office files stay in MedAtlas. The original file remains unchanged.
+        onOpenDocument(doc)
     }
 
     Box(Modifier.fillMaxSize().background(
@@ -521,12 +505,9 @@ internal fun UnifiedLibraryScreen(
                                                             rowMenu = false
                                                             onDocumentChanged(row.document.copy(favorite = !row.document.favorite))
                                                         })
-                                                    DropdownMenuItem(text = { Text("Deschide fișierul original") },
+                                                    DropdownMenuItem(text = { Text("Deschide în MedAtlas") },
                                                         onClick = { rowMenu = false; openOriginal(row.document) })
-                                                    if (row.type == "PPTX" || row.type == "PPT") {
-                                                        DropdownMenuItem(text = { Text("Citește textul cu Nadia AI") },
-                                                            onClick = { rowMenu = false; onOpenDocument(row.document) })
-                                                    }
+
                                                 }
                                                 DropdownMenuItem(text = { Text("Șterge") }, onClick = {
                                                     rowMenu = false; deletingRow = row

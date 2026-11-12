@@ -1,5 +1,8 @@
 package ro.medatlas.study.simulation
 
+import ro.medatlas.study.GlassTokens
+import ro.medatlas.study.MedAtlasGlassTheme
+
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -80,8 +83,8 @@ class ExamSimulatorActivity : ComponentActivity() {
             } else examStarted = false
         }
 
-        MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF38786E))) {
-            Column(Modifier.fillMaxSize().background(Color(0xFFFAF8F4))
+        MedAtlasGlassTheme {
+            Column(Modifier.fillMaxSize().background(GlassTokens.LightPage)
                 .statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(9.dp),
                     verticalAlignment = Alignment.CenterVertically) {

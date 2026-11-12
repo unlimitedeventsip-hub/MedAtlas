@@ -16,6 +16,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -94,12 +95,12 @@ private val PaleRose = Color(0xFFFFEFF2)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = android.graphics.Color.rgb(250, 248, 244)
-        window.navigationBarColor = android.graphics.Color.rgb(250, 248, 244)
+        window.statusBarColor = android.graphics.Color.rgb(12, 29, 52)
+        window.navigationBarColor = android.graphics.Color.rgb(12, 29, 52)
         @Suppress("DEPRECATION")
-        window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+        window.decorView.systemUiVisibility = 0
         setContent {
-            MaterialTheme(colorScheme = lightColorScheme(primary = Teal, secondary = Rose, surface = Ivory, background = Ivory, onBackground = Navy, onSurface = Navy)) {
+            MedAtlasGlassTheme {
                 MedAtlasApp()
             }
         }
@@ -113,6 +114,7 @@ private fun MedAtlasApp() {
     val store = remember { LibraryStore(context) }
     val docs = remember { mutableStateListOf<StudyDocument>().apply { addAll(store.documents()) } }
     var selected by remember { mutableStateOf<StudyDocument?>(null) }
+    var officeTextMode by remember { mutableStateOf(false) }
     var libraryNoteId by remember { mutableStateOf<String?>(null) }
     var libraryRevision by remember { mutableIntStateOf(0) }
     var importFolderId by remember { mutableStateOf<String?>(null) }
@@ -151,37 +153,60 @@ private fun MedAtlasApp() {
         return
     }
     selected?.let { doc ->
-        ReaderScreen(doc, store, onBack = { selected = null }, onRemove = {
-            store.removeDocument(doc.id); docs.removeAll { it.id == doc.id }; selected = null
-        })
+        if (!officeTextMode && doc.kind in listOf("PPTX", "DOCX", "PPT", "DOC")) {
+            OfficePreviewScreen(doc, store,
+                onBack = { selected = null; officeTextMode = false },
+                onTextMode = { officeTextMode = true })
+        } else {
+            ReaderScreen(doc, store, onBack = {
+                if (officeTextMode) officeTextMode = false
+                else selected = null
+            }, onRemove = {
+                store.removeDocument(doc.id)
+                docs.removeAll { it.id == doc.id }
+                selected = null
+                officeTextMode = false
+            })
+        }
         return
     }
     libraryNoteId?.let { id ->
-        NotebookLibrary(store, docs, onOpen = { selected = it }, initialNoteId = id,
-            onExit = { libraryNoteId = null; libraryRevision++ })
+        GlassPageFrame(Modifier.fillMaxSize()) {
+            NotebookLibrary(store, docs, onOpen = { selected = it }, initialNoteId = id,
+                onExit = { libraryNoteId = null; libraryRevision++ })
+        }
         return
     }
+    Box(Modifier.fillMaxSize().background(GlassTokens.NightPage)) {
     Scaffold(
-        containerColor = Ivory,
+        containerColor = Color.Transparent,
         bottomBar = {
-            if (tab != 0) NavigationBar(containerColor = Color.White, tonalElevation = 5.dp) {
+            if (tab != 0) NavigationBar(containerColor = GlassTokens.DarkGlass, tonalElevation = 0.dp) {
                 val options = listOf(Triple("Bibliotecă", Icons.Rounded.FolderOpen, 0), Triple("Notițe", Icons.Rounded.EditNote, 1), Triple("Studiu", Icons.Rounded.School, 2), Triple("Classroom", Icons.Rounded.Class, 4), Triple("Setări", Icons.Rounded.Settings, 3))
                 options.forEach { (name, icon, number) ->
                     NavigationBarItem(selected = tab == number, onClick = {
                         if (number == 4) context.startActivity(Intent(context, ClassroomActivity::class.java))
                         else tab = number
-                    }, icon = { Icon(icon, name) }, label = { Text(name, fontSize = 11.sp) })
+                    }, icon = { Icon(icon, name) }, label = { Text(name, fontSize = 11.sp) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = Color.White,
+                        selectedTextColor = Color.White,
+                        indicatorColor = GlassTokens.Blue.copy(alpha = .55f),
+                        unselectedIconColor = Color(0xFFB4C9E1),
+                        unselectedTextColor = Color(0xFFB4C9E1)
+                    ))
                 }
             }
         },
         topBar = {
-            if (tab != 0) Surface(color = Ivory, modifier = Modifier.statusBarsPadding()) {
+            if (tab != 0) Surface(color = GlassTokens.DarkGlass,
+                modifier = Modifier.statusBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.MenuBook, null, tint = Teal, modifier = Modifier.size(26.dp))
+                    Icon(Icons.Rounded.MenuBook, null, tint = Color(0xFF8FC7FF), modifier = Modifier.size(26.dp))
                     Spacer(Modifier.width(9.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("MedAtlas", fontSize = 23.sp, fontWeight = FontWeight.Bold, color = Navy)
-                        Text("Nadia's Medical Workspace", fontSize = 11.sp, color = Slate)
+                        Text("MedAtlas", fontSize = 23.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                        Text("Nadia's Medical Workspace", fontSize = 11.sp, color = Color(0xFFB9CDE7))
                     }
                     if (tab == 0) {
                         FilledTonalButton(onClick = { picker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation")) }) {
@@ -193,6 +218,20 @@ private fun MedAtlasApp() {
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
+            if (tab != 0) {
+                Surface(
+                    modifier = Modifier.fillMaxSize().padding(8.dp),
+                    color = GlassTokens.Frost,
+                    shape = RoundedCornerShape(22.dp),
+                    border = BorderStroke(1.dp, GlassTokens.Stroke)
+                ) {
+                    when (tab) {
+                        1 -> NotebookLibrary(store, docs, onOpen = { selected = it }, unified = true)
+                        2 -> CardsScreen(store, docs, onOpen = { selected = it })
+                        else -> SettingsScreen(onReplayIntro = { showIntro = true })
+                    }
+                }
+            } else {
             when (tab) {
                 0 -> UnifiedLibraryScreen(
                     store = store,
@@ -231,7 +270,9 @@ private fun MedAtlasApp() {
                 2 -> CardsScreen(store, docs, onOpen = { selected = it })
                 else -> SettingsScreen(onReplayIntro = { showIntro = true })
             }
+            }
         }
+    }
     }
     if (importError != null) AlertDialog(onDismissRequest = { importError = null }, title = { Text("Import imposibil") }, text = { Text(importError ?: "") }, confirmButton = { TextButton(onClick = { importError = null }) { Text("Închide") } })
 }
@@ -502,18 +543,18 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
         .background(if (readOnly) Color(0xFF0B1C32) else Ivory)
         .statusBarsPadding().navigationBarsPadding()) {
         // The reading/editing switch is always visible, independent from PDF scrolling.
-        Row(Modifier.fillMaxWidth().background(if (readOnly) Color(0xFF122A49) else Color.White)
+        Row(Modifier.fillMaxWidth().background(GlassTokens.DarkGlass)
             .padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) {
                 Icon(Icons.Rounded.ArrowBack, "Bibliotecă",
-                    tint = if (readOnly) Color.White else Navy)
+                    tint = Color.White)
             }
             Column(Modifier.weight(1f)) {
                 Text(doc.title, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     fontWeight = FontWeight.Bold, fontSize = 15.sp,
-                    color = if (readOnly) Color.White else Navy)
+                    color = Color.White)
                 Text("${doc.kind} • pagina ${page + 1}/${pager.count}", fontSize = 11.sp,
-                    color = if (readOnly) Color(0xFFB9CDE6) else Slate)
+                    color = Color(0xFFB9CDE6))
                 if (fullOcrStatus != null && fullOcrStatus.state == WorkInfo.State.RUNNING) {
                     val done = fullOcrStatus.progress.getInt(FullDocumentOcrWorker.KEY_DONE, 0)
                     val total = fullOcrStatus.progress.getInt(FullDocumentOcrWorker.KEY_TOTAL, pager.count)
@@ -566,7 +607,7 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             if (!readOnly) TextButton(onClick = { expanded = !expanded }) {
                 Icon(Icons.Rounded.AutoAwesome, "Nadia AI", tint = Rose)
                 Spacer(Modifier.width(4.dp))
-                Text(if (expanded) "Ascunde AI" else "Nadia AI", fontSize = 12.sp, color = Navy)
+                Text(if (expanded) "Ascunde AI" else "Nadia AI", fontSize = 12.sp, color = Color.White)
             }
             if (!readOnly) IconButton(enabled = !exporting, onClick = {
                 exporting = true
@@ -788,10 +829,10 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
         }
 
         // Fixed reader controls. No longer hidden below an oversized PDF or quiz panel.
-        Row(Modifier.fillMaxWidth().background(if (readOnly) Color(0xFF17314D) else Color.White)
+        Row(Modifier.fillMaxWidth().background(GlassTokens.DarkGlass)
             .horizontalScroll(rememberScrollState())
             .padding(horizontal = 6.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-            val navColor = if (readOnly) Color(0xFFE4F0FF) else Navy
+            val navColor = Color(0xFFE4F0FF)
             TextButton(onClick = { showThumbnails = !showThumbnails },
                 colors = ButtonDefaults.textButtonColors(contentColor = navColor)) {
                 Icon(Icons.Rounded.ViewSidebar, null, modifier = Modifier.size(18.dp))
@@ -1227,6 +1268,7 @@ private fun ToolBar(tool: Tool, onTool: (Tool) -> Unit, color: Int, onColor: (In
             tools.forEach { (item, label) ->
                 val icon = when (item) {
                     Tool.BRUSH -> Icons.Rounded.Brush
+                    Tool.PENCIL -> Icons.Rounded.Create
                     Tool.PEN -> Icons.Rounded.Edit; Tool.HIGHLIGHT -> Icons.Rounded.Brush; Tool.UNDERLINE -> Icons.Rounded.FormatUnderlined
                     Tool.WAVE -> Icons.Rounded.Waves; Tool.CIRCLE -> Icons.Rounded.Circle; Tool.RECTANGLE -> Icons.Rounded.CropSquare
                     Tool.ARROW -> Icons.Rounded.ArrowForward; Tool.LASSO -> Icons.Rounded.Gesture; Tool.ERASER -> Icons.Rounded.AutoFixOff
