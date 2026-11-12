@@ -89,6 +89,8 @@ internal fun NotebookSettings(prefs: SharedPreferences) {
     var paper by remember { mutableStateOf(prefs.getString("notebook_paper", "LINES")) }
     var dark by remember { mutableStateOf(prefs.getBoolean("notebook_dark", false)) }
     var finger by remember { mutableStateOf(prefs.getBoolean("notebook_finger", true)) }
+    var perfect by remember { mutableStateOf(prefs.getBoolean("smart_shapes", false)) }
+    var scratch by remember { mutableStateOf(prefs.getBoolean("scratch_to_erase", false)) }
     Card {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
             Text("Caiete · pagini noi", fontWeight = FontWeight.Bold)
@@ -103,6 +105,28 @@ internal fun NotebookSettings(prefs: SharedPreferences) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Desenează și cu degetul", Modifier.weight(1f))
                 Switch(finger, { finger = it; prefs.edit().putBoolean("notebook_finger", it).apply() })
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Forme perfecte prin menținerea pen-ului")
+                    Text("Desenează o buclă și ține pen-ul pe ecran pentru un cerc sau dreptunghi.",
+                        style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                }
+                Switch(perfect, {
+                    perfect = it
+                    prefs.edit().putBoolean("smart_shapes", it).apply()
+                })
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Șterge prin zgâriere")
+                    Text("Opțional: zigzag repetat peste scrisul existent; lasă dezactivat dacă scrii formule.",
+                        style = MaterialTheme.typography.bodySmall, color = Color.Gray)
+                }
+                Switch(scratch, {
+                    scratch = it
+                    prefs.edit().putBoolean("scratch_to_erase", it).apply()
+                })
             }
         }
     }
@@ -492,6 +516,8 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
                     it.penWidth = width.toFloat()
                     it.fingerInk = prefs.getBoolean("notebook_finger", true)
                     it.smartMarker = false
+                    it.smartShapes = prefs.getBoolean("smart_shapes", false)
+                    it.scratchToErase = prefs.getBoolean("scratch_to_erase", false)
                     it.marks = strokes
                     it.onSave = { marks ->
                         store.saveInk(inkId(original.id), 0, marks)
