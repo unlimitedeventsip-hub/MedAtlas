@@ -334,6 +334,9 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
         }
     }
     var highlightSuggestions by remember { mutableStateOf<List<Stroke>>(emptyList()) }
+    var commentAnchor by remember { mutableStateOf<Pair<Int, InkPoint>?>(null) }
+    var selectedComment by remember { mutableStateOf<PageComment?>(null) }
+    var commentsVersion by remember { mutableIntStateOf(0) }
     var showNote by remember { mutableStateOf(false) }
     var showAtlas by remember { mutableStateOf(false) }
     var showRemove by remember { mutableStateOf(false) }
@@ -553,6 +556,9 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                                                             if (page == index) marks = strokes
                                                         }
                                                         view.onAnalyze = { selectedImage -> page = index; crop = selectedImage }
+                                                        view.comments = store.comments(doc.id, index).also { commentsVersion }
+                                                        view.onCommentCreate = { point -> commentAnchor = index to point }
+                                                        view.onCommentOpen = { comment -> selectedComment = comment }
                                                         view.stickerResolver = { name -> stickerCache.getOrPut(name) {
                                                             store.stickerBitmap(name) ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
                                                         } }
@@ -586,6 +592,9 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                             view.scrollThroughFingers = false
                             view.onSave = { strokes -> marks = strokes; store.saveInk(doc.id, page, strokes) }
                             view.onAnalyze = { crop = it }
+                            view.comments = store.comments(doc.id, page).also { commentsVersion }
+                            view.onCommentCreate = { point -> commentAnchor = page to point }
+                            view.onCommentOpen = { comment -> selectedComment = comment }
                             view.stickerResolver = { name -> stickerCache.getOrPut(name) {
                                 store.stickerBitmap(name) ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
                             } }
@@ -727,13 +736,61 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             tool = Tool.STICKER
         }.onSuccess { aiIllustration = null }.onFailure { aiError = it.localizedMessage }
     }) { Text("Adaugă pe pagină") } }, dismissButton = { TextButton(onClick = { aiIllustration = null }) { Text("Renunță") } })
+    val commentEditing = selectedComment
+    val commentAdding = commentAnchor
+    if (commentEditing != null || commentAdding != null) {
+        val commentPage = commentEditing?.page ?: commentAdding!!.first
+        val coords = commentAdding?.second
+        val existing = commentEditing
+        var commentText by remember(existing?.id, commentPage, coords) {
+            mutableStateOf(existing?.body.orEmpty())
+        }
+        AlertDialog(
+            onDismissRequest = { selectedComment = null; commentAnchor = null },
+            title = { Text(if (existing == null) "Comentariu la text" else "Comentariu ancorat") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Pagina ${commentPage + 1} • note marginale", color = Slate, fontSize = 12.sp)
+                    OutlinedTextField(value = commentText, onValueChange = { commentText = it },
+                        label = { Text("Explicația / ideea ta") }, modifier = Modifier.fillMaxWidth(),
+                        minLines = 3, maxLines = 9)
+                    Text("Simbolul roz numerotat rămâne la această poziție când mărești pagina.",
+                        fontSize = 11.sp, color = Slate)
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val old = store.comments(doc.id, commentPage)
+                    val comment = existing?.copy(body = commentText) ?: PageComment(
+                        documentId = doc.id, page = commentPage,
+                        x = coords!!.x, y = coords.y, body = commentText
+                    )
+                    store.saveComments(doc.id, commentPage,
+                        if (existing == null) old + comment else old.map { if (it.id == existing.id) comment else it })
+                    commentsVersion++
+                    selectedComment = null; commentAnchor = null
+                }, enabled = commentText.isNotBlank()) { Text("Salvează") }
+            },
+            dismissButton = {
+                Row {
+                    if (existing != null) TextButton(onClick = {
+                        store.saveComments(doc.id, commentPage,
+                            store.comments(doc.id, commentPage).filterNot { it.id == existing.id })
+                        commentsVersion++
+                        selectedComment = null; commentAnchor = null
+                    }) { Text("Șterge", color = Color.Red) }
+                    TextButton(onClick = { selectedComment = null; commentAnchor = null }) { Text("Anulează") }
+                }
+            }
+        )
+    }
     if (showNote) NoteDialog(store, doc, page, onDismiss = { showNote = false })
     if (showRemove) AlertDialog(onDismissRequest = { showRemove = false }, title = { Text("Gestionare document") }, text = { Text("Ștergerea va elimina și notițele, flashcardurile și adnotările asociate. Originalul din Downloads nu este afectat.") }, confirmButton = { TextButton(onClick = { showRemove = false; onRemove() }) { Text("Șterge", color = Color.Red) } }, dismissButton = { TextButton(onClick = { showRemove = false }) { Text("Anulează") } })
 }
 
 @Composable
 private fun ToolBar(tool: Tool, onTool: (Tool) -> Unit, color: Int, onColor: (Int) -> Unit, width: Float, onWidth: (Float) -> Unit, onUndo: () -> Unit, onRedo: () -> Unit, onImportSticker: () -> Unit, onAtlas: () -> Unit, onClearSelection: () -> Unit, onStickerResize: (Float) -> Unit, onStickerRemove: () -> Unit) {
-    val tools = listOf(Tool.PEN to "Pix", Tool.HIGHLIGHT to "Marker", Tool.UNDERLINE to "Subliniază", Tool.WAVE to "Valuri", Tool.CIRCLE to "Cerc", Tool.RECTANGLE to "Dreptunghi", Tool.ARROW to "Săgeată", Tool.LASSO to "Lasso", Tool.ERASER to "Radieră", Tool.ANALYZE to "Încercuiește AI", Tool.PAN to "Mută", Tool.STICKER to "Sticker")
+    val tools = listOf(Tool.PEN to "Pix", Tool.HIGHLIGHT to "Marker", Tool.UNDERLINE to "Subliniază", Tool.WAVE to "Valuri", Tool.CIRCLE to "Cerc", Tool.RECTANGLE to "Dreptunghi", Tool.ARROW to "Săgeată", Tool.LASSO to "Lasso", Tool.ERASER to "Radieră", Tool.ANALYZE to "Încercuiește AI", Tool.PAN to "Mută", Tool.STICKER to "Sticker", Tool.COMMENT to "Comentariu")
     Column(Modifier.background(Color(0xFFF6F1F0))) {
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 6.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
             tools.forEach { (item, label) ->
@@ -742,6 +799,7 @@ private fun ToolBar(tool: Tool, onTool: (Tool) -> Unit, color: Int, onColor: (In
                     Tool.WAVE -> Icons.Rounded.Waves; Tool.CIRCLE -> Icons.Rounded.Circle; Tool.RECTANGLE -> Icons.Rounded.CropSquare
                     Tool.ARROW -> Icons.Rounded.ArrowForward; Tool.LASSO -> Icons.Rounded.Gesture; Tool.ERASER -> Icons.Rounded.AutoFixOff
                     Tool.ANALYZE -> Icons.Rounded.AutoAwesome; Tool.PAN -> Icons.Rounded.PanTool; Tool.STICKER -> Icons.Rounded.Image
+                    Tool.COMMENT -> Icons.Rounded.Comment
                 }
                 Surface(shape = RoundedCornerShape(10.dp), color = if (tool == item) Color(0xFFF4DDE4) else Color.Transparent, modifier = Modifier.padding(end = 3.dp).clickable { onTool(item) }) {
                     Column(Modifier.padding(horizontal = 9.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
