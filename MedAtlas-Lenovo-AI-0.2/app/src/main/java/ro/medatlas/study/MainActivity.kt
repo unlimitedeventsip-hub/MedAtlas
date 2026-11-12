@@ -22,6 +22,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -283,7 +284,19 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
     var color by remember { mutableIntStateOf(AndroidColor.rgb(41, 93, 82)) }
     var width by remember { mutableFloatStateOf(3f) }
     var fingerInk by remember { mutableStateOf(false) }
-    var expanded by remember { mutableStateOf(isWide) }
+    // AI stays hidden until the reader explicitly requests it.
+    var expanded by rememberSaveable(doc.id) { mutableStateOf(false) }
+    var continuous by rememberSaveable(doc.id) { mutableStateOf(true) }
+    var documentScale by rememberSaveable(doc.id) { mutableFloatStateOf(1f) }
+    val scrollState = rememberLazyListState(initialFirstVisibleItemIndex = page)
+    LaunchedEffect(continuous) {
+        if (continuous) {
+            snapshotFlow { scrollState.firstVisibleItemIndex }.collect { visible ->
+                if (page != visible) page = visible
+            }
+        }
+    }
+
     var crop by remember { mutableStateOf<Bitmap?>(null) }
     var aiAnswer by remember { mutableStateOf<String?>(null) }
     var aiTitle by remember { mutableStateOf("Nadia AI") }
@@ -457,13 +470,19 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
         }
     }
     Column(Modifier.fillMaxSize().background(Ivory).statusBarsPadding().navigationBarsPadding()) {
-        Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Always visible, independent from the PDF scrolling surface.
+        Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 8.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Bibliotecă") }
             Column(Modifier.weight(1f)) {
                 Text(doc.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                Text("${doc.kind} • Pagina ${page + 1}/${pager.count}", fontSize = 11.sp, color = Slate)
+                Text("${doc.kind} • pagina ${page + 1}/${pager.count}", fontSize = 11.sp, color = Slate)
             }
-            IconButton(onClick = { expanded = !expanded }) { Icon(Icons.Rounded.AutoAwesome, "Studio de învățare", tint = Rose) }
+            TextButton(onClick = { expanded = !expanded }) {
+                Icon(Icons.Rounded.AutoAwesome, "Nadia AI", tint = Rose)
+                Spacer(Modifier.width(4.dp))
+                Text(if (expanded) "Ascunde AI" else "Nadia AI", fontSize = 12.sp, color = Navy)
+            }
             IconButton(enabled = !exporting, onClick = {
                 exporting = true
                 scope.launch {
@@ -475,46 +494,155 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             }) { Icon(Icons.Rounded.IosShare, "Export PDF") }
             IconButton(onClick = { showRemove = true }) { Icon(Icons.Rounded.MoreVert, "Mai multe") }
         }
-        ToolBar(tool = tool, onTool = { tool = it }, color = color, onColor = { color = it }, width = width, onWidth = { width = it }, onUndo = { canvasView?.undo() }, onRedo = { canvasView?.redo() }, onImportSticker = { imagePicker.launch("image/*") }, onAtlas = { showAtlas = true }, onClearSelection = { canvasView?.eraseSelection() }, onStickerResize = { canvasView?.increaseStickerSize(it) }, onStickerRemove = { canvasView?.deleteSelectedSticker() })
-        Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 9.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { if (page > 0) page-- }, enabled = page > 0) { Icon(Icons.Rounded.ChevronLeft, "Pagina precedentă") }
-            Text("${page + 1} / ${pager.count}", fontSize = 12.sp, color = Slate)
-            IconButton(onClick = { if (page + 1 < pager.count) page++ }, enabled = page + 1 < pager.count) { Icon(Icons.Rounded.ChevronRight, "Pagina următoare") }
-            Spacer(Modifier.weight(1f))
-            TextButton(onClick = { canvasView?.resetView() }) { Text("Zoom 100%") }
-            TextButton(onClick = { fingerInk = !fingerInk }) { Text(if (fingerInk) "Deget: desen" else "Deget: navigare") }
-            TextButton(onClick = { runOcr(bitmap) }, enabled = !processing && bitmap != null) {
-                Text(if (processing) "OCR…" else "OCR pagină")
-            }
-        }
-        Row(Modifier.fillMaxSize()) {
+        ToolBar(tool = tool, onTool = { tool = it }, color = color, onColor = { color = it },
+            width = width, onWidth = { width = it }, onUndo = { canvasView?.undo() },
+            onRedo = { canvasView?.redo() }, onImportSticker = { imagePicker.launch("image/*") },
+            onAtlas = { showAtlas = true }, onClearSelection = { canvasView?.eraseSelection() },
+            onStickerResize = { canvasView?.increaseStickerSize(it) },
+            onStickerRemove = { canvasView?.deleteSelectedSticker() })
+
+        Row(Modifier.fillMaxWidth().weight(1f)) {
             Box(Modifier.weight(1f).fillMaxHeight()) {
-                if (bitmap != null) AndroidView(
-                    factory = { c -> StudyCanvasView(c).also { canvasView = it } },
-                    modifier = Modifier.fillMaxSize(),
-                    update = { view ->
-                        view.onSave = { strokes -> marks = strokes; store.saveInk(doc.id, page, strokes) }
-                        view.onAnalyze = { crop = it }
-                        view.stickerResolver = { name -> stickerCache.getOrPut(name) { store.stickerBitmap(name) ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888) } }
-                        view.onStickersSave = { list -> stickers = list; store.saveStickers(doc.id, page, list) }
-                        view.stickers = stickers
-                        view.bind(bitmap, marks, tool, color, width, fingerInk)
+                if (continuous) {
+                    BoxWithConstraints(Modifier.fillMaxSize()) {
+                        val requestedWidth = (minOf(maxWidth.value - 20f, 960f) * documentScale).coerceAtLeast(120f).dp
+                        LazyColumn(
+                            state = scrollState,
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            contentPadding = PaddingValues(vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(pager.count, key = { it }) { index ->
+                                var pageBitmap by remember(doc.id, index) { mutableStateOf<Bitmap?>(null) }
+                                var pageMarks by remember(doc.id, index) { mutableStateOf(store.ink(doc.id, index)) }
+                                var pageStickers by remember(doc.id, index) { mutableStateOf(store.stickers(doc.id, index)) }
+                                var itemError by remember(doc.id, index) { mutableStateOf<String?>(null) }
+                                LaunchedEffect(doc.id, index, pager) {
+                                    runCatching { withContext(Dispatchers.IO) { synchronized(pager) { pager.render(index) } } }
+                                        .onSuccess { pageBitmap = it }
+                                        .onFailure { itemError = it.localizedMessage ?: "Pagina nu poate fi citită" }
+                                }
+                                Box(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                    contentAlignment = Alignment.Center) {
+                                    Column(Modifier.width(requestedWidth)) {
+                                        Text("Pagina ${index + 1} / ${pager.count}",
+                                            fontSize = 11.sp, color = Slate,
+                                            modifier = Modifier.padding(bottom = 4.dp, start = 4.dp))
+                                        Box(Modifier.fillMaxWidth().aspectRatio(
+                                            pageBitmap?.let { it.width.toFloat() / it.height.toFloat() } ?: 0.707f
+                                        )) {
+                                            if (pageBitmap != null) {
+                                                AndroidView(
+                                                    factory = { c -> StudyCanvasView(c).apply { scrollThroughFingers = true } },
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    update = { view ->
+                                                        if (page == index) canvasView = view
+                                                        view.scrollThroughFingers = true
+                                                        view.onSave = { strokes ->
+                                                            pageMarks = strokes
+                                                            store.saveInk(doc.id, index, strokes)
+                                                            if (page == index) marks = strokes
+                                                        }
+                                                        view.onAnalyze = { selectedImage -> page = index; crop = selectedImage }
+                                                        view.stickerResolver = { name -> stickerCache.getOrPut(name) {
+                                                            store.stickerBitmap(name) ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+                                                        } }
+                                                        view.onStickersSave = { list ->
+                                                            pageStickers = list
+                                                            store.saveStickers(doc.id, index, list)
+                                                            if (page == index) stickers = list
+                                                        }
+                                                        view.stickers = if (page == index) stickers else pageStickers
+                                                        view.bind(pageBitmap, if (page == index) marks else pageMarks,
+                                                            tool, color, width, fingerInk)
+                                                    }
+                                                )
+                                            } else if (itemError != null) {
+                                                Text(itemError.orEmpty(), Modifier.align(Alignment.Center))
+                                            } else {
+                                                CircularProgressIndicator(Modifier.align(Alignment.Center))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
-                ) else if (loadError != null) Text(loadError.orEmpty(), modifier = Modifier.align(Alignment.Center))
-                else CircularProgressIndicator(Modifier.align(Alignment.Center))
+                } else {
+                    if (bitmap != null) AndroidView(
+                        factory = { c -> StudyCanvasView(c).also { canvasView = it } },
+                        modifier = Modifier.fillMaxSize(),
+                        update = { view ->
+                            canvasView = view
+                            view.scrollThroughFingers = false
+                            view.onSave = { strokes -> marks = strokes; store.saveInk(doc.id, page, strokes) }
+                            view.onAnalyze = { crop = it }
+                            view.stickerResolver = { name -> stickerCache.getOrPut(name) {
+                                store.stickerBitmap(name) ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+                            } }
+                            view.onStickersSave = { list -> stickers = list; store.saveStickers(doc.id, page, list) }
+                            view.stickers = stickers
+                            view.bind(bitmap, marks, tool, color, width, fingerInk)
+                        }
+                    ) else if (loadError != null) Text(loadError.orEmpty(), Modifier.align(Alignment.Center))
+                    else CircularProgressIndicator(Modifier.align(Alignment.Center))
+                }
             }
             if (isWide && expanded) {
                 VerticalDivider()
-                Box(Modifier.width(335.dp).fillMaxHeight()) {
-                    StudyPanel(doc, store, page, textVersion, bitmap, onOcr = { runOcr(bitmap) }, onBatchOcr = { runBatchOcr() }, onSuggest = { suggestImportantLines() }, onAiSuggest = { suggestAiHighlights() }, onNote = { showNote = true }, onClose = { expanded = false })
+                Box(Modifier.width(340.dp).fillMaxHeight()) {
+                    StudyPanel(doc, store, page, textVersion, bitmap,
+                        onOcr = { runOcr(bitmap) }, onBatchOcr = { runBatchOcr() },
+                        onSuggest = { suggestImportantLines() }, onAiSuggest = { suggestAiHighlights() },
+                        onNote = { showNote = true }, onClose = { expanded = false })
                 }
+            }
+        }
+
+        // Fixed reader controls. No longer hidden below an oversized PDF or quiz panel.
+        Row(Modifier.fillMaxWidth().background(Color.White).horizontalScroll(rememberScrollState())
+            .padding(horizontal = 6.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { continuous = !continuous }) {
+                Icon(if (continuous) Icons.Rounded.ViewDay else Icons.Rounded.Description, null)
+                Spacer(Modifier.width(4.dp))
+                Text(if (continuous) "Pagini continue" else "O pagină", fontSize = 12.sp)
+            }
+            IconButton(onClick = {
+                val target = (page - 1).coerceAtLeast(0)
+                page = target
+                if (continuous) scope.launch { scrollState.scrollToItem(target) }
+            }, enabled = page > 0) { Icon(Icons.Rounded.ChevronLeft, "Pagina precedentă") }
+            Text("${page + 1} / ${pager.count}", fontSize = 12.sp, color = Navy)
+            IconButton(onClick = {
+                val target = (page + 1).coerceAtMost(pager.count - 1)
+                page = target
+                if (continuous) scope.launch { scrollState.scrollToItem(target) }
+            }, enabled = page < pager.count - 1) { Icon(Icons.Rounded.ChevronRight, "Pagina următoare") }
+            if (continuous) {
+                IconButton(onClick = { documentScale = (documentScale - 0.15f).coerceAtLeast(0.6f) }) {
+                    Icon(Icons.Rounded.ZoomOut, "Micșorează")
+                }
+                Text("${(documentScale * 100).toInt()}%", fontSize = 11.sp, color = Slate)
+                IconButton(onClick = { documentScale = (documentScale + 0.15f).coerceAtMost(2f) }) {
+                    Icon(Icons.Rounded.ZoomIn, "Mărește")
+                }
+            } else TextButton(onClick = { canvasView?.resetView() }) { Text("Reset zoom") }
+            TextButton(onClick = { fingerInk = !fingerInk }) {
+                Text(if (fingerInk) "Deget: desen" else "Deget: scroll", fontSize = 11.sp)
+            }
+            TextButton(onClick = { runOcr(bitmap) }, enabled = !processing && bitmap != null) {
+                Text(if (processing) "OCR…" else "OCR pagină", fontSize = 11.sp)
             }
         }
     }
     if (!isWide && expanded) {
         ModalBottomSheet(onDismissRequest = { expanded = false }) {
-            Box(Modifier.fillMaxWidth().heightIn(min = 280.dp, max = 590.dp)) {
-                StudyPanel(doc, store, page, textVersion, bitmap, onOcr = { runOcr(bitmap) }, onBatchOcr = { runBatchOcr() }, onSuggest = { suggestImportantLines() }, onAiSuggest = { suggestAiHighlights() }, onNote = { showNote = true }, onClose = { expanded = false })
+            Box(Modifier.fillMaxWidth().fillMaxHeight(.85f)) {
+                StudyPanel(doc, store, page, textVersion, bitmap, onOcr = { runOcr(bitmap) },
+                    onBatchOcr = { runBatchOcr() }, onSuggest = { suggestImportantLines() },
+                    onAiSuggest = { suggestAiHighlights() }, onNote = { showNote = true },
+                    onClose = { expanded = false })
             }
         }
     }
@@ -664,7 +792,7 @@ private fun StudyPanel(doc: StudyDocument, store: LibraryStore, page: Int, textV
             aiBusy = false
         }
     }
-    Column(Modifier.fillMaxSize().background(Color.White).padding(14.dp)) {
+    Column(Modifier.fillMaxSize().background(Color.White).verticalScroll(rememberScrollState()).padding(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.AutoAwesome, null, tint = Rose)
             Spacer(Modifier.width(8.dp))
@@ -726,7 +854,7 @@ private fun StudyPanel(doc: StudyDocument, store: LibraryStore, page: Int, textV
                     OutlinedButton(onClick = onNote) { Text("Adaugă notiță") }
                 }
                 Spacer(Modifier.height(8.dp))
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     if (summary.isEmpty()) Text("Rezumatul offline extrage fraze importante din text; nu înlocuiește analiza AI. Pentru rezumat AI complet se va conecta ulterior un serviciu securizat.", color = Slate, fontSize = 12.sp)
                     summary.forEachIndexed { i, point -> Surface(color = if (i % 2 == 0) PaleRose else Color(0xFFF2F6F4), shape = RoundedCornerShape(10.dp)) { Text("${i + 1}. $point", modifier = Modifier.padding(11.dp), fontSize = 13.sp) } }
                     if (summary.isNotEmpty()) OutlinedButton(onClick = { shareText(context, "Te rog restructurează acest rezumat medical exclusiv pe baza fragmentelor furnizate, fără să inventezi informații:\n\n" + summary.joinToString("\n")) }) { Text("Aprofundează în ChatGPT") }
@@ -740,7 +868,7 @@ private fun StudyPanel(doc: StudyDocument, store: LibraryStore, page: Int, textV
                 else {
                     val q = quiz[quizIndex]
                     Text("Întrebarea ${quizIndex + 1} / ${quiz.size}", color = Teal, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                         Text(q.prompt, fontSize = 13.sp)
                         q.options.forEachIndexed { i, label ->
                             val background = if (selected != -1 && i == q.correct) Color(0xFFDFF3E6) else if (selected == i && i != q.correct) Color(0xFFFBE3E4) else Color(0xFFF2F5F6)
@@ -763,7 +891,7 @@ private fun StudyPanel(doc: StudyDocument, store: LibraryStore, page: Int, textV
                     Text("Explică în propriile cuvinte ideea din curs:", fontWeight = FontWeight.Medium)
                     Spacer(Modifier.height(7.dp))
                     Text(statement, color = Teal, fontSize = 13.sp)
-                    OutlinedTextField(value = freeAnswer, onValueChange = { freeAnswer = it; freeFeedback = false }, modifier = Modifier.fillMaxWidth().weight(1f), placeholder = { Text("Scrie răspunsul tău...") }, minLines = 4)
+                    OutlinedTextField(value = freeAnswer, onValueChange = { freeAnswer = it; freeFeedback = false }, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Scrie răspunsul tău...") }, minLines = 4)
                     Button(onClick = { freeFeedback = true }, enabled = freeAnswer.isNotBlank()) { Text("Autoevaluare") }
                     if (freeFeedback) Text("Autoevaluare: compară dacă ai explicat toate ideile din fragmentul original. Corectarea clinică automată este planificată pentru modul AI.", color = Slate, fontSize = 12.sp)
                 }
