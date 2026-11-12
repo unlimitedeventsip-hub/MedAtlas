@@ -34,23 +34,35 @@ class OrganAtlasActivity : ComponentActivity() {
         val system: String,
         val name: String,
         val role: String = "",
-        val focus: String = ""
+        val focus: String = "",
+        val location: String = ""
     )
     data class SystemGroup(
         val name: String, val overview: String, val url: String,
         val organs: List<Organ>
     )
 
+    private val details by lazy {
+        assets.open("atlas-details.tsv").bufferedReader(Charsets.UTF_8).useLines { lines ->
+            lines.drop(1).associate { line ->
+                val (title, location, function) = line.split('\t')
+                title to (location to function)
+            }
+        }
+    }
+
     private fun group(name: String, overview: String, url: String,
                       entries: String): SystemGroup = SystemGroup(name, overview, url,
         entries.split(";").mapNotNull { raw ->
             val fields = raw.split("|")
             val title = fields.first().trim()
-            if (title.isBlank()) null else Organ(name, title,
-                fields.getOrElse(1) { "" }.trim(), fields.getOrElse(2) { "" }.trim())
+            if (title.isBlank()) null else {
+                val (location, function) = details.getValue(title)
+                Organ(name, title, function, fields.getOrElse(2) { "" }.trim(), location)
+            }
         })
 
-    private val groups = listOf(
+    private val groups by lazy { listOf(
         group("Sistem nervos", "Integrarea informației, coordonarea funcțiilor și control autonom.",
             "https://openstax.org/books/anatomy-and-physiology-2e/pages/13-introduction",
             "Creier|Procesarea și integrarea informațiilor|CT/RMN; Cortex cerebral; Lob frontal; Lob parietal; Lob temporal; Lob occipital; Cerebel|Coordonarea mișcărilor|Examen neurologic; Trunchi cerebral|Funcții vitale și căi nervoase; Mezencefal; Punte; Bulb rahidian; Măduva spinării|Transmiterea impulsurilor și reflexe|RMN, reflexe; Meninge; Nervi cranieni; Nervi spinali; Ganglioni nervoși; Plex brahial; Plex lombosacrat; Nerv sciatic; Sistem nervos simpatic; Sistem nervos parasimpatic"),
@@ -84,7 +96,7 @@ class OrganAtlasActivity : ComponentActivity() {
         group("Organe de simț", "Recepția stimulilor vizuali, auditivi, olfactivi și gustativi.",
             "https://openstax.org/books/anatomy-and-physiology-2e/pages/14-introduction",
             "Glob ocular|Vedere|Acuitate vizuală, fund de ochi; Cornee; Iris; Cristalin; Retină|Fototransducție|Fund de ochi; Nerv optic; Ureche externă; Membrană timpanică; Ureche medie; Oscioare auditive; Cohlee|Auz|Audiometrie; Aparat vestibular|Echilibru|Teste vestibulare; Mucoasă olfactivă; Papile gustative")
-    )
+    ) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -169,6 +181,8 @@ class OrganAtlasActivity : ComponentActivity() {
                         item {
                             Text(organ.name, fontSize = 25.sp, fontWeight = FontWeight.Bold)
                             Text(organ.system, color = Color(0xFF38786E))
+                            Text("Localizare și raporturi", fontWeight = FontWeight.Bold)
+                            Text(organ.location)
                             if (organ.role.isNotBlank()) {
                                 Card(Modifier.fillMaxWidth()) {
                                     Column(Modifier.padding(15.dp)) {
@@ -209,10 +223,6 @@ class OrganAtlasActivity : ComponentActivity() {
                             }, enabled = organNotes.isNotBlank()) { Text("Salvează în carnet") }
                             if (saved) Text("Notița a fost salvată local și este vizibilă și la Notițe.",
                                 color = Color(0xFF38786E), fontSize = 11.sp)
-                            Text("Fișă de aprofundare", fontWeight = FontWeight.Bold)
-                            Text("De completat din surse verificate: localizare, raporturi anatomice, "
-                                + "histologie, vascularizație, inervație, fiziologie, patologii, "
-                                + "diagnostic diferențial, investigații, tratament și exemple clinice.")
                             OutlinedButton(onClick = {
                                 startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(system.url)))
                             }) {

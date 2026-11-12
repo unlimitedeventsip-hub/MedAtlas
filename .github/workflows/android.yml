@@ -3,6 +3,8 @@ name: Build MedAtlas Android APK
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -45,6 +47,9 @@ jobs:
           if [ -n "$MEDATLAS_KEYSTORE_BASE64" ]; then
             printf '%s' "$MEDATLAS_KEYSTORE_BASE64" | base64 --decode > app/medatlas-signing.jks
           fi
+
+      - name: Verify offline study catalog
+        run: python3 tools/check_workbook.py
 
       - name: Build debug APK
         env:

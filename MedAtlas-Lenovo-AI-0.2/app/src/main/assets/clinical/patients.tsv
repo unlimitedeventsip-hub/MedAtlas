@@ -1,0 +1,95 @@
+id	profile	patient	complaint	history
+f01	iron	Femeie, 34 ani	Nu mai pot duce coșul de rufe pe scări.	Menstruații abundente după apariția unui fibrom uterin.
+f02	iron	Bărbat, 63 ani	La plimbarea obișnuită trebuie să mă opresc.	Test pentru sânge ocult pozitiv la screeningul recent.
+f03	iron	Femeie, 26 ani	La antrenament nu mai țin ritmul echipei.	Donare repetată de sânge și alimentație săracă în fier.
+f04	iron	Bărbat, 71 ani	Am obosit îngrijind grădina.	Ia frecvent antiinflamatoare pentru lombalgie și descrie dispepsie.
+f05	iron	Femeie, 42 ani	Mă simt epuizată după mese mici.	Bypass gastric în urmă cu patru ani, monitorizare nutrițională întreruptă.
+f06	iron	Femeie, 30 ani	Încă amețesc când ies la plimbare cu copilul.	La naștere, în urmă cu două luni, a pierdut mult sânge.
+f07	iron	Bărbat, 48 ani	La sfârșitul schimbului mă lasă puterile.	Sângerări nazale repetate de luni de zile.
+f08	iron	Femeie, 55 ani	Mi s-au rupt unghiile și mestec gheață zilnic.	Diaree cronică și scădere ponderală neinvestigată.
+f09	iron	Bărbat, 36 ani	Mă simt fără vlagă la alergare.	Boală inflamatorie intestinală cu rectoragii intermitente.
+f10	iron	Femeie, 67 ani	Am palpitații când merg la piață.	Sub anticoagulant, relatează episoade de scaun negru. În prezent stabilă, necesită evaluarea promptă a sângerării.
+t01	thyroid	Femeie, 45 ani	Nu mă încălzesc nici în casă.	Mama are tiroidită autoimună, pacienta descrie constipație nouă.
+t02	thyroid	Bărbat, 59 ani	Mi s-a îngroșat vocea și am încetinit.	Tratament anterior cu iod radioactiv.
+t03	thyroid	Femeie, 32 ani	Sunt mereu obosită de la naștere.	La opt luni postpartum, după un episod anterior de palpitații.
+t04	thyroid	Bărbat, 52 ani	Îmi este greu să mă concentrez la serviciu.	Tratament de durată cu litiu.
+t05	thyroid	Femeie, 61 ani	Mă dor mușchii când fac cumpărături.	Intervenție tiroidiană parțială în antecedente.
+t06	thyroid	Femeie, 38 ani	Mi se usucă pielea și îmi cade părul.	Vitiligo cunoscut, greutate în creștere lentă.
+t07	thyroid	Bărbat, 68 ani	Am tranzit tot mai lent.	Urmează amiodaronă și vine pentru reevaluare metabolică.
+t08	thyroid	Femeie, 50 ani	Mă trezesc cu pleoapele umflate.	Iradiare cervicală în antecedente, fără controale tiroidiene recente.
+t09	thyroid	Bărbat, 41 ani	Simt că nu mai am energie pentru sport.	Diabet tip 1 cunoscut, cu piele uscată și intoleranță nouă la frig.
+t10	thyroid	Femeie, 29 ani	Ciclurile mele sunt tot mai neregulate.	Dorește o sarcină și descrie somnolență diurnă.
+d01	diabetes	Bărbat, 54 ani	Îmi umplu sticla de apă de mai multe ori pe tură.	Tată cu diabet tip 2, circumferință abdominală crescută.
+d02	diabetes	Femeie, 46 ani	Mă trezesc noaptea să urinez.	Antecedente de diabet gestațional, fără control metabolic ulterior.
+d03	diabetes	Bărbat, 62 ani	Văd uneori în ceață spre seară.	Hipertensiune și steatoză hepatică documentată.
+d04	diabetes	Femeie, 57 ani	Mă simt obosită după prânz.	Creștere ponderală treptată după reducerea mobilității.
+d05	diabetes	Bărbat, 49 ani	Am mereu gura uscată pe drum.	Șofer cu program neregulat și apnee de somn cunoscută.
+d06	diabetes	Femeie, 64 ani	Infecțiile micotice revin.	Mamă și soră cu diabet, simptome lente, fără cetonurie.
+d07	diabetes	Bărbat, 51 ani	La controlul de medicina muncii au găsit zahăr în urină.	Obezitate abdominală și hipertrigliceridemie.
+d08	diabetes	Femeie, 43 ani	Beau apă și tot îmi e sete la birou.	Sindrom de ovar polichistic și antecedente familiale.
+d09	diabetes	Bărbat, 66 ani	O zgârietură de pe gambă s-a vindecat lent.	Glicemie bazală modificată la un control anterior.
+d10	diabetes	Femeie, 58 ani	Nu mai dorm bine din cauza drumurilor la baie.	Tranzit urinar fără usturime, dislipidemie și surplus ponderal.
+b01	b12	Femeie, 31 ani	Îmi furnică ambele tălpi.	Dietă vegană de șase ani fără supliment de cobalamină.
+b02	b12	Bărbat, 67 ani	Mă clatin când sting lumina.	Gastrectomie în antecedente, a abandonat urmărirea.
+b03	b12	Femeie, 54 ani	Îmi arde limba și sunt epuizată.	Gastrită atrofică autoimună documentată.
+b04	b12	Bărbat, 60 ani	Simt podeaua ca prin vată.	Tratament îndelungat cu metformin, glicemii relativ stabile.
+b05	b12	Femeie, 39 ani	Îmi amorțesc degetele de la picioare.	Rezecție de ileon terminal pentru boală Crohn.
+b06	b12	Bărbat, 75 ani	Am nevoie de balustradă în hol.	Aport alimentar foarte redus după pierderea autonomiei.
+b07	b12	Femeie, 47 ani	Mă simt nesigură pe teren denivelat.	Chirurgie bariatrică și suplimente întrerupte de doi ani.
+b08	b12	Bărbat, 44 ani	Simt înțepături în ambele gambe.	Boală celiacă netratată și alte carențe nutriționale.
+b09	b12	Femeie, 69 ani	Oboseala și amorțeala au apărut treptat.	Tiroidită autoimună și anticorpi anti-factor intrinsec pozitivi.
+b10	b12	Bărbat, 56 ani	La duș îmi pierd echilibrul dacă închid ochii.	Rezecție intestinală extinsă în antecedente.
+v01	bppv	Femeie, 63 ani	Camera se învârte dacă mă întorc pe dreapta.	Primul episod la ridicarea din pat, fără hipoacuzie.
+v02	bppv	Bărbat, 58 ani	Amețesc când schimb becul.	Episoade după extensia capului, fără sincopă.
+v03	bppv	Femeie, 46 ani	La coafor mi s-a rotit încăperea.	Apare la poziționarea pe spate, dispare în repaus.
+v04	bppv	Bărbat, 71 ani	Mă ia cu amețeală când mă leg la șireturi.	Fără palpitații, examen cardiovascular stabil.
+v05	bppv	Femeie, 52 ani	La yoga nu mai pot trece la poziția culcat.	Nu are simptome auditive sau durere de cap.
+v06	bppv	Bărbat, 39 ani	De la căzătura de pe bicicletă am episoade de rotire.	Traumatism minor deja evaluat, fără durere cervicală sau deficit neurologic.
+v07	bppv	Femeie, 68 ani	Noaptea amețesc dacă mă răsucesc după telefon.	Între episoade citește și merge normal.
+v08	bppv	Bărbat, 61 ani	La raftul de sus mă ia cu greață.	Episod pozițional asemănător în urmă cu doi ani.
+v09	bppv	Femeie, 57 ani	Amețesc la exercițiile pe saltea.	Simptome exclusiv la schimbarea poziției capului.
+c01	carpal	Femeie, 42 ani	Mă trezește mâna amorțită.	Scuturarea mâinii calmează temporar simptomele.
+c02	carpal	Bărbat, 55 ani	La volan îmi amorțesc primele degete.	Simptome progresive fără durere cervicală.
+c03	carpal	Femeie, 29 ani	Nu mai dorm din cauza furnicăturilor din palmă.	Trimestrul al treilea de sarcină, fără slăbiciune.
+c04	carpal	Bărbat, 48 ani	Simt ace când țin ghidonul mult timp.	Sensibilitatea degetului mic este păstrată.
+c05	carpal	Femeie, 60 ani	Mă încurc la nasturi dimineața.	Diabet tip 2, fără simptome la membrele inferioare.
+c06	carpal	Bărbat, 37 ani	Mă trezesc frecvent după zilele de lucru cu scule.	Lucrează cu pumnul în flexie repetată.
+c07	carpal	Femeie, 51 ani	Îmi amorțește indexul când croșetez.	Hipotiroidism aflat sub tratament.
+c08	carpal	Bărbat, 65 ani	Când țin cartea în pat mă furnică palma.	Fractură veche de radius distal cu consolidare vicioasă.
+c09	carpal	Femeie, 44 ani	Mă trezește furnicătura după ce adorm cu mâna îndoită.	Tenosinovită flexoare în antecedente.
+k01	knee	Femeie, 66 ani	Mă doare genunchiul când cobor scările.	Durere mecanică lent progresivă de doi ani.
+k02	knee	Bărbat, 59 ani	După o plimbare lungă șchiopătez.	Meniscectomie după traumatism sportiv vechi.
+k03	knee	Femeie, 71 ani	Mă ridic greu de pe scaun.	Fără febră sau atacuri inflamatorii bruște.
+k04	knee	Bărbat, 64 ani	Nu mai rezist o zi întreagă în picioare la atelier.	Genu varum și creștere ponderală.
+k05	knee	Femeie, 57 ani	Mă supără genunchiul când car cumpărături.	Antecedente de ruptură de ligament încrucișat.
+k06	knee	Bărbat, 73 ani	La pornire simt că genunchiul este înțepenit.	După câțiva pași mobilitatea se ameliorează temporar.
+k07	knee	Femeie, 62 ani	Nu mai pot sta în genunchi în grădină.	Durerea se accentuează spre sfârșitul zilei.
+k08	knee	Bărbat, 68 ani	Am renunțat la traseele în pantă.	Fractură veche de platou tibial pe partea dureroasă.
+k09	knee	Femeie, 75 ani	Fac pauze pe drumul către piață.	Durere locală la sprijin, fără claudicație în gambă.
+m01	migraine	Femeie, 31 ani	Pierd câte o zi de lucru din cauza durerii pulsatile.	Atacuri similare premenstrual de trei ani.
+m02	migraine	Bărbat, 26 ani	După turele de noapte mă doare un hemicraniu.	Privarea de somn precedă frecvent atacurile.
+m03	migraine	Femeie, 38 ani	La criză mă deranjează lumina din birou.	Greață și sensibilitate la sunet, fără simptome vizuale premergătoare.
+m04	migraine	Bărbat, 34 ani	Mă doare capul după zilele în care sar peste mese.	Atacuri recurente din adolescență, examen normal între ele.
+m05	migraine	Femeie, 23 ani	În sesiune trebuie să întrerup studiul și să mă întind.	Mama are episoade asemănătoare, fără aură.
+m06	migraine	Bărbat, 42 ani	Uneori durerea de cap mă ține până a doua zi.	Efortul o agravează, fără lăcrimare unilaterală.
+m07	migraine	Femeie, 36 ani	Parfumul puternic mă deranjează când începe durerea.	Atacurile au tipar stabil și sunt însoțite de greață.
+m08	migraine	Bărbat, 29 ani	În weekend mă retrag adesea într-o cameră liniștită.	Schimbări regulate ale orei de somn, fără cefalee zilnică.
+m09	migraine	Femeie, 44 ani	Am lipsit de la antrenamente din cauza durerii de cap.	Durerea pulsează și se agravează dacă urcă scările.
+g01	celiac	Femeie, 33 ani	Mă balonez și am slăbit fără să vreau.	Soră cu boală celiacă confirmată.
+g02	celiac	Bărbat, 45 ani	Anemia nu se corectează cum mă așteptam.	Scaune moi recurente și feritină scăzută.
+g03	celiac	Femeie, 51 ani	Mă doare abdomenul după mese de luni de zile.	Osteopenie identificată prematur.
+g04	celiac	Bărbat, 28 ani	Am diaree chiar și când evit laptele.	Diabet tip 1 din copilărie.
+g05	celiac	Femeie, 39 ani	Apar mereu afte și mă simt obosită.	Deficite combinate de fier și folat.
+g06	celiac	Bărbat, 56 ani	Scaunele voluminoase au devenit frecvente.	Scădere ponderală fără sângerare digestivă evidentă.
+g07	celiac	Femeie, 26 ani	Nu reușesc să iau în greutate.	Vitamina D scăzută și disconfort intestinal cronic.
+g08	celiac	Bărbat, 61 ani	Mă simt slăbit și am crampe după mese.	Fiul a fost diagnosticat recent cu enteropatie glutenică.
+g09	celiac	Femeie, 47 ani	Mă balonez chiar și fără dulciuri.	Tiroidită autoimună și anemie microcitară recurentă.
+s01	venous	Femeie, 58 ani	Seara îmi rămân urme adânci de la șosete.	Lucrează în picioare și are varice vechi.
+s02	venous	Bărbat, 66 ani	Mă apasă gambele după schimbul de pază.	Edeme bilaterale progresive fără dispnee.
+s03	venous	Femeie, 49 ani	Pielea din jurul gleznelor s-a închis la culoare.	Varice apărute după sarcini multiple.
+s04	venous	Bărbat, 72 ani	La sfârșitul plimbării simt picioarele grele.	Antecedent de tromboză venoasă tratată cu ani în urmă.
+s05	venous	Femeie, 63 ani	Mă mănâncă pielea deasupra gleznelor.	Eczemă de stază recurentă după ortostatism prelungit.
+s06	venous	Bărbat, 54 ani	În zilele lungi de condus mi se umflă gleznele.	Fără durere acută unilaterală sau dispnee.
+s07	venous	Femeie, 70 ani	Pantofii mă strâng doar spre seară.	Mobilitate redusă după pensionare, pulsuri pedioase palpabile.
+s08	venous	Bărbat, 60 ani	Mă îngrijorează petele brune de pe gambe.	Varicozități superficiale de peste un deceniu.
+s09	venous	Femeie, 52 ani	După o zi la catedră am gleznele umflate.	Ameliorare în vacanțe când merge regulat pe jos.
