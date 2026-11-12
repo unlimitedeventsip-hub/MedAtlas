@@ -1,5 +1,6 @@
 package ro.medatlas.study
 
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
@@ -43,6 +44,24 @@ internal fun DriveBackupDialog(
     var error by remember { mutableStateOf<String?>(null) }
     var finished by remember { mutableStateOf<String?>(null) }
     var confirmRestore by remember { mutableStateOf(false) }
+    var showSavedCopies by remember { mutableStateOf(false) }
+    var savedCopies by remember { mutableStateOf<List<DriveAutoBackup.SavedCopy>>(emptyList()) }
+    var loadingCopies by remember { mutableStateOf(false) }
+    var chosenCopy by remember { mutableStateOf<DriveAutoBackup.SavedCopy?>(null) }
+
+    LaunchedEffect(showSavedCopies) {
+        if (showSavedCopies) {
+            loadingCopies = true
+            error = null
+            try {
+                savedCopies = withContext(Dispatchers.IO) { DriveAutoBackup.savedCopies(context) }
+            } catch (problem: Exception) {
+                savedCopies = emptyList()
+                error = "Copiile automate nu pot fi afișate: " +
+                    (problem.localizedMessage ?: "Folder indisponibil.")
+            } finally { loadingCopies = false }
+        }
+    }
 
     val autoFolderPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree()
@@ -82,6 +101,24 @@ internal fun DriveBackupDialog(
                 onRestored()
             } catch (e: Exception) {
                 error = "Restaurare nereușită: " + (e.localizedMessage ?: "Arhiva nu poate fi citită.")
+            } finally { busy = false }
+        }
+    }
+
+    fun restoreFrom(uri: Uri) {
+        scope.launch {
+            busy = true
+            error = null
+            finished = null
+            try {
+                withContext(Dispatchers.IO) { store.importBackup(uri) }
+                finished = "Restaurare verificată și finalizată. Biblioteca a fost reîncărcată."
+                showSavedCopies = false
+                chosenCopy = null
+                onRestored()
+            } catch (problem: Exception) {
+                error = "Nu am putut restaura backupul: " +
+                    (problem.localizedMessage ?: "Arhiva este invalidă.")
             } finally { busy = false }
         }
     }
@@ -128,14 +165,44 @@ internal fun DriveBackupDialog(
                     Text("Salvează backup în Drive")
                 }
                 OutlinedButton(
-                    onClick = { confirmRestore = true },
+                    onClick = {
+                        chosenCopy = null
+                        if (autoBackupEnabled) showSavedCopies = !showSavedCopies
+                        else confirmRestore = true
+                    },
                     enabled = !busy,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Icon(Icons.Rounded.CloudDownload, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Restaurează backup din Drive")
+                    Text(if (autoBackupEnabled) "Copii salvate · Restaurare"
+                        else "Restaurează dintr-un backup ZIP")
+                }
+                if (showSavedCopies) {
+                    Text("Alege o copie MedAtlas din folderul configurat:",
+                        style = MaterialTheme.typography.labelMedium)
+                    if (loadingCopies) LinearProgressIndicator(Modifier.fillMaxWidth())
+                    else if (savedCopies.isEmpty()) Text(
+                        "Nu am găsit încă arhive automate în acest folder.",
+                        style = MaterialTheme.typography.bodySmall)
+                    else savedCopies.take(8).forEach { copy ->
+                        TextButton(
+                            onClick = { chosenCopy = copy; confirmRestore = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(Modifier.fillMaxWidth()) {
+                                Text(copy.name, style = MaterialTheme.typography.bodySmall)
+                                if (copy.bytes > 0) Text(
+                                    "${copy.bytes / (1024 * 1024)} MB",
+                                    style = MaterialTheme.typography.labelSmall)
+                            }
+                        }
+                    }
+                    TextButton(onClick = {
+                        chosenCopy = null
+                        confirmRestore = true
+                    }) { Text("Alege altă arhivă ZIP") }
                 }
                 HorizontalDivider()
                 Text("Backup automat (la fiecare 24 de ore)",
@@ -223,17 +290,24 @@ internal fun DriveBackupDialog(
         icon = { Icon(Icons.Rounded.Security, null) },
         title = { Text("Restaurezi biblioteca MedAtlas?") },
         text = {
-            Text("Fișierele din arhiva aleasă pot suprascrie fișierele locale cu același nume. " +
-                "Salvează mai întâi un backup al bibliotecii actuale dacă ai modificări importante.")
+            Text("Backupul este verificat înainte de restaurare. Fișierele locale cu același " +
+                "nume pot fi înlocuite; salvează mai întâi o copie a modificărilor recente. " +
+                (chosenCopy?.let { "Arhiva: " + it.name } ?: ""))
         },
         confirmButton = {
             Button(onClick = {
                 confirmRestore = false
-                importer.launch(arrayOf("application/zip", "application/octet-stream"))
-            }) { Text("Alege arhiva") }
+                val selected = chosenCopy
+                if (selected == null) importer.launch(
+                    arrayOf("application/zip", "application/octet-stream"))
+                else restoreFrom(selected.uri)
+            }) { Text("Restaurează") }
         },
         dismissButton = {
-            TextButton(onClick = { confirmRestore = false }) { Text("Anulează") }
+            TextButton(onClick = {
+                confirmRestore = false
+                chosenCopy = null
+            }) { Text("Anulează") }
         }
     )
 }

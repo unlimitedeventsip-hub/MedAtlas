@@ -55,6 +55,39 @@ internal object DriveAutoBackup {
 
     fun enabled(context: Context) = destination(context) != null
 
+    data class SavedCopy(val name: String, val uri: Uri, val modifiedAt: Long, val bytes: Long)
+
+    /**
+     * Lists only MedAtlas-created snapshots within the previously authorized
+     * folder. The caller should run this off the main thread: cloud providers
+     * can make this a network operation.
+     */
+    fun savedCopies(context: Context): List<SavedCopy> {
+        val folderUri = destination(context) ?: return emptyList()
+        val grant = context.contentResolver.persistedUriPermissions.any {
+            it.uri == folderUri && it.isReadPermission
+        }
+        if (!grant) error("Accesul la copiile salvate a expirat. Selectează folderul din nou.")
+        val folder = DocumentFile.fromTreeUri(context, folderUri)
+            ?: error("Folderul de backup nu este disponibil.")
+        return folder.listFiles().asSequence()
+            .filter { file ->
+                file.isFile && file.name.orEmpty().startsWith(SNAPSHOT_PREFIX) &&
+                    file.name.orEmpty().endsWith(".zip", ignoreCase = true)
+            }
+            .map { file ->
+                SavedCopy(
+                    name = file.name.orEmpty(),
+                    uri = file.uri,
+                    modifiedAt = file.lastModified(),
+                    bytes = file.length()
+                )
+            }
+            .sortedByDescending { it.name }
+            .take(20)
+            .toList()
+    }
+
     /** Called only after the user picks a folder in ACTION_OPEN_DOCUMENT_TREE. */
     fun enable(context: Context, selected: Uri) {
         val resolver = context.contentResolver
