@@ -4,7 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-enum class Tool { PEN, BRUSH, HIGHLIGHT, UNDERLINE, WAVE, CIRCLE, RECTANGLE, ARROW, LASSO, ERASER, ANALYZE, PAN, STICKER, COMMENT, TEXT }
+enum class Tool { PEN, PENCIL, BRUSH, HIGHLIGHT, UNDERLINE, WAVE, CIRCLE, RECTANGLE, ARROW, LASSO, ERASER, ANALYZE, PAN, STICKER, COMMENT, TEXT }
 
 data class InkPoint(val x: Float, val y: Float, val pressure: Float = 1f) {
     fun json() = JSONArray().put(x.toDouble()).put(y.toDouble()).put(pressure.toDouble())
