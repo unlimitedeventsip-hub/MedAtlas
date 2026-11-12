@@ -20,6 +20,25 @@ class LibraryStore(private val context: Context) {
     private val ocrDir = File(root, "ocr").apply { mkdirs() }
     private val commentsDir = File(root, "comments").apply { mkdirs() }
     private val textBoxesDir = File(root, "text_boxes").apply { mkdirs() }
+    private val notebookPagesDir = File(root, "notebook_pages").apply { mkdirs() }
+    fun saveNotebookDrawing(bitmap: android.graphics.Bitmap, existing: String = ""): String {
+        val safe = existing.takeIf { it.matches(Regex("[0-9a-f-]{36}\\.png")) }
+            ?: (UUID.randomUUID().toString() + ".png")
+        val destination = File(notebookPagesDir, safe)
+        val temp = File(notebookPagesDir, safe + ".tmp")
+        temp.outputStream().use { out ->
+            require(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)) {
+                "Nu am putut salva pagina desenată"
+            }
+        }
+        if (!temp.renameTo(destination)) { temp.copyTo(destination, overwrite = true); temp.delete() }
+        return safe
+    }
+    fun notebookDrawing(name: String): android.graphics.Bitmap? {
+        if (!name.matches(Regex("[0-9a-f-]{36}\\.png"))) return null
+        return android.graphics.BitmapFactory.decodeFile(File(notebookPagesDir, name).absolutePath)
+    }
+
     fun textBoxes(documentId: String, page: Int): List<PageTextBox> {
         val file = File(textBoxesDir, "${documentId}_${page}.json")
         return runCatching {
