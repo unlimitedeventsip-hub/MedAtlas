@@ -66,6 +66,7 @@ import ro.medatlas.study.pdf.AnnotatedPdfExporter
 import ro.medatlas.study.ai.AiClient
 import ro.medatlas.study.classroom.ClassroomActivity
 import ro.medatlas.study.simulation.ClinicalSimulatorActivity
+import ro.medatlas.study.simulation.ExamSimulatorActivity
 import ro.medatlas.study.anatomy.Anatomy3DActivity
 import ro.medatlas.study.anatomy.OrganAtlasActivity
 import ro.medatlas.study.reference.MedicalReferenceActivity
@@ -1485,6 +1486,13 @@ private fun CardsScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: 
             Icon(Icons.Rounded.MedicalServices, null)
             Spacer(Modifier.width(6.dp))
             Text("Spital Virtual · cazuri clinice")
+        }
+        OutlinedButton(onClick = {
+            context.startActivity(Intent(context, ExamSimulatorActivity::class.java))
+        }) {
+            Icon(Icons.Rounded.Quiz, null)
+            Spacer(Modifier.width(6.dp))
+            Text("Examen · grile, punctaj și explicații")
         }
         OutlinedButton(onClick = {
             context.startActivity(Intent(context, Anatomy3DActivity::class.java))
