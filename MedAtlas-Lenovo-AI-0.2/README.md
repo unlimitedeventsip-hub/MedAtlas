@@ -19,6 +19,9 @@ Aplicație de studiu medical pentru tableta Lenovo, construită cu Kotlin + Jetp
 - Enciclopedia organelor: index filtrabil și căutabil cu structuri din 11 sisteme, localizare și funcție pentru cele 199 de structuri distincte, trei planșe istorice offline (inimă, plămân, rinichi), plus 11 scheme originale vectoriale offline (stilizate, nu ilustrații anatomice validate), exemple de investigații unde sunt disponibile și linkuri către OpenStax.
 - Classroom: activitate Android separată, OAuth Google, sincronizare cursuri/materiale/teme, import opțional PDF/DOCX/PPTX din Drive cu limite de mărime. Necesită configurarea Google Cloud, client OAuth Android, SHA-1 stabil și permisiuni; vezi `CLASSROOM-CONFIGURARE.md`.
 - Backup/restore ZIP local și export PDF adnotat.
+- Modul **Cărți medicale** în Studiu: 13 referințe către editori și import în lot pentru multe PDF-uri deținute legal. În build se încearcă includerea unor PDF-uri originale, complete, de la OpenStax/Oregon State, iar numărul realmente disponibil este extras din catalogul generat doar pentru fișierele descărcate cu succes (CDN-urile pot bloca descărcarea automată).
+- Cărțile offline sunt stocate în APK ca PDF-uri nemodificate; în modul Cărți poți adăuga un PDF inclus în biblioteca documentelor. Pentru volumele mari importul folosește memorie/disk în flux și se face în coroutine de I/O.
+
 
 ## Limitări esențiale
 
@@ -74,3 +77,11 @@ Pentru aprofundare: [feritină](https://medlineplus.gov/lab-tests/ferritin-blood
 - MedlinePlus, [Lipase Tests](https://medlineplus.gov/lab-tests/lipase-tests/): interpretarea lipazei în afecțiuni pancreatice.
 
 Aceste linkuri sunt puncte de verificare editorială. Grilele sunt originale și nu copiază subiecte oficiale.
+
+## Cărți medicale — drepturi și numărarea corectă
+
+Ținta de **peste 100 de cărți medicale complete offline** nu este încă realizată și nu trebuie prezentată ca finalizată. Nu confunda 13 linkuri de bibliografie cu 13 manuale instalate integral.
+
+`tools/bundle_open_books.py` încearcă la fiecare build să obțină 4 ediții PDF cu drepturi de reutilizare educațională, de la OpenStax/Oregon State. Editorii pot refuza accesul automat prin HTTP 403; în acest caz PDF-ul nu este inclus și catalogul raportează doar volumele realmente preluate. Fișierele păstrează identitatea și atribuirea originală.
+
+Pentru a depăși 100 de cărți fără a crea un APK de câțiva GB, sunt necesare pachete offline distribuite separat, un catalog verificat de titluri și condiții de licențiere individuale, precum și testarea pe dispozitiv. Unele cărți au condiții CC BY-NC-SA; aplicația/biblioteca destinată reutilizării comerciale poate avea restricții. Nu copia automat cărți din NCBI Bookshelf: pentru descărcări sistematice se folosesc numai canalele permise de NLM, iar licențele diferă.
