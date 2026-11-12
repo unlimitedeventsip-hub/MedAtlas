@@ -93,3 +93,15 @@ jobs:
           MEDATLAS_STORE_PASSWORD: ${{ secrets.MEDATLAS_STORE_PASSWORD }}
           MEDATLAS_KEY_ALIAS: ${{ secrets.MEDATLAS_KEY_ALIAS }}
           MEDATLAS_KEY_PASSWORD: ${{ secrets.MEDATLAS_KEY_PASSWORD }}
+
+      - name: Show Android test failures
+        if: failure()
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import xml.etree.ElementTree as ET
+          for report in pathlib.Path("app/build/outputs/androidTest-results").rglob("TEST-*.xml"):
+              for case in ET.parse(report).iter("testcase"):
+                  for failure in case.findall("failure"):
+                      print(case.get("name"), (failure.text or failure.get("message", ""))[:5000])
+          PY

@@ -233,15 +233,17 @@ private fun PagePreview(note: StudyNote, store: LibraryStore) {
         val (paper, strokes) = withContext(Dispatchers.IO) {
             paperBitmap(note, store.notebookDrawing(note.handwritingFile), 180) to store.ink(inkId(note.id), 0)
         }
-        val view = StudyCanvasView(context)
-        view.bind(paper, strokes, Tool.PEN, 0, 2f, false)
-        view.smartMarker = false
-        view.layout(0, 0, 650, 450)
-        val thumb = Bitmap.createBitmap(260, 180, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(thumb)
-        canvas.scale(.4f, .4f)
-        view.draw(canvas)
-        image = thumb
+        image = withContext(Dispatchers.Main.immediate) {
+            val view = StudyCanvasView(context)
+            view.bind(paper, strokes, Tool.PEN, 0, 2f, false)
+            view.smartMarker = false
+            view.layout(0, 0, 650, 450)
+            val thumb = Bitmap.createBitmap(260, 180, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(thumb)
+            canvas.scale(.4f, .4f)
+            view.draw(canvas)
+            thumb
+        }
     }
     Row(Modifier.fillMaxWidth().height(90.dp).background(Color(0xffe9eeea)), verticalAlignment = Alignment.CenterVertically) {
         image?.let { Image(it.asImageBitmap(), "Previzualizare manuscris", Modifier.weight(1f).fillMaxHeight()) }
