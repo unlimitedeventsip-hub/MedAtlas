@@ -459,7 +459,23 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             }
             TextButton(onClick = { view?.undo() }) { Text("Anulează trasarea") }
             TextButton(onClick = { view?.redo() }) { Text("Refă") }
-            if (tool == Tool.LASSO) TextButton(onClick = { view?.eraseSelection() }) { Text("Șterge selecția") }
+            if (tool == Tool.LASSO) {
+                TextButton(onClick = {
+                    if (view?.copySelection() != true) {
+                        android.widget.Toast.makeText(context, "Selectează mai întâi cu lasoul.",
+                            android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }) { Text("Copiază") }
+                TextButton(onClick = {
+                    if (view?.pasteSelection() != true) {
+                        android.widget.Toast.makeText(context, "Nu există o selecție copiată.",
+                            android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }) { Text("Lipește") }
+                TextButton(onClick = { view?.resizeSelection(.85f) }) { Text("Micșorează") }
+                TextButton(onClick = { view?.resizeSelection(1.15f) }) { Text("Mărește") }
+                TextButton(onClick = { view?.eraseSelection() }) { Text("Șterge selecția") }
+            }
             TextButton(onClick = { flush(); onDuplicate() }) { Text("Duplică pagina") }
             if (position > 1) TextButton(onClick = { flush(); move(-1) }) { Text("Mută mai devreme") }
             if (position < count) TextButton(onClick = { flush(); move(1) }) { Text("Mută mai târziu") }
