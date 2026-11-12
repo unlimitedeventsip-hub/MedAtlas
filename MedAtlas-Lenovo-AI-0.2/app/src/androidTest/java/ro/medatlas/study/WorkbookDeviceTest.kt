@@ -44,12 +44,14 @@ class WorkbookDeviceTest {
             enter("Diagnostic", "Anemie cu microcitoză")
             enter("Argumente și alternative", "Feritină scăzută")
             enter("Tratament și monitorizare", "Verific pierderile și urmăresc hemograma")
+            tap("Evaluez semnele de alarmă, explic planul și organizez urmărirea")
             tap("Continuă · Ziua 7")
             listTo("Ziua 7")
             ui.onNodeWithText("Diagnostic · Anemie cu microcitoză").assertExists()
             enter("Diagnostic", "În urmărire")
             enter("Argumente și alternative", "Verific toleranța")
             enter("Tratament și monitorizare", "Reevaluare")
+            tap("Reevaluez simptomele, investigațiile și toleranța planului")
             tap("Continuă · Luna 3")
         }
         ActivityScenario.launch(ClinicalSimulatorActivity::class.java).use {
@@ -61,6 +63,7 @@ class WorkbookDeviceTest {
             enter("Diagnostic", "Anemie în ameliorare")
             enter("Argumente și alternative", "Hemoglobina a crescut")
             enter("Tratament și monitorizare", "Reevaluare ginecologică")
+            tap("Compar evoluția, funcția și riscurile; stabilesc un plan documentat")
             tap("S-au refăcut depozitele și a fost tratată cauza?")
             ui.onNodeWithText("Corect!").assertExists()
             tap("Anemie feriprivă")
