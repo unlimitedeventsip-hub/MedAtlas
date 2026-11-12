@@ -52,7 +52,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.FileProvider
 import androidx.work.WorkManager
 import androidx.work.WorkInfo
-import androidx.work.getWorkInfosForUniqueWorkFlow
+import androidx.compose.runtime.livedata.observeAsState
 import ro.medatlas.study.pdf.FullDocumentOcrWorker
 import com.google.mlkit.vision.common.InputImage
 import com.google.android.gms.tasks.Tasks
@@ -440,9 +440,9 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
     }
     val ocrWorkManager = remember(context) { WorkManager.getInstance(context) }
     val fullOcrWork by remember(doc.id) {
-        ocrWorkManager.getWorkInfosForUniqueWorkFlow(
+        ocrWorkManager.getWorkInfosForUniqueWorkLiveData(
             FullDocumentOcrWorker.workName(doc.id))
-    }.collectAsState(initial = emptyList<WorkInfo>())
+    }.observeAsState(emptyList<WorkInfo>())
     val fullOcrStatus = fullOcrWork.firstOrNull()
     fun runBatchOcr() {
         if (doc.kind != "PDF") return
