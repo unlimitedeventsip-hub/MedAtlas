@@ -201,6 +201,13 @@ class LibraryStore(private val context: Context) {
     }
 
     fun extractedText(documentId: String): String = runCatching { File(docsDir, "$documentId.txt").readText() }.getOrDefault("")
+    fun saveExtractedText(documentId: String, text: String) {
+        val file = File(docsDir, "$documentId.txt")
+        val temp = File(docsDir, "$documentId.txt.tmp")
+        temp.writeText(text)
+        if (!temp.renameTo(file)) { temp.copyTo(file, overwrite = true); temp.delete() }
+    }
+
     fun savePageText(documentId: String, page: Int, text: String) {
         val dest = File(ocrDir, "${documentId}_${page}.txt")
         val tmp = File(ocrDir, "${documentId}_${page}.tmp")
