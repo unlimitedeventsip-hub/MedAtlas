@@ -17,6 +17,20 @@ import java.util.UUID
 class NotebookDeviceTest {
     @get:Rule val ui = createEmptyComposeRule()
 
+    @Test fun romanianModelReturnsCandidateForVectorInk() {
+        fun stroke(vararg xy: Pair<Float, Float>) = ro.medatlas.study.data.Stroke(points = xy.map {
+            ro.medatlas.study.data.InkPoint(it.first, it.second)
+        })
+        val sample = listOf(
+            stroke(.10f to .50f, .17f to .20f, .25f to .50f),
+            stroke(.13f to .39f, .21f to .39f),
+            stroke(.28f to .50f, .28f to .34f, .29f to .42f, .32f to .35f, .36f to .36f, .37f to .50f),
+            stroke(.50f to .36f, .46f to .34f, .42f to .39f, .42f to .48f, .46f to .50f, .50f to .44f, .50f to .34f, .51f to .50f)
+        )
+        val candidate = recognizeLine(sample, 800, 1000)
+        org.junit.Assert.assertTrue("No candidate from the Romanian model", candidate.isNotBlank())
+    }
+
     @Test fun exportIncludesEveryPageAndContinuesLongText() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val store = LibraryStore(context)
