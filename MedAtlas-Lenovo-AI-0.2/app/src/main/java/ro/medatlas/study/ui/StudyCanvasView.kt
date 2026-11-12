@@ -40,6 +40,8 @@ class StudyCanvasView(context: Context) : View(context) {
     var inkColor: Int = Color.rgb(36, 75, 67)
     var penWidth: Float = 3.0f
     var fingerInk = false
+    /** In continuous PDF mode let finger gestures reach the outer page scroller. */
+    var scrollThroughFingers = false
     private var pending = mutableListOf<InkPoint>()
     private var drawing = false
     private var multiTouch = false
@@ -198,6 +200,12 @@ class StudyCanvasView(context: Context) : View(context) {
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (pageBitmap == null || pageRect.isEmpty) return false
+        if (scrollThroughFingers && !fingerInk && event.actionMasked == MotionEvent.ACTION_DOWN
+            && event.getToolType(0) != MotionEvent.TOOL_TYPE_STYLUS
+            && event.getToolType(0) != MotionEvent.TOOL_TYPE_ERASER) {
+            // Finger = scroll the whole PDF. Stylus = annotate the selected page.
+            return false
+        }
         scaler.onTouchEvent(event)
         when (event.actionMasked) {
             MotionEvent.ACTION_POINTER_DOWN -> {
@@ -212,11 +220,12 @@ class StudyCanvasView(context: Context) : View(context) {
                 return true
             }
             MotionEvent.ACTION_POINTER_UP -> return true
-            MotionEvent.ACTION_CANCEL -> { pending.clear(); drawing = false; multiTouch = false; invalidate(); return true }
+            MotionEvent.ACTION_CANCEL -> { parent?.requestDisallowInterceptTouchEvent(false); pending.clear(); drawing = false; multiTouch = false; invalidate(); return true }
             MotionEvent.ACTION_DOWN -> {
                 multiTouch = false
                 dragged = false
                 val isStylus = event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS || event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER
+                if (isStylus) parent?.requestDisallowInterceptTouchEvent(true)
                 fingerNavigating = !fingerInk && !isStylus
                 if (tool == Tool.PAN || fingerNavigating) { priorMidX = event.x; priorMidY = event.y; return true }
                 val pt = pos(event.x, event.y, event.pressure)
@@ -267,6 +276,7 @@ class StudyCanvasView(context: Context) : View(context) {
                 invalidate(); return true
             }
             MotionEvent.ACTION_UP -> {
+                parent?.requestDisallowInterceptTouchEvent(false)
                 if (tool == Tool.STICKER && currentStickerId != null) { onStickersSave(stickers); return true }
                 if (multiTouch) { multiTouch = false; return true }
                 if (!drawing) return true
