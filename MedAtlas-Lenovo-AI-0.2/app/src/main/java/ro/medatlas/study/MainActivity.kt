@@ -160,7 +160,7 @@ private fun MedAtlasApp() {
                     store.saveDocuments(store.documents().map { if (it.id == doc.id) changed else it })
                     val i = docs.indexOfFirst { it.id == doc.id }; if (i >= 0) docs[i] = changed
                 }, onImport = { picker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation")) })
-                1 -> NotesScreen(store, docs)
+                1 -> NotesScreen(store, docs, onOpen = { selected = it })
                 2 -> CardsScreen(store, docs, onOpen = { selected = it })
                 else -> SettingsScreen()
             }
@@ -1198,23 +1198,45 @@ private fun NoteDialog(store: LibraryStore, doc: StudyDocument, page: Int, onDis
 }
 
 @Composable
-private fun NotesScreen(store: LibraryStore, docs: List<StudyDocument>) {
-    var refresh by remember { mutableIntStateOf(0) }
-    val notes = remember(refresh) { store.notes().sortedByDescending { it.createdAt } }
-    var showNotebookEditor by remember { mutableStateOf(false) }
-    var notebookTitle by remember { mutableStateOf("") }
-    var notebookText by remember { mutableStateOf("") }
-    var showHandwriting by remember { mutableStateOf(false) }
-    var handwritingView by remember { mutableStateOf<HandwritingPadView?>(null) }
-    var recognizingInk by remember { mutableStateOf(false) }
+private fun NotesScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: (StudyDocument) -> Unit) {
     val context = LocalContext.current
+    var refresh by remember { mutableIntStateOf(0) }
+    val notes = remember(refresh) { store.notes().sortedByDescending { it.updatedAt } }
+    val courses = (listOf("General") + docs.map { it.course } + notes.map { it.course })
+        .map { it.ifBlank { "General" } }.distinct().sorted()
+    var courseFilter by remember { mutableStateOf("Toate") }
+    var query by remember { mutableStateOf("") }
+    var editor by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf<StudyNote?>(null) }
+    var title by remember { mutableStateOf("") }
+    var body by remember { mutableStateOf("") }
+    var course by remember { mutableStateOf("General") }
+    var linkedDocument by remember { mutableStateOf("") }
+    var drawingFile by remember { mutableStateOf("") }
+    var handwriting by remember { mutableStateOf(false) }
+    var handwritingView by remember { mutableStateOf<HandwritingPadView?>(null) }
+    var recognizing by remember { mutableStateOf(false) }
+    var addCourse by remember { mutableStateOf(false) }
+    var courseName by remember { mutableStateOf("") }
+    var deleting by remember { mutableStateOf<StudyNote?>(null) }
+
+    fun editNote(note: StudyNote? = null) {
+        selected = note
+        title = note?.heading.orEmpty()
+        body = note?.body.orEmpty()
+        course = note?.course?.ifBlank { "General" }
+            ?: courseFilter.takeIf { it != "Toate" } ?: "General"
+        linkedDocument = note?.documentId.orEmpty()
+        drawingFile = note?.handwritingFile.orEmpty()
+        editor = true
+    }
     val speech = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val recognized = result.data
             ?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
             ?.firstOrNull().orEmpty()
         if (recognized.isNotBlank()) {
-            notebookText = (notebookText + " " + recognized).trim()
-            showNotebookEditor = true
+            body = (body + " " + recognized).trim()
+            editor = true
         }
     }
     fun dictate() {
@@ -1223,111 +1245,195 @@ private fun NotesScreen(store: LibraryStore, docs: List<StudyDocument>) {
                 putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
                     android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "ro-RO")
-                putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Dictează nota medicală")
+                putExtra(android.speech.RecognizerIntent.EXTRA_PROMPT, "Dictează notițele de la curs")
             })
-        }.onFailure { Toast.makeText(context, "Dictarea nu este disponibilă pe dispozitiv.", Toast.LENGTH_LONG).show() }
+        }.onFailure {
+            Toast.makeText(context, "Dictarea nu este disponibilă pe tabletă.", Toast.LENGTH_LONG).show()
+        }
     }
-    Column(Modifier.fillMaxSize().padding(horizontal = 20.dp)) {
-        Text("Carnetul medicului", fontSize = 23.sp, fontWeight = FontWeight.Bold)
-        Text("Notițe personale, observații și dictare vocală", color = Slate, fontSize = 12.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { notebookTitle = ""; notebookText = ""; showNotebookEditor = true }) {
-                Icon(Icons.Rounded.Add, null); Spacer(Modifier.width(4.dp)); Text("Notă nouă")
+    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Carnet de curs", fontSize = 23.sp, fontWeight = FontWeight.Bold)
+                Text("Materii, notițe tastate, pagini manuscrise și dictare", color = Slate, fontSize = 12.sp)
             }
-            OutlinedButton(onClick = { dictate() }) {
-                Icon(Icons.Rounded.Mic, null); Spacer(Modifier.width(4.dp)); Text("Dictează")
-            }
+            IconButton(onClick = { editNote() }) { Icon(Icons.Rounded.NoteAdd, "Notiță nouă") }
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            Button(onClick = { editNote() }) { Text("Notă nouă") }
             OutlinedButton(onClick = {
-                notebookTitle = notebookTitle.ifBlank { "Notiță manuscrisă" }
-                showHandwriting = true
-            }) {
-                Icon(Icons.Rounded.Draw, null); Spacer(Modifier.width(4.dp)); Text("Scrie")
+                editNote(); editor = false; handwriting = true
+            }) { Text("Foaie cu pen-ul") }
+            OutlinedButton(onClick = { editNote(); dictate() }) { Text("Dictează") }
+            OutlinedButton(onClick = { addCourse = true }) { Text("Materie nouă") }
+        }
+        Spacer(Modifier.height(9.dp))
+        OutlinedTextField(value = query, onValueChange = { query = it },
+            modifier = Modifier.fillMaxWidth(), singleLine = true,
+            label = { Text("Caută în carnet") },
+            leadingIcon = { Icon(Icons.Rounded.Search, null) })
+        Row(Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            (listOf("Toate") + courses).forEach { item ->
+                FilterChip(selected = courseFilter == item, onClick = { courseFilter = item },
+                    label = { Text(item, maxLines = 1) })
             }
         }
-        Spacer(Modifier.height(13.dp))
-        if (notes.isEmpty()) Text("Când adaugi notițe dintr-un curs, vor apărea aici.", color = Slate)
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(notes, key = { it.id }) { note ->
-                Surface(color = Color.White, shape = RoundedCornerShape(14.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(15.dp)) {
+        val filtered = notes.filter {
+            (courseFilter == "Toate" || it.course.ifBlank { "General" } == courseFilter) &&
+            (query.isBlank() || it.heading.contains(query, true) || it.body.contains(query, true))
+        }
+        Text(filtered.size.toString() + " notițe", fontSize = 11.sp, color = Slate)
+        if (filtered.isEmpty()) Text("Adaugă prima notiță în acest carnet.", color = Slate)
+        LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(9.dp),
+            contentPadding = PaddingValues(bottom = 20.dp)) {
+            items(filtered, key = { it.id }) { note ->
+                Card(Modifier.fillMaxWidth().clickable { editNote(note) },
+                    colors = CardDefaults.cardColors(containerColor = Color.White)) {
+                    Column(Modifier.padding(13.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(note.heading, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            IconButton(onClick = { store.saveNotes(store.notes().filterNot { it.id == note.id }); refresh++ }) { Icon(Icons.Rounded.DeleteOutline, "Șterge") }
+                            Column(Modifier.weight(1f)) {
+                                Text(note.heading, fontWeight = FontWeight.Bold)
+                                Text(note.course.ifBlank { "General" }, fontSize = 11.sp, color = Slate)
+                            }
+                            IconButton(onClick = { editNote(note) }) {
+                                Icon(Icons.Rounded.Edit, "Editează")
+                            }
+                            IconButton(onClick = { deleting = note }) {
+                                Icon(Icons.Rounded.DeleteOutline, "Șterge")
+                            }
                         }
-                        Text("${docs.firstOrNull { it.id == note.documentId }?.title ?: "Carnetul medicului"} • p. ${note.page + 1}", fontSize = 11.sp, color = Slate)
-                        Spacer(Modifier.height(6.dp)); Text(note.body)
+                        if (note.body.isNotBlank()) Text(note.body, maxLines = 5,
+                            overflow = TextOverflow.Ellipsis, fontSize = 13.sp)
+                        if (note.handwritingFile.isNotBlank()) {
+                            val image = remember(note.handwritingFile) {
+                                store.notebookDrawing(note.handwritingFile)
+                            }
+                            if (image != null) androidx.compose.foundation.Image(
+                                image.asImageBitmap(), contentDescription = "Pagina manuscrisă",
+                                modifier = Modifier.fillMaxWidth().heightIn(max = 190.dp),
+                                contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+                        }
+                        docs.firstOrNull { it.id == note.documentId }?.let { document ->
+                            TextButton(onClick = { onOpen(document) }) {
+                                Text("Deschide cursul: " + document.title.take(35))
+                            }
+                        }
                     }
                 }
             }
         }
     }
-    if (showHandwriting) {
-        AlertDialog(onDismissRequest = { if (!recognizingInk) showHandwriting = false },
-            title = { Text("Carnet · scrie cu Lenovo Tab Pen") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Scrie lizibil, cu spații între rânduri. Recunoașterea textului manuscris este experimentală.",
-                        fontSize = 11.sp, color = Slate)
-                    AndroidView(factory = { context ->
-                        HandwritingPadView(context).also { handwritingView = it }
-                    }, modifier = Modifier.fillMaxWidth().height(290.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextButton(onClick = { handwritingView?.clearInk() }) { Text("Șterge foaia") }
-                        if (recognizingInk) CircularProgressIndicator(Modifier.size(20.dp))
+    if (addCourse) AlertDialog(onDismissRequest = { addCourse = false },
+        title = { Text("Materie nouă") },
+        text = { OutlinedTextField(courseName, { courseName = it },
+            label = { Text("Numele materiei") }) },
+        confirmButton = { Button(onClick = {
+            courseFilter = courseName.trim()
+            addCourse = false
+            courseName = ""
+            editNote()
+            course = courseFilter
+        }, enabled = courseName.isNotBlank()) { Text("Creează") } },
+        dismissButton = { TextButton(onClick = { addCourse = false }) { Text("Anulează") } })
+
+    if (handwriting) AlertDialog(onDismissRequest = { if (!recognizing) handwriting = false },
+        title = { Text("Carnet · scrie cu pen-ul") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("Desenul original se salvează; transcrierea OCR este opțională și trebuie verificată.",
+                    color = Slate, fontSize = 11.sp)
+                AndroidView(factory = { c -> HandwritingPadView(c).also { handwritingView = it } },
+                    modifier = Modifier.fillMaxWidth().height(300.dp))
+                TextButton(onClick = { handwritingView?.clearInk() }) { Text("Șterge foaia") }
+                if (recognizing) CircularProgressIndicator()
+            }
+        },
+        confirmButton = { Button(onClick = {
+            val bitmap = handwritingView?.snapshot() ?: return@Button
+            drawingFile = store.saveNotebookDrawing(bitmap, drawingFile)
+            handwriting = false; editor = true
+        }, enabled = !recognizing) { Text("Salvează desenul") } },
+        dismissButton = { TextButton(onClick = {
+            val bitmap = handwritingView?.snapshot() ?: return@TextButton
+            drawingFile = store.saveNotebookDrawing(bitmap, drawingFile)
+            recognizing = true
+            val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+            recognizer.process(InputImage.fromBitmap(bitmap, 0))
+                .addOnSuccessListener {
+                    body = (body + "\n" + it.text).trim()
+                    handwriting = false; editor = true
+                    Toast.makeText(context, "Corectează textul OCR înainte de salvare.",
+                        Toast.LENGTH_LONG).show()
+                }.addOnFailureListener {
+                    handwriting = false; editor = true
+                    Toast.makeText(context, "Desen salvat, OCR nereușit.", Toast.LENGTH_LONG).show()
+                }.addOnCompleteListener { recognizing = false; recognizer.close() }
+        }, enabled = !recognizing) { Text("Desen + OCR") } })
+
+    if (editor) AlertDialog(onDismissRequest = { editor = false },
+        title = { Text(if (selected == null) "Notă de curs" else "Editează nota") },
+        text = { Column(Modifier.heightIn(max = 530.dp).verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(title, { title = it }, label = { Text("Titlul lecției") },
+                modifier = Modifier.fillMaxWidth())
+            OutlinedTextField(course, { course = it }, label = { Text("Materie") },
+                modifier = Modifier.fillMaxWidth(), singleLine = true)
+            if (docs.isNotEmpty()) {
+                Text("Asociază un document (opțional)", color = Slate, fontSize = 11.sp)
+                Row(Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FilterChip(selected = linkedDocument.isBlank(),
+                        onClick = { linkedDocument = "" }, label = { Text("Niciunul") })
+                    docs.forEach { doc ->
+                        FilterChip(selected = linkedDocument == doc.id,
+                            onClick = { linkedDocument = doc.id; course = doc.course },
+                            label = { Text(doc.title.take(20)) })
                     }
                 }
-            },
-            confirmButton = {
-                Button(onClick = {
-                    val source = handwritingView?.snapshot() ?: return@Button
-                    recognizingInk = true
-                    val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-                    recognizer.process(InputImage.fromBitmap(source, 0))
-                        .addOnSuccessListener { outcome ->
-                            notebookText = (notebookText + "\n" + outcome.text).trim()
-                            showHandwriting = false
-                            showNotebookEditor = true
-                            Toast.makeText(context, "Text recunoscut. Verifică și corectează înainte de salvare.",
-                                Toast.LENGTH_LONG).show()
-                        }.addOnFailureListener {
-                            Toast.makeText(context, it.localizedMessage ?: "Nu s-a recunoscut scrisul",
-                                Toast.LENGTH_LONG).show()
-                        }.addOnCompleteListener {
-                            recognizingInk = false
-                            recognizer.close()
-                        }
-                }, enabled = !recognizingInk) { Text("Transcrie în text") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showHandwriting = false }, enabled = !recognizingInk) {
-                    Text("Anulează")
-                }
-            })
-    }
-    if (showNotebookEditor) {
-        AlertDialog(onDismissRequest = { showNotebookEditor = false },
-            title = { Text("Carnet medical · notă") },
-            text = { Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(notebookTitle, { notebookTitle = it },
-                    label = { Text("Titlu") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(notebookText, { notebookText = it },
-                    label = { Text("Conținut") }, minLines = 6, maxLines = 14,
-                    modifier = Modifier.fillMaxWidth())
-                OutlinedButton(onClick = { dictate() }) {
-                    Icon(Icons.Rounded.Mic, null); Text("Adaugă prin voce")
-                }
-                Text("Folosește doar cazuri fictive sau anonimizate. Dictarea depinde de serviciul vocal al tabletei.",
-                    fontSize = 11.sp, color = Slate)
-            }},
-            confirmButton = { Button(onClick = {
-                store.saveNotes(store.notes() + StudyNote(
-                    documentId = "medical-notebook", page = 0,
-                    heading = notebookTitle.ifBlank { "Observație medicală" },
-                    body = notebookText))
-                refresh++; showNotebookEditor = false
-            }, enabled = notebookText.isNotBlank()) { Text("Salvează") } },
-            dismissButton = { TextButton(onClick = { showNotebookEditor = false }) { Text("Anulează") } })
+            }
+            OutlinedTextField(body, { body = it }, label = { Text("Textul notiței") },
+                modifier = Modifier.fillMaxWidth(), minLines = 7, maxLines = 16)
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                OutlinedButton(onClick = { dictate() }) { Text("Dictează") }
+                OutlinedButton(onClick = { editor = false; handwriting = true }) { Text("Scrie cu pen-ul") }
+            }
+            if (drawingFile.isNotBlank()) {
+                val image = remember(drawingFile) { store.notebookDrawing(drawingFile) }
+                if (image != null) androidx.compose.foundation.Image(image.asImageBitmap(),
+                    contentDescription = "Foaia manuscrisă atașată",
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 140.dp),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+            }
+            Text("Nu introduce date identificabile despre pacienți.",
+                color = Slate, fontSize = 11.sp)
+        }},
+        confirmButton = { Button(onClick = {
+            val old = store.notes()
+            val original = selected
+            val note = if (original == null) StudyNote(
+                documentId = linkedDocument.ifBlank { "medical-notebook" }, page = 0,
+                heading = title.ifBlank { "Notă fără titlu" }, body = body,
+                course = course.ifBlank { "General" }, handwritingFile = drawingFile)
+            else original.copy(documentId = linkedDocument.ifBlank { "medical-notebook" },
+                heading = title.ifBlank { "Notă fără titlu" }, body = body,
+                course = course.ifBlank { "General" }, handwritingFile = drawingFile,
+                updatedAt = System.currentTimeMillis())
+            store.saveNotes(if (original == null) old + note
+                else old.map { if (it.id == original.id) note else it })
+            refresh++; editor = false
+        }, enabled = body.isNotBlank() || drawingFile.isNotBlank()) { Text("Salvează") } },
+        dismissButton = { TextButton(onClick = { editor = false }) { Text("Anulează") } })
+
+    deleting?.let { note -> AlertDialog(onDismissRequest = { deleting = null },
+        title = { Text("Ștergi notița?") },
+        text = { Text("Ștergerea elimină nota din carnet.") },
+        confirmButton = { Button(onClick = {
+            store.saveNotes(store.notes().filterNot { it.id == note.id })
+            deleting = null; refresh++
+        }) { Text("Șterge") } },
+        dismissButton = { TextButton(onClick = { deleting = null }) { Text("Anulează") } })
     }
 }
 
