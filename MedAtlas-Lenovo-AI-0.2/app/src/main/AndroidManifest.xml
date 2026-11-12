@@ -9,6 +9,7 @@
         android:theme="@style/Theme.MedAtlas"
         android:usesCleartextTraffic="false">
         <activity android:name=".classroom.ClassroomActivity" android:exported="false" />
+        <activity android:name=".books.MedicalBooksActivity" android:exported="false" />
         <activity android:name=".simulation.ClinicalSimulatorActivity" android:exported="false" />
         <activity android:name=".simulation.ExamSimulatorActivity" android:exported="false" />
         <activity android:name=".anatomy.Anatomy3DActivity" android:exported="false" />
