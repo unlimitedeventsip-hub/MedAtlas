@@ -3,4 +3,5 @@
     <cache-path name="exports" path="exports/" />
     <cache-path name="classroom_downloads" path="classroom/" />
     <cache-path name="bundled_books" path="bundled_books/" />
+    <cache-path name="book_zip" path="book_zip/" />
 </paths>
