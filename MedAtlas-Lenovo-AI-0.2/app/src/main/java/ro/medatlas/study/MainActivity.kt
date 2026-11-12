@@ -50,6 +50,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.FileProvider
+import androidx.work.WorkManager
+import androidx.work.WorkInfo
+import androidx.work.getWorkInfosForUniqueWorkFlow
+import ro.medatlas.study.pdf.FullDocumentOcrWorker
 import com.google.mlkit.vision.common.InputImage
 import com.google.android.gms.tasks.Tasks
 import com.google.mlkit.vision.text.TextRecognition
@@ -434,36 +438,16 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             processing = false
         }
     }
+    val ocrWorkManager = remember(context) { WorkManager.getInstance(context) }
+    val fullOcrWork by remember(doc.id) {
+        ocrWorkManager.getWorkInfosForUniqueWorkFlow(
+            FullDocumentOcrWorker.workName(doc.id))
+    }.collectAsState(initial = emptyList<WorkInfo>())
+    val fullOcrStatus = fullOcrWork.firstOrNull()
     fun runBatchOcr() {
-        if (doc.kind != "PDF" || processing) return
-        processing = true
-        scope.launch {
-            val outcome = runCatching {
-                withContext(Dispatchers.IO) {
-                    DocumentPager(doc, store).use { workerPager ->
-                        val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-                        try {
-                            val last = minOf(workerPager.count, page + 10)
-                            var completed = 0
-                            for (position in page until last) {
-                                val image = workerPager.render(position)
-                                try {
-                                    val recognized = Tasks.await(recognizer.process(InputImage.fromBitmap(image, 0)))
-                                    store.savePageText(doc.id, position, recognized.text)
-                                    completed++
-                                } finally { image.recycle() }
-                            }
-                            completed
-                        } finally { recognizer.close() }
-                    }
-                }
-            }
-            outcome.onSuccess { completed ->
-                textVersion++
-                Toast.makeText(context, "Indexate $completed pagini. Poți continua din pagina următoare.", Toast.LENGTH_LONG).show()
-            }.onFailure { Toast.makeText(context, "Indexarea nu a reușit: ${it.localizedMessage}", Toast.LENGTH_LONG).show() }
-            processing = false
-        }
+        if (doc.kind != "PDF") return
+        FullDocumentOcrWorker.enqueue(context, doc.id)
+        Toast.makeText(context, "OCR pentru documentul complet a fost programat în fundal.", Toast.LENGTH_LONG).show()
     }
     Column(Modifier.fillMaxSize().background(Ivory).statusBarsPadding().navigationBarsPadding()) {
         // Always visible, independent from the PDF scrolling surface.
@@ -473,6 +457,15 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             Column(Modifier.weight(1f)) {
                 Text(doc.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 Text("${doc.kind} • pagina ${page + 1}/${pager.count}", fontSize = 11.sp, color = Slate)
+                if (fullOcrStatus != null && fullOcrStatus.state == WorkInfo.State.RUNNING) {
+                    val done = fullOcrStatus.progress.getInt(FullDocumentOcrWorker.KEY_DONE, 0)
+                    val total = fullOcrStatus.progress.getInt(FullDocumentOcrWorker.KEY_TOTAL, pager.count)
+                    Text("OCR document: " + done + "/" + total + " pagini", fontSize = 11.sp, color = Teal)
+                } else if (fullOcrStatus?.state == WorkInfo.State.SUCCEEDED) {
+                    Text("OCR complet • text indexat local", fontSize = 11.sp, color = Teal)
+                } else if (fullOcrStatus?.state == WorkInfo.State.FAILED) {
+                    Text("OCR întrerupt; reîncearcă din panoul Studiu", fontSize = 11.sp, color = Rose)
+                }
             }
             TextButton(onClick = { expanded = !expanded }) {
                 Icon(Icons.Rounded.AutoAwesome, "Nadia AI", tint = Rose)
@@ -1141,7 +1134,7 @@ private fun StudyPanel(doc: StudyDocument, store: LibraryStore, page: Int, textV
             OutlinedButton(onClick = onBatchOcr, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Rounded.DocumentScanner, null, modifier = Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Indexează 10 pagini din punctul curent", fontSize = 12.sp)
+                Text("OCR automat pentru toate paginile (fundal)", fontSize = 12.sp)
             }
         }
         if (text.isBlank() && doc.kind == "PDF") {
@@ -1160,7 +1153,7 @@ private fun StudyPanel(doc: StudyDocument, store: LibraryStore, page: Int, textV
                     if (summary.isEmpty()) Text("Rezumatul offline extrage fraze importante din text; nu înlocuiește analiza AI. Pentru rezumat AI complet se va conecta ulterior un serviciu securizat.", color = Slate, fontSize = 12.sp)
                     summary.forEachIndexed { i, point -> Surface(color = if (i % 2 == 0) PaleRose else Color(0xFFF2F6F4), shape = RoundedCornerShape(10.dp)) { Text("${i + 1}. $point", modifier = Modifier.padding(11.dp), fontSize = 13.sp) } }
                     if (summary.isNotEmpty()) OutlinedButton(onClick = { shareText(context, "Te rog restructurează acest rezumat medical exclusiv pe baza fragmentelor furnizate, fără să inventezi informații:\n\n" + summary.joinToString("\n")) }) { Text("Aprofundează în ChatGPT") }
-                    if (doc.kind == "PDF" && text.isNotBlank()) Text("Pentru a analiza și alte pagini, navighează la ele și folosește OCR.", color = Slate, fontSize = 11.sp)
+                    if (doc.kind == "PDF" && text.isNotBlank()) Text("Poți recunoaște automat întregul PDF din meniul OCR, cu progres salvat și reluare.", color = Slate, fontSize = 11.sp)
                 }
             }
             1 -> {
