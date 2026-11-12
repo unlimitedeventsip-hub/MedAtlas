@@ -672,33 +672,49 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                                                     update = { view ->
                                                         if (page == index) canvasView = view
                                                         view.scrollThroughFingers = true
+                                                        view.readOnly = readOnly
                                                         view.onSave = { strokes ->
-                                                            pageMarks = strokes
+                                                            if (!readOnly) {
+                                                                pageMarks = strokes
                                                             store.saveInk(doc.id, index, strokes)
-                                                            if (page == index) marks = strokes
+                                                                if (page == index) marks = strokes
+                                                            }
                                                         }
-                                                        view.onAnalyze = { selectedImage -> page = index; crop = selectedImage }
+                                                        view.onAnalyze = { selectedImage ->
+                                                            if (!readOnly) { page = index; crop = selectedImage }
+                                                        }
                                                         view.comments = store.comments(doc.id, index).also { commentsVersion }
                                                         view.textBoxes = store.textBoxes(doc.id, index).also { textBoxesVersion }
-                                                        view.onTextCreate = { point -> textAnchor = index to point }
-                                                        view.onTextOpen = { box -> selectedText = box }
-                                                        view.onTextsSave = { list ->
-                                                            store.saveTextBoxes(doc.id, index, list)
-                                                            textBoxesVersion++
+                                                        view.onTextCreate = { point ->
+                                                            if (!readOnly) textAnchor = index to point
                                                         }
-                                                        view.onCommentCreate = { point, word -> commentAnchor = Triple(index, point, word) }
-                                                        view.onCommentOpen = { comment -> selectedComment = comment }
+                                                        view.onTextOpen = { box -> if (!readOnly) selectedText = box }
+                                                        view.onTextsSave = { list ->
+                                                            if (!readOnly) {
+                                                                store.saveTextBoxes(doc.id, index, list)
+                                                                textBoxesVersion++
+                                                            }
+                                                        }
+                                                        view.onCommentCreate = { point, word ->
+                                                            if (!readOnly) commentAnchor = Triple(index, point, word)
+                                                        }
+                                                        view.onCommentOpen = { comment ->
+                                                            if (!readOnly) selectedComment = comment
+                                                        }
                                                         view.stickerResolver = { name -> stickerCache.getOrPut(name) {
                                                             store.stickerBitmap(name) ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
                                                         } }
                                                         view.onStickersSave = { list ->
-                                                            pageStickers = list
-                                                            store.saveStickers(doc.id, index, list)
-                                                            if (page == index) stickers = list
+                                                            if (!readOnly) {
+                                                                pageStickers = list
+                                                                store.saveStickers(doc.id, index, list)
+                                                                if (page == index) stickers = list
+                                                            }
                                                         }
                                                         view.stickers = if (page == index) stickers else pageStickers
                                                         view.bind(pageBitmap, if (page == index) marks else pageMarks,
-                                                            tool, color, width, fingerInk)
+                                                            if (readOnly) Tool.PAN else tool,
+                                                            color, width, if (readOnly) false else fingerInk)
                                                     }
                                                 )
                                             } else if (itemError != null) {
@@ -719,23 +735,36 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                         update = { view ->
                             canvasView = view
                             view.scrollThroughFingers = false
-                            view.onSave = { strokes -> marks = strokes; store.saveInk(doc.id, page, strokes) }
-                            view.onAnalyze = { crop = it }
+                            view.readOnly = readOnly
+                            view.onSave = { strokes ->
+                                if (!readOnly) {
+                                    marks = strokes
+                                    store.saveInk(doc.id, page, strokes)
+                                }
+                            }
+                            view.onAnalyze = { if (!readOnly) crop = it }
                             view.comments = store.comments(doc.id, page).also { commentsVersion }
                             view.textBoxes = store.textBoxes(doc.id, page).also { textBoxesVersion }
-                            view.onTextCreate = { point -> textAnchor = page to point }
-                            view.onTextOpen = { box -> selectedText = box }
+                            view.onTextCreate = { point -> if (!readOnly) textAnchor = page to point }
+                            view.onTextOpen = { box -> if (!readOnly) selectedText = box }
                             view.onTextsSave = { list ->
-                                store.saveTextBoxes(doc.id, page, list); textBoxesVersion++
+                                if (!readOnly) {
+                                    store.saveTextBoxes(doc.id, page, list); textBoxesVersion++
+                                }
                             }
-                            view.onCommentCreate = { point, word -> commentAnchor = Triple(page, point, word) }
-                            view.onCommentOpen = { comment -> selectedComment = comment }
+                            view.onCommentCreate = { point, word ->
+                                if (!readOnly) commentAnchor = Triple(page, point, word)
+                            }
+                            view.onCommentOpen = { comment -> if (!readOnly) selectedComment = comment }
                             view.stickerResolver = { name -> stickerCache.getOrPut(name) {
                                 store.stickerBitmap(name) ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
                             } }
-                            view.onStickersSave = { list -> stickers = list; store.saveStickers(doc.id, page, list) }
+                            view.onStickersSave = { list ->
+                                if (!readOnly) { stickers = list; store.saveStickers(doc.id, page, list) }
+                            }
                             view.stickers = stickers
-                            view.bind(bitmap, marks, tool, color, width, fingerInk)
+                            view.bind(bitmap, marks, if (readOnly) Tool.PAN else tool, color, width,
+                                if (readOnly) false else fingerInk)
                         }
                     ) else if (loadError != null) Text(loadError.orEmpty(), Modifier.align(Alignment.Center))
                     else CircularProgressIndicator(Modifier.align(Alignment.Center))
