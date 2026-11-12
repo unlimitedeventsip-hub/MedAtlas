@@ -46,6 +46,41 @@ class LibraryStore(private val context: Context) {
         if (!temp.renameTo(target)) { temp.copyTo(target, overwrite = true); temp.delete() }
     }
 
+    /** Full local backup for migrations and reinstallations; exported only by explicit user action. */
+    fun exportBackup(uri: Uri) {
+        val output = context.contentResolver.openOutputStream(uri) ?: error("Nu se poate deschide destinația.")
+        output.use { stream ->
+            java.util.zip.ZipOutputStream(stream).use { zip ->
+                root.walkTopDown().filter { it.isFile && !it.name.endsWith(".tmp") }.forEach { file ->
+                    val relative = file.relativeTo(root).invariantSeparatorsPath
+                    zip.putNextEntry(java.util.zip.ZipEntry(relative))
+                    file.inputStream().use { it.copyTo(zip) }
+                    zip.closeEntry()
+                }
+            }
+        }
+    }
+
+    /** Restore only paths inside the app's private MedAtlas directory. */
+    fun importBackup(uri: Uri) {
+        val input = context.contentResolver.openInputStream(uri) ?: error("Arhiva nu poate fi citită.")
+        input.use { source ->
+            java.util.zip.ZipInputStream(source).use { zip ->
+                while (true) {
+                    val entry = zip.nextEntry ?: break
+                    if (entry.isDirectory) { zip.closeEntry(); continue }
+                    val dest = File(root, entry.name)
+                    require(dest.canonicalPath.startsWith(root.canonicalPath + File.separator)) {
+                        "Arhiva conține o cale invalidă."
+                    }
+                    dest.parentFile?.mkdirs()
+                    dest.outputStream().use { zip.copyTo(it) }
+                    zip.closeEntry()
+                }
+            }
+        }
+    }
+
     fun documents(): List<StudyDocument> = loadArray("documents.json", StudyDocument::parse).sortedByDescending { it.importedAt }
     fun notes(): List<StudyNote> = loadArray("notes.json", StudyNote::parse)
     fun cards(): List<Flashcard> = loadArray("cards.json", Flashcard::parse)
