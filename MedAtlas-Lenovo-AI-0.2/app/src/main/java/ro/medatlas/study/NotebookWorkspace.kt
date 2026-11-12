@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -39,7 +41,8 @@ import ro.medatlas.study.ui.StudyCanvasView
 import java.util.UUID
 
 private val patterns = mapOf("LINES" to "Linii", "GRID" to "Caroiaj", "DOTS" to "Puncte")
-private val covers = listOf(Color(0xFF315C60), Color(0xFF6C4856), Color(0xFF465775), Color(0xFF796133))
+private val covers = listOf(Color(0xFF315C60), Color(0xFF6C4856), Color(0xFF465775), Color(0xFF796133),
+    Color(0xFF536A4D), Color(0xFF79617E), Color(0xFF5B6772), Color(0xFF9B5C5F))
 private fun cover(name: String) = covers[Math.floorMod(name.hashCode(), covers.size)]
 internal fun inkId(id: String) = "notebook-" + UUID.nameUUIDFromBytes(id.toByteArray(Charsets.UTF_8))
 
@@ -121,6 +124,8 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
     var search by rememberSaveable { mutableStateOf("") }
     var naming by rememberSaveable { mutableStateOf(false) }
     var name by rememberSaveable { mutableStateOf("") }
+    var customizeCover by rememberSaveable { mutableStateOf<String?>(null) }
+    var coverVersion by remember { mutableIntStateOf(0) }
     var notes by remember(classic) { mutableStateOf(store.notes()) }
     fun course(n: StudyNote) = n.course.ifBlank { docs.find { it.id == n.documentId }?.course.orEmpty().ifBlank { "General" } }
     fun addPage(folder: String) {
@@ -276,14 +281,27 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
             }
             if (showCovers) {
                 items(groups.keys.sorted(), key = { "course-" + it }) { title ->
-                    Column(Modifier.fillMaxWidth().background(cover(title), RoundedCornerShape(12.dp))
-                        .clickable { book = title }.padding(start = 12.dp)) {
-                        Column(Modifier.fillMaxWidth().padding(16.dp)) {
-                            Text("MEDATLAS   /   NADIA", color = Color.White, style = MaterialTheme.typography.labelSmall)
-                            Spacer(Modifier.height(32.dp))
-                            Text(title, color = Color.White, fontWeight = FontWeight.Bold)
-                            Text("${groups[title]?.size} pagini", color = Color.White)
+                    val savedColor = remember(title, coverVersion) {
+                        Color(prefs.getInt("notebook_cover::" + title, cover(title).toArgb()))
+                    }
+                    Column(Modifier.fillMaxWidth().background(savedColor, RoundedCornerShape(12.dp))
+                        .clickable { book = title }.padding(14.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("MEDATLAS  /  NADIA", color = Color.White.copy(alpha = .85f),
+                                style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.weight(1f))
+                            IconButton(onClick = { customizeCover = title }) {
+                                Icon(Icons.Rounded.Palette, contentDescription = "Schimbă coperta",
+                                    tint = Color.White)
+                            }
                         }
+                        Spacer(Modifier.height(18.dp))
+                        Text(title, color = Color.White, fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium, maxLines = 2,
+                            overflow = TextOverflow.Ellipsis)
+                        Spacer(Modifier.height(5.dp))
+                        Text("${groups[title]?.size} pagini", color = Color.White.copy(alpha=.9f),
+                            style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
@@ -297,6 +315,28 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
                     }
                 }
         }
+    }
+    customizeCover?.let { title ->
+        AlertDialog(onDismissRequest = { customizeCover = null },
+            title = { Text("Coperta caietului · " + title) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Alege o culoare. Coperta este salvată local și rămâne după redeschidere.",
+                        style = MaterialTheme.typography.bodySmall)
+                    Row(Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        covers.forEach { shade ->
+                            Surface(shape = RoundedCornerShape(10.dp), color = shade,
+                                modifier = Modifier.size(46.dp).clickable {
+                                    prefs.edit().putInt("notebook_cover::" + title, shade.toArgb()).apply()
+                                    coverVersion++
+                                    customizeCover = null
+                                }) {}
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { customizeCover = null }) { Text("Închide") } })
     }
     if (newBoard) AlertDialog(onDismissRequest = { newBoard = false }, title = { Text("Planșă nouă") },
         text = { OutlinedTextField(name, { name = it }, singleLine = true, label = { Text("Numele planșei") }) },
