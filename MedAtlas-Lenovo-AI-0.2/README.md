@@ -16,7 +16,7 @@ Aplicație de studiu medical pentru tableta Lenovo, construită cu Kotlin + Jetp
 - Studiu: flashcarduri cu repetare spațiată; Spital Virtual cu 6 cazuri acute și 94 de pacienți ambulatorii fictivi în 10 profiluri. Fiecare are fișe salvate local pentru consultație, ziua 7 și luna 3. Răspunsul la grilă are corectare automată; textul liber se compară cu explicația și conduita de referință.
 - Laborator medical: 12 buletine fictive cu întrebări de interpretare și explicații, plus fișe introductive și quiz-uri pentru ECG, radiografie, CT, monitor, instrumente și farmacologie.
 - Anatomie 3D: fereastră cu atlase *externe* și posibilitatea de a le deschide în browser; modelele NU sunt incluse offline.
-- Enciclopedia organelor: index filtrabil și căutabil cu structuri din 11 sisteme, localizare și funcție pentru fiecare dintre cele 199 de structuri distincte, exemple de investigații unde sunt disponibile și acces la manualul OpenStax.
+- Enciclopedia organelor: index filtrabil și căutabil cu structuri din 11 sisteme, localizare și funcție pentru fiecare dintre cele 199 de structuri distincte, trei planșe istorice offline cu exerciții de identificare (inimă, lobul pulmonar, rinichi), exemple de investigații unde sunt disponibile și acces la manualul OpenStax.
 - Classroom: activitate Android separată, OAuth Google, sincronizare cursuri/materiale/teme, import opțional PDF/DOCX/PPTX din Drive cu limite de mărime. Necesită configurarea Google Cloud, client OAuth Android, SHA-1 stabil și permisiuni; vezi `CLASSROOM-CONFIGURARE.md`.
 - Backup/restore ZIP local și export PDF adnotat.
 

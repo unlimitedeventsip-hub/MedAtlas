@@ -14,7 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.platform.testTag
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,7 +41,7 @@ class ClinicalSimulatorActivity : ComponentActivity() {
         val complaint: String, val vitals: String, val history: String,
         val questions: List<Pair<String, String>>, val tests: List<Pair<String, String>>,
         val diagnoses: List<String>, val correct: Int, val therapy: String,
-        val explanation: String, val day7: String, val month3: String
+        val explanation: String, val day7: String, val month3: String, val profile: String = id
     )
 
     private val cases by lazy { listOf(
@@ -125,16 +125,22 @@ class ClinicalSimulatorActivity : ComponentActivity() {
 
     @Composable
     private fun ClinicalSimulationUI() {
-        var currentId by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf<String?>(null) }
+        var currentId by rememberSaveable { mutableStateOf<String?>(null) }
         val current = cases.firstOrNull { it.id == currentId }
         androidx.activity.compose.BackHandler(current != null) { currentId = null }
         val prefs = remember { getSharedPreferences("clinical-workbook", MODE_PRIVATE) }
-        var revealed by remember(current?.id) { mutableStateOf(setOf<Int>()) }
-        var investigations by remember(current?.id) { mutableStateOf(setOf<Int>()) }
+        var query by rememberSaveable { mutableStateOf("") }
+        var activeOnly by rememberSaveable { mutableStateOf(false) }
+        fun loadSet(field: String) = prefs.getStringSet("$currentId.$field", emptySet()).orEmpty().mapNotNull { it.toIntOrNull() }.toSet()
+        fun saveSet(field: String, values: Set<Int>) {
+            prefs.edit().putStringSet("$currentId.$field", values.map { it.toString() }.toSet()).apply()
+        }
+        var revealed by remember(current?.id) { mutableStateOf(loadSet("history")) }
+        var investigations by remember(current?.id) { mutableStateOf(loadSet("tests")) }
         var diagnosis by remember(current?.id) { mutableIntStateOf(prefs.getInt("$currentId.choice", -1)) }
         var therapyShown by remember(current?.id) { mutableStateOf(prefs.getBoolean("$currentId.feedback", false)) }
         val dark = Color(0xFF182535)
-        val tint = Color(0xFFD58EA2)
+
         MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF38786E))) {
             Column(Modifier.fillMaxSize().background(Color(0xFFFAF8F4)).statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -145,20 +151,36 @@ class ClinicalSimulatorActivity : ComponentActivity() {
                         Text("Spital Virtual", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = dark)
                         Text("Pacienți fictivi · simulare educațională", fontSize = 11.sp, color = Color.Gray)
                     }
-                    Icon(Icons.Rounded.MedicalServices, null, tint = tint)
+                    HospitalHeaderTrace()
                 }
                 if (current == null) {
+                    val matching = cases.filter { c ->
+                        (!activeOnly || prefs.contains(c.id + ".opened")) &&
+                            listOf(c.title, c.patient, c.history, c.difficulty).any { it.contains(query.trim(), ignoreCase = true) }
+                    }
+                    OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+                        singleLine = true, label = { Text("Caută un simptom sau antecedent") })
+                    FilterChip(selected = activeOnly, onClick = { activeOnly = !activeOnly },
+                        label = { Text("Fișe deschise") }, modifier = Modifier.padding(start = 14.dp))
                     LazyColumn(Modifier.fillMaxSize().padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                         item { Text("${cases.size} pacienți. Alege cazul. Obține anamneza, investighează și stabilește diagnosticul.",
                             color = Color.Gray, fontSize = 12.sp) }
-                        items(cases, key = { it.id }) { c ->
-                            Card(Modifier.fillMaxWidth().clickable { currentId = c.id }) {
+                        if (matching.isEmpty()) item { Text("Nicio fișă pentru selecția curentă.") }
+                        items(matching, key = { it.id }) { c ->
+                            Card(Modifier.fillMaxWidth().clickable {
+                                prefs.edit().putBoolean(c.id + ".opened", true).apply()
+                                currentId = c.id
+                            }) {
                                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Rounded.Person, null)
                                     Spacer(Modifier.width(12.dp))
                                     Column(Modifier.weight(1f)) {
                                         Text(c.title, fontWeight = FontWeight.SemiBold)
                                         Text(c.difficulty + " • " + c.patient, fontSize = 11.sp)
+                                        if (prefs.contains(c.id + ".opened")) {
+                                            val visit = listOf("Consultație", "Ziua 7", "Luna 3")[prefs.getInt(c.id + ".visit", 0)]
+                                            Text("Reia · " + visit, color = Color(0xFF38786E), fontSize = 12.sp)
+                                        }
                                     }
                                     Icon(Icons.Rounded.ChevronRight, null)
                                 }
@@ -171,7 +193,7 @@ class ClinicalSimulatorActivity : ComponentActivity() {
                         diagnosis = index
                         prefs.edit().putInt("$currentId.choice", index).apply()
                     }
-                    LazyColumn(Modifier.testTag("case-details").fillMaxSize().padding(horizontal = 14.dp),
+                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         contentPadding = PaddingValues(bottom = 30.dp)) {
                         item {
@@ -195,7 +217,7 @@ class ClinicalSimulatorActivity : ComponentActivity() {
                         }
                         items(c.questions.indices.toList()) { index ->
                             val pair = c.questions[index]
-                            OutlinedButton(onClick = { revealed = revealed + index },
+                            OutlinedButton(onClick = { revealed = revealed + index; saveSet("history", revealed) },
                                 modifier = Modifier.fillMaxWidth()) { Text("Întreabă: " + pair.first) }
                             if (index in revealed) {
                                 Text("Pacient: „" + pair.second + "”", modifier = Modifier.padding(start = 15.dp),
@@ -208,14 +230,16 @@ class ClinicalSimulatorActivity : ComponentActivity() {
                         item { Text("2. Investigații", fontWeight = FontWeight.Bold) }
                         items(c.tests.indices.toList()) { index ->
                             val item = c.tests[index]
-                            OutlinedButton(onClick = { investigations = investigations + index },
+                            OutlinedButton(onClick = { investigations = investigations + index; saveSet("tests", investigations) },
                                 modifier = Modifier.fillMaxWidth()) { Text(item.first) }
                             if (index in investigations) Text(item.second, color = Color(0xFF38786E),
                                 modifier = Modifier.padding(start = 15.dp))
                         }
                         item {
                             HorizontalDivider()
-                            VisitWorkbook(this@ClinicalSimulatorActivity, c, therapyShown)
+                            VisitWorkbook(this@ClinicalSimulatorActivity, c)
+                        }
+                        item {
                             Text("Verificare prin grilă", fontWeight = FontWeight.Bold)
                             c.diagnoses.forEachIndexed { i, option ->
                                 Row(Modifier.fillMaxWidth().clickable { choose(i) }.padding(8.dp),

@@ -32,8 +32,10 @@ clinical = next(app.rglob("ClinicalSimulatorActivity.kt")).read_text(encoding="u
 legacy_ids = re.findall(r'^        Case\("([^"]+)"', clinical, flags=re.M)
 assert not ids.intersection(legacy_ids)
 assert len(ids) + len(set(legacy_ids)) >= 100
+review = table("clinical/reassessment.tsv")
+assert unique(review, "id") == profile_ids.union(legacy_ids)
 unique(labs, "id")
-for lab in labs:
+for lab in labs + review:
     assert int(lab["correct"]) in range(3)
     assert len({lab["a"], lab["b"], lab["c"]}) == 3
 atlas = next(app.rglob("OrganAtlasActivity.kt")).read_text(encoding="utf8")

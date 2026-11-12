@@ -22,6 +22,16 @@ class WorkbookDeviceTest {
         ui.onNode(hasScrollToIndexAction()).performScrollToNode(hasText(label))
     }
 
+    private fun tap(label: String) {
+        listTo(label)
+        ui.onNodeWithText(label).performScrollTo().performClick()
+    }
+
+    private fun enter(label: String, value: String) {
+        listTo(label)
+        ui.onNodeWithText(label).performScrollTo().performTextInput(value)
+    }
+
     @Test fun resumesIndividualPatientAtFollowUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("clinical-workbook", Context.MODE_PRIVATE).edit().clear().commit()
@@ -29,19 +39,18 @@ class WorkbookDeviceTest {
         ActivityScenario.launch(ClinicalSimulatorActivity::class.java).use {
             listTo(patient)
             ui.onNodeWithText(patient).performClick()
-            listTo("Verificare prin grilă")
-            ui.onNodeWithText("Diagnostic").performTextInput("Anemie cu microcitoză")
-            ui.onNodeWithText("Argumente și alternative").performTextInput("Feritină scăzută")
-            ui.onNodeWithText("Tratament și monitorizare").performTextInput("Verific pierderile și urmăresc hemograma")
-            ui.onNodeWithText("Anemie feriprivă").performClick()
-            ui.onNodeWithText("Verifică diagnosticul și tratamentul").performClick()
-            ui.onNodeWithText("Continuă · Ziua 7").performClick()
-            ui.onNodeWithText("Ziua 7").assertExists()
+            tap("Feritină")
+            ui.onNodeWithText("7 µg/L", substring = true).assertExists()
+            enter("Diagnostic", "Anemie cu microcitoză")
+            enter("Argumente și alternative", "Feritină scăzută")
+            enter("Tratament și monitorizare", "Verific pierderile și urmăresc hemograma")
+            tap("Continuă · Ziua 7")
+            listTo("Ziua 7")
             ui.onNodeWithText("Diagnostic · Anemie cu microcitoză").assertExists()
-            ui.onNodeWithText("Diagnostic").performTextInput("În urmărire")
-            ui.onNodeWithText("Argumente și alternative").performTextInput("Verific toleranța")
-            ui.onNodeWithText("Tratament și monitorizare").performTextInput("Reevaluare")
-            ui.onNodeWithText("Continuă · Luna 3").performClick()
+            enter("Diagnostic", "În urmărire")
+            enter("Argumente și alternative", "Verific toleranța")
+            enter("Tratament și monitorizare", "Reevaluare")
+            tap("Continuă · Luna 3")
         }
         ActivityScenario.launch(ClinicalSimulatorActivity::class.java).use {
             listTo(patient)
@@ -49,6 +58,14 @@ class WorkbookDeviceTest {
             listTo("Luna 3")
             ui.onNodeWithText("Diagnostic · În urmărire").assertExists()
             ui.onNodeWithText("Ecografia ginecologică", substring = true).assertExists()
+            enter("Diagnostic", "Anemie în ameliorare")
+            enter("Argumente și alternative", "Hemoglobina a crescut")
+            enter("Tratament și monitorizare", "Reevaluare ginecologică")
+            tap("S-au refăcut depozitele și a fost tratată cauza?")
+            ui.onNodeWithText("Corect!").assertExists()
+            tap("Anemie feriprivă")
+            tap("Verifică diagnosticul și tratamentul")
+            ui.onNodeWithText("Diagnostic corect!").assertExists()
         }
     }
 
