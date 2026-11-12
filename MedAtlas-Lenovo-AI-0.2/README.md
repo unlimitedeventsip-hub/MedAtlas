@@ -1,26 +1,42 @@
-# MedAtlas ♡ — Nadia's Medical Workspace
+# MedAtlas Nadia — Android Beta 0.4
 
-**Versiune sursă 0.2 — Android nativ, romantic premium**, pentru Lenovo Idea Tab Plus cu stylus, vertical + orizontal.
+Aplicație de studiu medical pentru tableta Lenovo, construită cu Kotlin + Jetpack Compose. Aplicația este un prototip educațional, **nu un dispozitiv medical**. Codul este în subfolderul `MedAtlas-Lenovo-AI-0.2/`; istoricul folderului a fost păstrat pentru compatibilitatea workflow-ului.
 
-## Implementat în sursă
+## Implementat în cod și compilat prin GitHub Actions
 
-- Intro ECG cu inimă și mesajul „Nadia, te iubesc”.
-- Biblioteca de cursuri PDF, DOCX, PPTX cu import local. Word/PPTX sunt afișate ca text extras, nu în aspectul original.
-- Cititor PDF și adnotări pen: pix, highlight, sublinieri, cercuri, forme, săgeți, Lasso, radieră, zoom, undo/redo, save automat, export PDF adnotat.
-- Încercuiește selecție, deschide ChatGPT Plus prin partajare, web search, notițe.
-- Modul AI integrat configurabil: explicații în aplicație, rezumate, grile, întrebări libere, surse web, desen medical PNG inserat ca sticker. **Necesită backend propriu cu OpenAI API și cheie facturată separat.**
-- OCR local, reguli offline de prioritizare și sublinieri AI propuse (confirmate înainte de aplicare), rezumat extractiv, quiz offline și flashcarduri.
-- Trei stickers medicale de exemplu create pentru proiect. Imaginile AI se pot adăuga la pagină.
-- Fără reclame. Documentele rămân pe tabletă până la o operație de partajare sau cerere explicită către AI.
+- Intro ECG și inimă reinterpretate pentru Nadia, mod portret/peisaj.
+- Biblioteca PDF/DOCX/PPTX; Word/PowerPoint sunt redate ca text extras, nu layout original.
+- Cititor PDF cu scroll continuu, zoom și pix, marker, smart underline, forme, Lasso, radieră.
+- OCR local, text extras editabil, quiz și rezumate offline.
+- Text tastat poziționabil pe PDF, cu editare, mutare, culoare, dimensiune, export PDF.
+- Comentarii ancorate de pagină, stickere și bibliografie link/sursă/licență.
+- Import imagine cu decupare dreptunghiulară; atlas cu căutare externă după termeni.
+- Nadia AI: partajare către ChatGPT Plus; client pentru backend OpenAI (backend neconfigurat implicit).
+- Carnetul medicului: note, dictare vocală prin serviciul Android și transcriere experimentală a scrisului cu pen-ul folosind OCR.
+- Studiu: flashcarduri cu repetare spațiată; Spital Virtual cu 6 cazuri fictive interactive și voce TTS.
+- Laborator medical: fișe introductive și quiz-uri pentru ECG, radiografie, CT, monitor, instrumente și farmacologie.
+- Anatomie 3D: fereastră cu atlase *externe* și posibilitatea de a le deschide în browser; modelele NU sunt incluse offline.
+- Classroom: activitate Android separată, OAuth Google, sincronizare cursuri/materiale/teme, import opțional PDF/DOCX/PPTX din Drive cu limite de mărime. Necesită configurarea Google Cloud, client OAuth Android, SHA-1 stabil și permisiuni; vezi `CLASSROOM-CONFIGURARE.md`.
+- Backup/restore ZIP local și export PDF adnotat.
 
-## Compatibilitate și limitări
+## Limitări esențiale
 
-Acesta este un **proiect sursă, nu un APK compilat/verificat**. Compilarea necesită GitHub Actions/Android SDK. `backend/worker.mjs` a trecut testele Node în această sesiune. Modelul pentru imagini folosit acum este `gpt-image-2.5-flare` (modelul mai vechi `gpt-image-1` nu mai este disponibil). Schema medicală generată de AI trebuie verificată.
+- Google Classroom OAuth **nu este funcțional pentru un utilizator real până la configurarea Google Cloud de către proprietar și testarea autorizării**.
+- Importul Classroom este disponibil în timpul sincronizării la deschiderea ferestrei, nu automat în fundal cu aplicația închisă.
+- Abonamentul ChatGPT Plus nu finanțează OpenAI API; pentru AI direct în MedAtlas este necesar backend securizat și API billing separat.
+- 3D-ul este găzduit de furnizorii externi, presupune internet; nu folosim modelele drept instrument de diagnostic.
+- Modelele medicale, imaginile, simulările, diagnosticele și conduita din joc nu sunt validate ca ghiduri clinice.
+- OCR pentru scris de mână este experimental; trebuie corectat de utilizator.
+- Nu există încă atlas 3D nativ offline, sute de cazuri generate AI, evaluare vocală liberă cu pacient, editor Office fidel sau căutare completă semantică.
+- Nu încărca date identificabile despre pacienți.
 
-Modul AI poate primi numai textul OCR indexat sau selecția trimisă explicit, nu citește în mod automat toate paginile. Pentru studiu pe întregul curs, indexează în loturi cu OCR. Nu există încă evaluare clinică validată a răspunsurilor sau editor Word/PPTX fidel. Nu încărca informații identificabile despre pacienți.
+## Build
 
-## Cum compilezi
+GitHub → Actions → `Build MedAtlas Android APK` → ultimele builduri verzi → Artifacts → `MedAtlas-Lenovo-debug-apk`.
 
-**Windows:** citește `INSTALARE-WINDOWS.md` și rulează `PUBLICA-GITHUB.ps1`. Repository-ul privat GitHub va compila cu `.github/workflows/android.yml`. După build, descarcă artifactul `MedAtlas-Lenovo-debug-apk`.
+Înainte de a dezinstala versiunea veche, exportă un backup ZIP din MedAtlas → Setări.
 
-**Backend AI:** citește `backend/README.md`. Nu include `OPENAI_API_KEY` în sursă sau în aplicația Android.
+## Instalare & securitate
+
+Citește `INSTALARE-WINDOWS.md`, `CLASSROOM-CONFIGURARE.md` și `backend/README.md`.
+Nu include niciodată `OPENAI_API_KEY`, parole sau fișiere `.jks` în repository. Pentru un APK semnat stabil, folosește GitHub Secrets.
