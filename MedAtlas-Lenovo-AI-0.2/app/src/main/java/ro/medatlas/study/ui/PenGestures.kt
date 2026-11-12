@@ -35,7 +35,20 @@ internal object PenGestures {
             val ny = ((p.y - top) / h).coerceIn(0f, 1f)
             min(min(nx, 1f - nx), min(ny, 1f - ny)) <= .11f
         }.toFloat() / sampled.size
-        if (nearEdge >= .82f) return Tool.RECTANGLE
+        // A circle also passes near each bounding-box edge. Require the
+        // actual four corners to distinguish a rectangle from an ellipse.
+        val cornersSeen = sampled.mapNotNull { p ->
+            val nx = ((p.x - left) / w).coerceIn(0f, 1f)
+            val ny = ((p.y - top) / h).coerceIn(0f, 1f)
+            when {
+                nx <= .13f && ny <= .13f -> 0
+                nx >= .87f && ny <= .13f -> 1
+                nx >= .87f && ny >= .87f -> 2
+                nx <= .13f && ny >= .87f -> 3
+                else -> null
+            }
+        }.toSet()
+        if (nearEdge >= .75f && cornersSeen.size == 4) return Tool.RECTANGLE
 
         // Ellipse: normalized radius of points about its center is near one.
         val onEllipse = sampled.count { p ->
