@@ -97,6 +97,7 @@ class ClassroomActivity : ComponentActivity() {
                     ". Verifică în Google Cloud OAuth, pachetul Android și SHA-1."
             }
         }
+        LaunchedEffect(Unit) { connect() }
         MaterialTheme(colorScheme = lightColorScheme(primary = Color(0xFF38786E))) {
             Column(Modifier.fillMaxSize().background(Color(0xFFFAF8F4))
                 .statusBarsPadding().navigationBarsPadding()) {
