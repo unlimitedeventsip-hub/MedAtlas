@@ -113,7 +113,25 @@ class WorkbookDeviceTest {
             org.junit.Assert.assertEquals(1, prefs.getInt("f01.visit", 0))
             org.junit.Assert.assertEquals("Test cu diacritice",prefs.getString("f01.0.Diagnostic",""))
             org.junit.Assert.assertEquals(setOf("0","1"),prefs.getStringSet("f01.tests",emptySet()))
-            java.util.zip.ZipOutputStream(zip.outputStream()).use { }
+            fun writeArchive(clinical: String?) {
+                java.util.zip.ZipOutputStream(zip.outputStream()).use { output ->
+                    output.putNextEntry(java.util.zip.ZipEntry("notes.json"))
+                    output.write("[]".toByteArray())
+                    output.closeEntry()
+                    if (clinical != null) {
+                        output.putNextEntry(java.util.zip.ZipEntry("clinical-workbook-v1.json"))
+                        output.write(clinical.toByteArray())
+                        output.closeEntry()
+                    }
+                }
+            }
+            val note = ro.medatlas.study.data.StudyNote(documentId = "test", page = 0, heading = "Test", body = "Păstrează")
+            store.saveNotes(listOf(note))
+            writeArchive("""{"version":1,"fields":{"f01.visit":99}}""")
+            org.junit.Assert.assertTrue(runCatching { store.importBackup(uri) }.isFailure)
+            org.junit.Assert.assertEquals(note.id, store.notes().single().id)
+            org.junit.Assert.assertEquals(1, prefs.getInt("f01.visit", 0))
+            writeArchive(null)
             store.importBackup(uri)
             org.junit.Assert.assertTrue(prefs.getBoolean("f01.opened", false))
         } finally { zip.delete() }

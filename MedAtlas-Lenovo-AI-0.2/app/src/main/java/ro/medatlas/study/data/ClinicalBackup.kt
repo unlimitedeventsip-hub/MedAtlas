@@ -16,7 +16,7 @@ internal class ClinicalBackup(context: Context) {
         return JSONObject().put("version", 1).put("fields", fields).toString()
     }
 
-    fun restore(text: String) {
+    fun prepare(text: String): android.content.SharedPreferences.Editor {
         val archive = JSONObject(text)
         require(archive.getInt("version") == 1)
         val fields = archive.getJSONObject("fields")
@@ -36,6 +36,6 @@ internal class ClinicalBackup(context: Context) {
                 else -> { require(value is String); editor.putString(key, value) }
             }
         }
-        check(editor.commit()) { "Restaurarea fișelor clinice a eșuat." }
+        return editor
     }
 }
