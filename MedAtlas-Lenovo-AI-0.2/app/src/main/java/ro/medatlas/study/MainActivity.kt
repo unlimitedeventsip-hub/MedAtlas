@@ -61,6 +61,7 @@ import kotlinx.coroutines.withContext
 import ro.medatlas.study.data.*
 import ro.medatlas.study.study.StudyEngine
 import ro.medatlas.study.ui.StudyCanvasView
+import ro.medatlas.study.ui.HandwritingPadView
 import ro.medatlas.study.pdf.AnnotatedPdfExporter
 import ro.medatlas.study.ai.AiClient
 import ro.medatlas.study.classroom.ClassroomActivity
@@ -1302,6 +1303,9 @@ private fun NotesScreen(store: LibraryStore, docs: List<StudyDocument>) {
     var showNotebookEditor by remember { mutableStateOf(false) }
     var notebookTitle by remember { mutableStateOf("") }
     var notebookText by remember { mutableStateOf("") }
+    var showHandwriting by remember { mutableStateOf(false) }
+    var handwritingView by remember { mutableStateOf<HandwritingPadView?>(null) }
+    var recognizingInk by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val speech = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val recognized = result.data
@@ -1332,6 +1336,12 @@ private fun NotesScreen(store: LibraryStore, docs: List<StudyDocument>) {
             OutlinedButton(onClick = { dictate() }) {
                 Icon(Icons.Rounded.Mic, null); Spacer(Modifier.width(4.dp)); Text("Dictează")
             }
+            OutlinedButton(onClick = {
+                notebookTitle = notebookTitle.ifBlank { "Notiță manuscrisă" }
+                showHandwriting = true
+            }) {
+                Icon(Icons.Rounded.Draw, null); Spacer(Modifier.width(4.dp)); Text("Scrie")
+            }
         }
         Spacer(Modifier.height(13.dp))
         if (notes.isEmpty()) Text("Când adaugi notițe dintr-un curs, vor apărea aici.", color = Slate)
@@ -1349,6 +1359,49 @@ private fun NotesScreen(store: LibraryStore, docs: List<StudyDocument>) {
                 }
             }
         }
+    }
+    if (showHandwriting) {
+        AlertDialog(onDismissRequest = { if (!recognizingInk) showHandwriting = false },
+            title = { Text("Carnet · scrie cu Lenovo Tab Pen") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Scrie lizibil, cu spații între rânduri. Recunoașterea textului manuscris este experimentală.",
+                        fontSize = 11.sp, color = Slate)
+                    AndroidView(factory = { context ->
+                        HandwritingPadView(context).also { handwritingView = it }
+                    }, modifier = Modifier.fillMaxWidth().height(290.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextButton(onClick = { handwritingView?.clearInk() }) { Text("Șterge foaia") }
+                        if (recognizingInk) CircularProgressIndicator(Modifier.size(20.dp))
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    val source = handwritingView?.snapshot() ?: return@Button
+                    recognizingInk = true
+                    val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                    recognizer.process(InputImage.fromBitmap(source, 0))
+                        .addOnSuccessListener { outcome ->
+                            notebookText = (notebookText + "\n" + outcome.text).trim()
+                            showHandwriting = false
+                            showNotebookEditor = true
+                            Toast.makeText(context, "Text recunoscut. Verifică și corectează înainte de salvare.",
+                                Toast.LENGTH_LONG).show()
+                        }.addOnFailureListener {
+                            Toast.makeText(context, it.localizedMessage ?: "Nu s-a recunoscut scrisul",
+                                Toast.LENGTH_LONG).show()
+                        }.addOnCompleteListener {
+                            recognizingInk = false
+                            recognizer.close()
+                        }
+                }, enabled = !recognizingInk) { Text("Transcrie în text") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showHandwriting = false }, enabled = !recognizingInk) {
+                    Text("Anulează")
+                }
+            })
     }
     if (showNotebookEditor) {
         AlertDialog(onDismissRequest = { showNotebookEditor = false },
