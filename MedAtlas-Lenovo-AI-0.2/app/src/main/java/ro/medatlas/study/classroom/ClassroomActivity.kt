@@ -43,6 +43,9 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /** Compatibility entry point for existing shortcuts; normal navigation stays in-app. */
 class ClassroomActivity : ComponentActivity() {
@@ -69,6 +72,7 @@ internal fun ClassroomWorkspace(onBack: () -> Unit, embedded: Boolean = true) {
         var busy by remember { mutableStateOf(false) }
         val revision by ClassroomSync.revision.collectAsState()
         val backgroundBusy by ClassroomSync.syncing.collectAsState()
+        val liveSnapshot = remember(revision) { ClassroomSync.cached(context) }
         var courses by remember { mutableStateOf(cached.courses) }
         var materials by remember { mutableStateOf(cached.materials) }
         LaunchedEffect(revision) {
@@ -188,6 +192,14 @@ internal fun ClassroomWorkspace(onBack: () -> Unit, embedded: Boolean = true) {
                 Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(status, fontSize = 12.sp)
+                        if (liveSnapshot.syncedAt > 0L) {
+                            Text(
+                                "Ultima actualizare: " +
+                                    SimpleDateFormat("dd.MM.yyyy, HH:mm", Locale.getDefault())
+                                        .format(Date(liveSnapshot.syncedAt)),
+                                fontSize = 10.sp, color = Color(0xFF627D99)
+                            )
+                        }
                         TextButton(onClick = { showImportOptions = !showImportOptions }) {
                             Icon(Icons.Rounded.CloudDownload, null)
                             Spacer(Modifier.width(6.dp))
@@ -215,10 +227,10 @@ internal fun ClassroomWorkspace(onBack: () -> Unit, embedded: Boolean = true) {
                             }
                             }
                         Button(onClick = { connect() }, enabled = !busy && !backgroundBusy) {
-                            Icon(if (cached.connected || courses.isNotEmpty())
+                            Icon(if (liveSnapshot.connected || courses.isNotEmpty())
                                 Icons.Rounded.Refresh else Icons.Rounded.AccountCircle, null)
                             Spacer(Modifier.width(8.dp))
-                            Text(if (cached.connected || courses.isNotEmpty()) "Actualizează acum"
+                            Text(if (liveSnapshot.connected || courses.isNotEmpty()) "Actualizează acum"
                                 else "Conectează Google Classroom")
                         }
                     }
@@ -228,6 +240,14 @@ internal fun ClassroomWorkspace(onBack: () -> Unit, embedded: Boolean = true) {
                 }
                 LazyColumn(Modifier.fillMaxSize().padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (selected == null && courses.isEmpty() && !backgroundBusy && !busy) {
+                        item {
+                            Text("Nu există cursuri în biblioteca Classroom. " +
+                                "Conectează-te sau actualizează pentru a le încărca.",
+                                color = Color(0xFF617A99), fontSize = 13.sp,
+                                modifier = Modifier.padding(16.dp))
+                        }
+                    }
                     if (selected == null) items(courses, key = { it.id }) { course ->
                         Card(Modifier.fillMaxWidth().clickable { selected = course.id }) {
                             Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -248,7 +268,7 @@ internal fun ClassroomWorkspace(onBack: () -> Unit, embedded: Boolean = true) {
                                 if (item.detail.isNotBlank()) Text(item.detail, fontSize = 12.sp)
                                 if (item.link.isNotBlank()) TextButton(onClick = {
                                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.link)))
-                                }) { Text("Deschide material") }
+                                }) { Text("Deschide linkul extern") }
                             }
                         }
                     }
