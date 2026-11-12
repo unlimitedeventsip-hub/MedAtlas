@@ -68,15 +68,33 @@ class SafeRestoreDeviceTest {
             heading = "Test traversal", page = 0, body = "Intact",
             course = "Test")
         store.saveNotes(store.notes() + note)
+        // Android's ZipOutputStream rejects "../" names at construction.
+        // Build a valid ZIP, then rewrite the equally sized filename bytes in
+        // both local and central headers to simulate a hostile downloaded ZIP.
         val malicious = archive(listOf(
             "notes.json" to "[]",
-            "../outside.json" to "{}"
+            "aa/outside.json" to "{}"
         ))
+        val zipBytes = malicious.readBytes()
+        val harmless = "aa/outside.json".toByteArray(Charsets.UTF_8)
+        val traversal = "../outside.json".toByteArray(Charsets.UTF_8)
+        require(harmless.size == traversal.size)
+        var rewritten = 0
+        for (offset in 0..(zipBytes.size - harmless.size)) {
+            if (harmless.indices.all { index -> zipBytes[offset + index] == harmless[index] }) {
+                traversal.copyInto(zipBytes, destinationOffset = offset)
+                rewritten++
+            }
+        }
+        assertTrue("Malicious ZIP fixture was not written", rewritten >= 2)
+        malicious.writeBytes(zipBytes)
         try {
             var rejected = false
             try {
                 store.importBackup(Uri.fromFile(malicious))
-            } catch (_: IllegalArgumentException) {
+            } catch (_: Exception) {
+                // Some Android versions reject the dangerous path in ZipFile,
+                // others allow us to reject it in SafeBackupRestore.
                 rejected = true
             }
             assertTrue("Zip-slip must be rejected", rejected)
