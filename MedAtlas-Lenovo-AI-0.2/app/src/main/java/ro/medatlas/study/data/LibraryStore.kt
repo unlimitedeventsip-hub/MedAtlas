@@ -95,24 +95,9 @@ class LibraryStore(private val context: Context) {
         }
     }
 
-    /** Restore only paths inside the app's private MedAtlas directory. */
+    /** A validated restore never writes live study files from an unverified ZIP. */
     fun importBackup(uri: Uri) {
-        val input = context.contentResolver.openInputStream(uri) ?: error("Arhiva nu poate fi citită.")
-        input.use { source ->
-            java.util.zip.ZipInputStream(source).use { zip ->
-                while (true) {
-                    val entry = zip.nextEntry ?: break
-                    if (entry.isDirectory) { zip.closeEntry(); continue }
-                    val dest = File(root, entry.name)
-                    require(dest.canonicalPath.startsWith(root.canonicalPath + File.separator)) {
-                        "Arhiva conține o cale invalidă."
-                    }
-                    dest.parentFile?.mkdirs()
-                    dest.outputStream().use { zip.copyTo(it) }
-                    zip.closeEntry()
-                }
-            }
-        }
+        SafeBackupRestore.restore(context, root, uri)
     }
 
     fun documents(): List<StudyDocument> = loadArray("documents.json", StudyDocument::parse).sortedByDescending { it.importedAt }
