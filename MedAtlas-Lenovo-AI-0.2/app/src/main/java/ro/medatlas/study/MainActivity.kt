@@ -113,6 +113,9 @@ private fun MedAtlasApp() {
     val store = remember { LibraryStore(context) }
     val docs = remember { mutableStateListOf<StudyDocument>().apply { addAll(store.documents()) } }
     var selected by remember { mutableStateOf<StudyDocument?>(null) }
+    var libraryNoteId by remember { mutableStateOf<String?>(null) }
+    var libraryRevision by remember { mutableIntStateOf(0) }
+    var importFolderId by remember { mutableStateOf<String?>(null) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val introPrefs = remember { context.getSharedPreferences("medatlas_editor", android.content.Context.MODE_PRIVATE) }
     var showIntro by rememberSaveable {
@@ -123,11 +126,22 @@ private fun MedAtlasApp() {
     BackHandler(manageFiles && tab == 0 && selected == null) { manageFiles = false }
     var importError by remember { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val targetFolder = importFolderId
+        importFolderId = null
         scope.launch {
             val outcomes = withContext(Dispatchers.IO) {
-                uris.map { uri -> runCatching { store.import(uri) } }
+                val organization = LibraryOrganization(context, store)
+                val targetCourse = organization.name(targetFolder).ifBlank { "Fără materie" }
+                uris.map { uri ->
+                    runCatching {
+                        store.import(uri, course = targetCourse).also { doc ->
+                            organization.moveDocument(doc.id, targetFolder)
+                        }
+                    }
+                }
             }
             docs.clear(); docs.addAll(store.documents())
+            libraryRevision++
             val failures = outcomes.mapNotNull { it.exceptionOrNull()?.localizedMessage }
             if (failures.isNotEmpty()) importError = failures.first()
         }
@@ -142,10 +156,15 @@ private fun MedAtlasApp() {
         })
         return
     }
+    libraryNoteId?.let { id ->
+        NotebookLibrary(store, docs, onOpen = { selected = it }, initialNoteId = id,
+            onExit = { libraryNoteId = null; libraryRevision++ })
+        return
+    }
     Scaffold(
         containerColor = Ivory,
         bottomBar = {
-            NavigationBar(containerColor = Color.White, tonalElevation = 5.dp) {
+            if (tab != 0) NavigationBar(containerColor = Color.White, tonalElevation = 5.dp) {
                 val options = listOf(Triple("Bibliotecă", Icons.Rounded.FolderOpen, 0), Triple("Notițe", Icons.Rounded.EditNote, 1), Triple("Studiu", Icons.Rounded.School, 2), Triple("Classroom", Icons.Rounded.Class, 4), Triple("Setări", Icons.Rounded.Settings, 3))
                 options.forEach { (name, icon, number) ->
                     NavigationBarItem(selected = tab == number, onClick = {
@@ -156,7 +175,7 @@ private fun MedAtlasApp() {
             }
         },
         topBar = {
-            Surface(color = Ivory, modifier = Modifier.statusBarsPadding()) {
+            if (tab != 0) Surface(color = Ivory, modifier = Modifier.statusBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.MenuBook, null, tint = Teal, modifier = Modifier.size(26.dp))
                     Spacer(Modifier.width(9.dp))
@@ -175,14 +194,33 @@ private fun MedAtlasApp() {
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (tab) {
-                0 -> if (!manageFiles) NotebookLibrary(store, docs, onOpen = { selected = it }, unified = true, onManage = { manageFiles = true }) else Column {
-                    TextButton(onClick = { manageFiles = false }) { Text("‹ Toată biblioteca") }
-                    LibraryScreen(docs, search, onSearch = { search = it }, onOpen = { selected = it }, onCourse = { doc, course ->
-                    val changed = doc.copy(course = course.trim().ifBlank { "Fără materie" })
-                    store.saveDocuments(store.documents().map { if (it.id == doc.id) changed else it })
-                    val i = docs.indexOfFirst { it.id == doc.id }; if (i >= 0) docs[i] = changed
-                }, onImport = { picker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation")) })
-                }
+                0 -> UnifiedLibraryScreen(
+                    store = store,
+                    refreshKey = libraryRevision,
+                    documents = docs,
+                    onOpenDocument = { selected = it },
+                    onOpenNote = { libraryNoteId = it },
+                    onImport = { folderId ->
+                        importFolderId = folderId
+                        picker.launch(arrayOf(
+                            "application/pdf",
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                        ))
+                    },
+                    onDocumentChanged = { updated ->
+                        store.saveDocuments(store.documents().map {
+                            if (it.id == updated.id) updated else it
+                        })
+                        val index = docs.indexOfFirst { it.id == updated.id }
+                        if (index >= 0) docs[index] = updated
+                    },
+                    onDocumentDeleted = { id ->
+                        store.removeDocument(id)
+                        docs.removeAll { it.id == id }
+                    },
+                    onNavigate = { tab = it }
+                )
                 1 -> NotebookLibrary(store, docs, onOpen = { selected = it })
                 2 -> CardsScreen(store, docs, onOpen = { selected = it })
                 else -> SettingsScreen(onReplayIntro = { showIntro = true })
