@@ -42,20 +42,24 @@ import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
-/* Independent Classroom window. Requires Android OAuth app registration in Google Cloud. */
+/** Compatibility entry point for existing shortcuts; normal navigation stays in-app. */
 class ClassroomActivity : ComponentActivity() {
     data class ClassroomEntry(val id: String, val courseId: String, val name: String,
         val detail: String, val link: String, val kind: String, val driveId: String = "")
-    private val authorization by lazy { Identity.getAuthorizationClient(this) }
-    private val scopes get() = ClassroomSync.requiredScopes
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { ClassroomScreen() }
+        setContent { ClassroomWorkspace(onBack = { finish() }) }
     }
+}
 
-    @Composable
-    private fun ClassroomScreen() {
-        val cached = remember { ClassroomSync.cached(this@ClassroomActivity) }
+@Composable
+internal fun ClassroomWorkspace(onBack: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val authorization = remember(context) { Identity.getAuthorizationClient(context) }
+    val scopes = ClassroomSync.requiredScopes
+    val scope = rememberCoroutineScope()
+
+        val cached = remember { ClassroomSync.cached(context) }
         var status by remember { mutableStateOf(
             if (cached.syncedAt > 0) "Cursurile sunt disponibile offline; actualizarea rulează automat la pornire."
             else "Conectează Google Classroom o singură dată pentru sincronizare automată."
@@ -66,7 +70,7 @@ class ClassroomActivity : ComponentActivity() {
         var courses by remember { mutableStateOf(cached.courses) }
         var materials by remember { mutableStateOf(cached.materials) }
         LaunchedEffect(revision) {
-            val refreshed = ClassroomSync.cached(this@ClassroomActivity)
+            val refreshed = ClassroomSync.cached(context)
             courses = refreshed.courses
             materials = refreshed.materials
             status = if (refreshed.error.isNotBlank())
@@ -79,14 +83,14 @@ class ClassroomActivity : ComponentActivity() {
         }
         var selected by remember { mutableStateOf<String?>(null) }
         val navy = Color(0xFF182535)
-        val library = remember { LibraryStore(this@ClassroomActivity) }
-        val preferences = remember { getSharedPreferences("classroom_sync", MODE_PRIVATE) }
+        val library = remember { LibraryStore(context) }
+        val preferences = remember { context.getSharedPreferences("classroom_sync", android.content.Context.MODE_PRIVATE) }
         var autoImport by remember { mutableStateOf(preferences.getBoolean("auto_import", false)) }
         var currentToken by remember { mutableStateOf<String?>(null) }
         fun importAttachments(token: String, source: List<ClassroomEntry>, classrooms: List<ClassroomEntry>) {
             busy = true
             status = "Import Classroom în biblioteca locală..."
-            lifecycleScope.launch {
+            scope.launch {
                 val counts = withContext(Dispatchers.IO) {
                     var copied = 0
                     var existing = 0
@@ -96,14 +100,14 @@ class ClassroomActivity : ComponentActivity() {
                             ?.name ?: "Classroom"
                         runCatching {
                             val downloaded = ClassroomApi.download(token, attachment.driveId,
-                                File(cacheDir, "classroom"))
+                                File(context.cacheDir, "classroom"))
                             try {
                                 if (library.documents().any {
                                     it.originalName == downloaded.name && it.course == courseName
                                 }) existing++
                                 else {
                                     val uri = FileProvider.getUriForFile(
-                                        this@ClassroomActivity, packageName + ".files", downloaded)
+                                        context, context.packageName + ".files", downloaded)
                                     library.import(uri, courseName)
                                     copied++
                                 }
@@ -121,9 +125,9 @@ class ClassroomActivity : ComponentActivity() {
             busy = true
             currentToken = token // transient: never persisted
             status = "Actualizez cursurile și materialele..."
-            lifecycleScope.launch {
+            scope.launch {
                 try {
-                    val updated = ClassroomSync.synchronize(this@ClassroomActivity, token)
+                    val updated = ClassroomSync.synchronize(context, token)
                     courses = updated.courses
                     materials = updated.materials
                     status = "Actualizate " + courses.size + " cursuri și " +
@@ -168,7 +172,7 @@ class ClassroomActivity : ComponentActivity() {
             Column(Modifier.fillMaxSize().background(GlassTokens.LightPage)
                 .statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { finish() }) { Icon(Icons.Rounded.ArrowBack, "Înapoi") }
+                    IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Înapoi") }
                     Column(Modifier.weight(1f)) {
                         Text("Google Classroom", fontWeight = FontWeight.Bold, fontSize = 21.sp, color = navy)
                         Text("Sincronizare automată · acces offline", fontSize = 11.sp, color = Color.Gray)
@@ -229,7 +233,7 @@ class ClassroomActivity : ComponentActivity() {
                                 Text(item.name, fontWeight = FontWeight.SemiBold)
                                 if (item.detail.isNotBlank()) Text(item.detail, fontSize = 12.sp)
                                 if (item.link.isNotBlank()) TextButton(onClick = {
-                                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.link)))
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(item.link)))
                                 }) { Text("Deschide material") }
                             }
                         }
@@ -238,7 +242,6 @@ class ClassroomActivity : ComponentActivity() {
             }
         }
     }
-}
 
 internal object ClassroomApi {
     private fun get(token: String, url: String): JSONObject {
