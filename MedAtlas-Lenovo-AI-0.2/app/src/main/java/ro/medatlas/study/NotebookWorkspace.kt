@@ -143,12 +143,26 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
     val active = notes.find { it.id == pageId }
     if (active != null) {
         key(active.id) {
+            val folder = course(active)
+            val pages = notes.filter { course(it) == folder }
+            val index = pages.indexOfFirst { it.id == active.id }
+            fun move(delta: Int) {
+                val neighbor = pages.getOrNull(index + delta) ?: return
+                val latest = store.notes().toMutableList()
+                val from = latest.indexOfFirst { it.id == active.id }
+                val to = latest.indexOfFirst { it.id == neighbor.id }
+                if (from >= 0 && to >= 0) {
+                    java.util.Collections.swap(latest, from, to)
+                    store.saveNotes(latest)
+                    notes = latest
+                }
+            }
             NotebookPage(active, store, prefs, onBack = { back() },
+                position = index + 1, count = pages.size, move = ::move,
+                onPrevious = { notes = store.notes(); pages.getOrNull(index - 1)?.let { pageId = it.id } },
                 onNext = {
                     notes = store.notes()
-                    val pages = notes.filter { course(it) == course(active) }
-                    val index = pages.indexOfFirst { it.id == active.id }
-                    pages.getOrNull(index + 1)?.let { pageId = it.id } ?: addPage(course(active))
+                    pages.getOrNull(index + 1)?.let { pageId = it.id } ?: addPage(folder)
                 }, onDelete = {
                     store.saveNotes(store.notes().filterNot { it.id == active.id })
                     store.saveInk(inkId(active.id), 0, emptyList())
@@ -238,6 +252,7 @@ private fun PagePreview(note: StudyNote, store: LibraryStore) {
 
 @Composable
 private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: SharedPreferences,
+    position: Int, count: Int, move: (Int) -> Unit, onPrevious: () -> Unit,
     onBack: () -> Unit, onNext: () -> Unit, onDelete: () -> Unit, document: StudyDocument?, onOpen: (StudyDocument) -> Unit) {
     var title by rememberSaveable { mutableStateOf(original.heading) }
     var body by rememberSaveable { mutableStateOf(original.body) }
@@ -275,7 +290,9 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = { flush(); onBack() }) { Text("‹ Pagini") }
             OutlinedTextField(title, { title = it }, Modifier.weight(1f), singleLine = true, label = { Text("Titlul paginii") })
-            TextButton(onClick = { flush(); onNext() }) { Text("Următoarea ›") }
+            if (position > 1) TextButton(onClick = { flush(); onPrevious() }) { Text("‹") }
+            Text("$position / $count", style = MaterialTheme.typography.labelSmall)
+            TextButton(onClick = { flush(); onNext() }) { Text(if (position == count) "+ Pagină" else "Următoarea ›") }
         }
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             Choice(toolNames.getValue(tool), toolNames.values.toList()) { tool = toolNames.keys.elementAt(it) }
@@ -288,6 +305,8 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             TextButton(onClick = { view?.undo() }) { Text("Anulează trasarea") }
             TextButton(onClick = { view?.redo() }) { Text("Refă") }
             if (tool == Tool.LASSO) TextButton(onClick = { view?.eraseSelection() }) { Text("Șterge selecția") }
+            if (position > 1) TextButton(onClick = { flush(); move(-1) }) { Text("Mută mai devreme") }
+            if (position < count) TextButton(onClick = { flush(); move(1) }) { Text("Mută mai târziu") }
             document?.let { TextButton(onClick = { flush(); onOpen(it) }) { Text("Curs asociat") } }
             TextButton(onClick = { delete = true }) { Text("Șterge pagina") }
         }
