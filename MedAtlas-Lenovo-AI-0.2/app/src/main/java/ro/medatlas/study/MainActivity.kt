@@ -1381,7 +1381,22 @@ private fun CardsScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: 
     var refresh by remember { mutableIntStateOf(0) }
     val cards = remember(refresh) { store.cards() }
     var reveal by remember { mutableStateOf<String?>(null) }
+    var dueOnly by remember { mutableStateOf(false) }
+    val today = System.currentTimeMillis()
+    val dueCount = cards.count { it.dueAt <= today }
     val context = LocalContext.current
+    fun review(card: Flashcard, grade: Int) {
+        val days = when (grade) {
+            0 -> 0
+            1 -> (card.intervalDays.coerceAtLeast(1) + 1)
+            else -> if (card.intervalDays == 0) 3 else (card.intervalDays * 2).coerceAtMost(365)
+        }
+        val next = card.copy(intervalDays = days,
+            dueAt = if (days == 0) System.currentTimeMillis() else System.currentTimeMillis() + days * 86400000L)
+        store.saveCards(store.cards().map { if (it.id == card.id) next else it })
+        reveal = null
+        refresh++
+    }
     Column(Modifier.fillMaxSize().padding(20.dp)) {
         Text("Pregătire pentru examen", fontSize = 23.sp, fontWeight = FontWeight.Bold)
         Text("Flashcarduri și materiale generate din cursuri", color = Slate, fontSize = 13.sp)
@@ -1392,14 +1407,29 @@ private fun CardsScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: 
             Spacer(Modifier.width(6.dp))
             Text("Spital Virtual · cazuri clinice")
         }
-        Spacer(Modifier.height(16.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("De repetat acum: " + dueCount + " / " + cards.size, color = Slate,
+                fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Checkbox(checked = dueOnly, onCheckedChange = { dueOnly = it })
+            Text("Doar de repetat", fontSize = 11.sp)
+        }
+        Spacer(Modifier.height(10.dp))
         if (cards.isEmpty()) Text("Deschide un curs și folosește Studio de învățare pentru rezumate și grile. Flashcardurile personalizate vor fi afișate aici.", color = Slate)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(cards) { card ->
+            items(cards.filter { !dueOnly || it.dueAt <= today }, key = { it.id }) { card ->
                 Surface(Modifier.fillMaxWidth().clickable { reveal = if (reveal == card.id) null else card.id }, color = Color.White, shape = RoundedCornerShape(15.dp)) {
                     Column(Modifier.padding(16.dp)) {
                         Text(card.question, fontWeight = FontWeight.Medium)
-                        if (reveal == card.id) { Spacer(Modifier.height(8.dp)); Text(card.answer, color = Teal) }
+                        if (reveal == card.id) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(card.answer, color = Teal)
+                            Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                                OutlinedButton(onClick = { review(card, 0) }) { Text("Din nou", fontSize = 11.sp) }
+                                OutlinedButton(onClick = { review(card, 1) }) { Text("Greu", fontSize = 11.sp) }
+                                Button(onClick = { review(card, 2) }) { Text("Ușor", fontSize = 11.sp) }
+                            }
+                        }
                         else Text("Atinge pentru răspuns", color = Slate, fontSize = 11.sp)
                         val source = docs.firstOrNull { it.id == card.documentId }
                         if (source != null) TextButton(onClick = { onOpen(source) }) { Text("Deschide cursul") }
