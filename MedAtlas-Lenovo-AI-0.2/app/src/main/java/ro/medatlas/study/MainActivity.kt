@@ -168,42 +168,94 @@ private fun MedAtlasApp() {
 
 @Composable
 private fun SplashScreen(onContinue: () -> Unit) {
-    LaunchedEffect(Unit) { delay(3200); onContinue() }
-    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "ecg")
-    val progress by transition.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(2800), androidx.compose.animation.core.RepeatMode.Restart), label = "draw")
-    val beat by transition.animateFloat(1f, 1.07f, androidx.compose.animation.core.infiniteRepeatable(androidx.compose.animation.core.tween(650), androidx.compose.animation.core.RepeatMode.Reverse), label = "beat")
-    Box(Modifier.fillMaxSize().background(DeepNavy).clickable { onContinue() }, contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth(.9f)) {
-            Canvas(Modifier.fillMaxWidth().height(145.dp)) {
-                val w = size.width; val h = size.height
-                val path = android.graphics.Path().apply {
-                    moveTo(w * .04f, h * .54f); lineTo(w * .23f, h * .54f)
-                    lineTo(w * .27f, h * .45f); lineTo(w * .30f, h * .64f)
-                    lineTo(w * .34f, h * .12f); lineTo(w * .39f, h * .88f)
-                    lineTo(w * .43f, h * .54f); lineTo(w * .45f, h * .54f)
-                    cubicTo(w * .39f, h * .23f, w * .47f, h * .14f, w * .50f, h * .33f)
-                    cubicTo(w * .58f, h * .10f, w * .66f, h * .34f, w * .50f, h * .79f)
-                    cubicTo(w * .47f, h * .71f, w * .44f, h * .65f, w * .45f, h * .54f)
-                    lineTo(w * .95f, h * .54f)
+    var finished by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { delay(3800); if (!finished) { finished = true; onContinue() } }
+    val progress by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = androidx.compose.animation.core.tween(
+            durationMillis = 2450, easing = androidx.compose.animation.core.FastOutSlowInEasing
+        ), label = "ecg-heart-draw"
+    )
+    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "soft-heartbeat")
+    val heartbeat by transition.animateFloat(
+        initialValue = 1f, targetValue = 1.055f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            animation = androidx.compose.animation.core.tween(680,
+                easing = androidx.compose.animation.core.FastOutSlowInEasing),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+        ), label = "heartbeat"
+    )
+    Box(Modifier.fillMaxSize().background(DeepNavy).clickable {
+        if (!finished) { finished = true; onContinue() }
+    }, contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth(.9f)) {
+            Canvas(Modifier.fillMaxWidth().height(174.dp)) {
+                val w = size.width
+                val h = size.height
+                val baseline = h * .55f
+                val left = android.graphics.Path().apply {
+                    moveTo(w * .035f, baseline)
+                    lineTo(w * .22f, baseline)
+                    lineTo(w * .245f, baseline - h * .06f)
+                    lineTo(w * .275f, baseline + h * .09f)
+                    lineTo(w * .318f, baseline - h * .33f)
+                    lineTo(w * .354f, baseline + h * .25f)
+                    lineTo(w * .388f, baseline)
+                    lineTo(w * .424f, baseline)
                 }
-                val measure = android.graphics.PathMeasure(path, false)
-                val part = android.graphics.Path()
-                measure.getSegment(0f, measure.length * progress, part, true)
-                val p = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                // Distinct symmetrical two-lobed heart with a pointed bottom.
+                // The heart is an actual recognizable silhouette rather than an ECG zigzag.
+                val heart = android.graphics.Path().apply {
+                    moveTo(w * .506f, h * .39f)
+                    cubicTo(w * .465f, h * .245f, w * .392f, h * .315f, w * .404f, h * .43f)
+                    cubicTo(w * .41f, h * .565f, w * .492f, h * .69f, w * .506f, h * .755f)
+                    cubicTo(w * .52f, h * .69f, w * .602f, h * .565f, w * .608f, h * .43f)
+                    cubicTo(w * .62f, h * .315f, w * .547f, h * .245f, w * .506f, h * .39f)
+                    close()
+                }
+                val right = android.graphics.Path().apply {
+                    moveTo(w * .616f, baseline)
+                    lineTo(w * .96f, baseline)
+                }
+                val base = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                     style = android.graphics.Paint.Style.STROKE
-                    color = android.graphics.Color.rgb(246, 177, 192)
-                    strokeWidth = 4f * beat
+                    color = android.graphics.Color.rgb(245, 167, 184)
+                    strokeWidth = 2.45f * density
                     strokeCap = android.graphics.Paint.Cap.ROUND
                     strokeJoin = android.graphics.Paint.Join.ROUND
                 }
-                drawContext.canvas.nativeCanvas.drawPath(part, p)
+                val faint = android.graphics.Paint(base).apply {
+                    color = android.graphics.Color.argb(34, 241, 174, 191)
+                    strokeWidth = 6f * density
+                }
+                fun trace(path: android.graphics.Path, amount: Float, scale: Float = 1f) {
+                    if (amount <= 0f) return
+                    val measure = android.graphics.PathMeasure(path, false)
+                    val partial = android.graphics.Path()
+                    measure.getSegment(0f, measure.length * amount.coerceIn(0f, 1f), partial, true)
+                    val c = drawContext.canvas.nativeCanvas
+                    c.save()
+                    if (scale != 1f) c.scale(scale, scale, w * .506f, h * .50f)
+                    c.drawPath(partial, faint)
+                    c.drawPath(partial, base)
+                    c.restore()
+                }
+                trace(left, (progress / .35f).coerceIn(0f, 1f))
+                trace(heart, ((progress - .33f) / .49f).coerceIn(0f, 1f),
+                    if (progress > .82f) heartbeat else 1f)
+                trace(right, ((progress - .80f) / .20f).coerceIn(0f, 1f))
             }
-            Spacer(Modifier.height(5.dp))
-            Text("Nadia, te iubesc", color = Color(0xFFFCE6EC), fontSize = 30.sp, fontWeight = FontWeight.Light)
-            Spacer(Modifier.height(15.dp))
-            Text("M E D A T L A S", color = Color(0xFFA8B6C8), fontSize = 13.sp)
-            Spacer(Modifier.height(42.dp))
-            Text("Atinge pentru a continua", fontSize = 11.sp, color = Color(0xFF758699))
+            Spacer(Modifier.height(16.dp))
+            Text("Nadia, te iubesc", color = Color(0xFFFBE4EA),
+                fontSize = 31.sp, fontWeight = FontWeight.Light,
+                letterSpacing = 1.0.sp)
+            Spacer(Modifier.height(14.dp))
+            Text("M E D A T L A S", color = Color(0xFFADB9C9),
+                fontSize = 12.sp, letterSpacing = 2.sp)
+            Spacer(Modifier.height(48.dp))
+            Text("Creat cu dragoste, pentru fiecare pagină învățată",
+                color = Color(0xFF92A1B3), fontSize = 11.sp)
         }
     }
 }
