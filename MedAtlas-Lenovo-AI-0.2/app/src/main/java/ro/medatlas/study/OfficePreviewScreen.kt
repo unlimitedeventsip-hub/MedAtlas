@@ -76,15 +76,23 @@ internal object OfficeHtml {
     private fun xml(zip: ZipFile, part: String): org.w3c.dom.Document? {
         val entry = zip.getEntry(part) ?: return null
         require(entry.size >= 0 && entry.size <= 12_000_000) { "Document XML prea mare" }
-        val builder = DocumentBuilderFactory.newInstance().apply {
-            isNamespaceAware = true
-            setFeature("http://apache.org/xml/features/disallow-doctype-decl", true)
-            setFeature("http://xml.org/sax/features/external-general-entities", false)
-            setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-            setExpandEntityReferences(false)
-            isXIncludeAware = false
-        }.newDocumentBuilder()
-        return zip.getInputStream(entry).use { builder.parse(it) }
+        // Android's bundled DOM implementation differs between API levels. Some
+        // parsers reject optional factory features; safely reject DTDs ourselves,
+        // then request every supported XXE safeguard independently.
+        val bytes = zip.getInputStream(entry).use { it.readBytes() }
+        require(bytes.size <= 12_000_000) { "Document XML prea mare" }
+        val source = String(bytes, Charsets.UTF_8)
+        require(!source.contains("<!DOCTYPE", true) && !source.contains("<!ENTITY", true)) {
+            "Documentul conține declarații XML nepermise."
+        }
+        val factory = DocumentBuilderFactory.newInstance()
+        factory.isNamespaceAware = true
+        runCatching { factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true) }
+        runCatching { factory.setFeature("http://xml.org/sax/features/external-general-entities", false) }
+        runCatching { factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false) }
+        runCatching { factory.setExpandEntityReferences(false) }
+        runCatching { factory.isXIncludeAware = false }
+        return java.io.ByteArrayInputStream(bytes).use { factory.newDocumentBuilder().parse(it) }
     }
     private fun normalize(base: String, relative: String): String? {
         if (relative.contains("://") || relative.startsWith("//")) return null
