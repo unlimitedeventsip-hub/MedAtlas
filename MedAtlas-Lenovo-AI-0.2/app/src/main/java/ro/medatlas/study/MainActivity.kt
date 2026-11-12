@@ -1240,6 +1240,7 @@ private fun ToolBar(tool: Tool, onTool: (Tool) -> Unit, color: Int, onColor: (In
             tools.forEach { (item, label) ->
                 val icon = when (item) {
                     Tool.BRUSH -> Icons.Rounded.Brush
+                    Tool.PENCIL -> Icons.Rounded.Create
                     Tool.PEN -> Icons.Rounded.Edit; Tool.HIGHLIGHT -> Icons.Rounded.Brush; Tool.UNDERLINE -> Icons.Rounded.FormatUnderlined
                     Tool.WAVE -> Icons.Rounded.Waves; Tool.CIRCLE -> Icons.Rounded.Circle; Tool.RECTANGLE -> Icons.Rounded.CropSquare
                     Tool.ARROW -> Icons.Rounded.ArrowForward; Tool.LASSO -> Icons.Rounded.Gesture; Tool.ERASER -> Icons.Rounded.AutoFixOff
