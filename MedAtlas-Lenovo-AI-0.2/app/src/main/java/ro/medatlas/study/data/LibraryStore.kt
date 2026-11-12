@@ -213,7 +213,9 @@ class LibraryStore(private val context: Context) {
             if (it.moveToFirst()) it.getString(0) else null
         } ?: uri.lastPathSegment ?: "Material"
         val ext = name.substringAfterLast('.', "").lowercase()
-        require(ext in listOf("pdf", "docx", "pptx")) { "Sunt acceptate PDF, DOCX și PPTX." }
+        require(ext in listOf("pdf", "docx", "ppt", "pptx")) {
+            "Sunt acceptate PDF, DOCX, PPT și PPTX."
+        }
         val id = UUID.randomUUID().toString()
         val filename = "$id.$ext"
         val destination = File(docsDir, filename)
@@ -224,6 +226,8 @@ class LibraryStore(private val context: Context) {
                 val text = when (ext) {
                     "docx" -> extractDocx(destination)
                     "pptx" -> extractPptx(destination)
+                    "ppt" -> "Fișier PowerPoint (.ppt) păstrat în formatul original. " +
+                        "Deschide prezentarea într-o aplicație Office compatibilă pentru a vedea diapozitivele."
                     else -> ""
                 }
                 File(docsDir, "$id.txt").writeText(text)
