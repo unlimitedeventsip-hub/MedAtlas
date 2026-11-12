@@ -766,6 +766,7 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             confirmButton = {
                 Button(onClick = {
                     if (doc.kind == "PDF") store.savePageText(doc.id, ocrPage, ocrText)
+                    else store.saveExtractedText(doc.id, ocrText)
                     textVersion++
                     showOcrLibrary = false
                     Toast.makeText(context, "Text OCR salvat", Toast.LENGTH_SHORT).show()
