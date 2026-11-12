@@ -65,6 +65,7 @@ import ro.medatlas.study.pdf.AnnotatedPdfExporter
 import ro.medatlas.study.ai.AiClient
 import ro.medatlas.study.classroom.ClassroomActivity
 import ro.medatlas.study.simulation.ClinicalSimulatorActivity
+import ro.medatlas.study.anatomy.Anatomy3DActivity
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -1406,6 +1407,13 @@ private fun CardsScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: 
             Icon(Icons.Rounded.MedicalServices, null)
             Spacer(Modifier.width(6.dp))
             Text("Spital Virtual · cazuri clinice")
+        }
+        OutlinedButton(onClick = {
+            context.startActivity(Intent(context, Anatomy3DActivity::class.java))
+        }) {
+            Icon(Icons.Rounded.AccessibilityNew, null)
+            Spacer(Modifier.width(6.dp))
+            Text("Anatomie 3D · organe, straturi, ECG și CT")
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("De repetat acum: " + dueCount + " / " + cards.size, color = Slate,
