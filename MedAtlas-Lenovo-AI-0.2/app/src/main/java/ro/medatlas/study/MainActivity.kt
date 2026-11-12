@@ -64,6 +64,7 @@ import ro.medatlas.study.ui.StudyCanvasView
 import ro.medatlas.study.pdf.AnnotatedPdfExporter
 import ro.medatlas.study.ai.AiClient
 import ro.medatlas.study.classroom.ClassroomActivity
+import ro.medatlas.study.simulation.ClinicalSimulatorActivity
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -1380,9 +1381,17 @@ private fun CardsScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: 
     var refresh by remember { mutableIntStateOf(0) }
     val cards = remember(refresh) { store.cards() }
     var reveal by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
     Column(Modifier.fillMaxSize().padding(20.dp)) {
         Text("Pregătire pentru examen", fontSize = 23.sp, fontWeight = FontWeight.Bold)
         Text("Flashcarduri și materiale generate din cursuri", color = Slate, fontSize = 13.sp)
+        Button(onClick = {
+            context.startActivity(Intent(context, ClinicalSimulatorActivity::class.java))
+        }) {
+            Icon(Icons.Rounded.MedicalServices, null)
+            Spacer(Modifier.width(6.dp))
+            Text("Spital Virtual · cazuri clinice")
+        }
         Spacer(Modifier.height(16.dp))
         if (cards.isEmpty()) Text("Deschide un curs și folosește Studio de învățare pentru rezumate și grile. Flashcardurile personalizate vor fi afișate aici.", color = Slate)
         LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
