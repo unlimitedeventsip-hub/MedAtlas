@@ -122,6 +122,17 @@ private fun MedAtlasApp() {
     var officeTextMode by remember { mutableStateOf(false) }
     var libraryNoteId by remember { mutableStateOf<String?>(null) }
     var libraryRevision by remember { mutableIntStateOf(0) }
+    // Keep the unified library in step with optional Classroom attachment imports,
+    // without forcing the user to restart the application.
+    val classroomRevision by ClassroomSync.revision.collectAsState()
+    LaunchedEffect(classroomRevision) {
+        if (classroomRevision > 0) {
+            val latest = withContext(Dispatchers.IO) { store.documents() }
+            docs.clear()
+            docs.addAll(latest)
+            libraryRevision++
+        }
+    }
     var importFolderId by remember { mutableStateOf<String?>(null) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val introPrefs = remember { context.getSharedPreferences("medatlas_editor", android.content.Context.MODE_PRIVATE) }
