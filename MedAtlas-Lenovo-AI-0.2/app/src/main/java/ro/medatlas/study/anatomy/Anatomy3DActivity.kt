@@ -1,5 +1,8 @@
 package ro.medatlas.study.anatomy
 
+import ro.medatlas.study.GlassTokens
+import ro.medatlas.study.MedAtlasGlassTheme
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -32,8 +35,8 @@ class Anatomy3DActivity : ComponentActivity() {
             )
             var selected by remember { mutableIntStateOf(0) }
             var viewer by remember { mutableStateOf<WebView?>(null) }
-            MaterialTheme {
-                Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            MedAtlasGlassTheme {
+                Column(Modifier.fillMaxSize().background(GlassTokens.LightPage).statusBarsPadding().navigationBarsPadding()) {
                     Row(Modifier.fillMaxWidth().padding(6.dp)) {
                         IconButton(onClick = { finish() }) { Icon(Icons.Rounded.ArrowBack, "Înapoi") }
                         Column(Modifier.weight(1f)) {
