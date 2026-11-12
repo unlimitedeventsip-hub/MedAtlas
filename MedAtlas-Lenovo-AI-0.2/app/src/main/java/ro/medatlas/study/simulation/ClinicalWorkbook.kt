@@ -38,6 +38,8 @@ internal fun loadPatientCases(context: Context): List<ClinicalSimulatorActivity.
     }
 }
 
+private fun priorVisitDecisionKey(id: String, stage: Int) = id + "." + (stage - 1) + ".decision"
+
 @Composable
 internal fun VisitWorkbook(context: Context, case: ClinicalSimulatorActivity.Case) {
     val prefs = remember(context) { context.getSharedPreferences("clinical-workbook", Context.MODE_PRIVATE) }
@@ -45,10 +47,16 @@ internal fun VisitWorkbook(context: Context, case: ClinicalSimulatorActivity.Cas
     val days = listOf("Consultație inițială", "Ziua 7", "Luna 3")
     var stage by remember(case.id) { mutableIntStateOf(prefs.getInt(case.id + ".visit", 0)) }
     val visitKey = case.id + "." + stage
+    var decision by remember(visitKey) {
+        mutableIntStateOf(prefs.getInt(visitKey + ".decision", -1))
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(days[stage], fontWeight = FontWeight.Bold)
         if (stage > 0) {
-            Text(if (stage == 1) case.day7 else case.month3)
+            val previousChoice = prefs.getInt(priorVisitDecisionKey(case.id, stage), -1)
+            Text(if (previousChoice < 0) {
+                if (stage == 1) case.day7 else case.month3
+            } else ClinicalDecisionEngine.outcome(stage - 1, previousChoice, case))
             val priorKey = case.id + "." + (stage - 1)
             Text("La vizita precedentă ai scris")
             listOf("Diagnostic", "Argumente și alternative", "Tratament și monitorizare").forEach { field ->
@@ -65,16 +73,21 @@ internal fun VisitWorkbook(context: Context, case: ClinicalSimulatorActivity.Cas
                 prefs.edit().putString(visitKey + "." + field, it).apply()
             }, modifier = Modifier.fillMaxWidth(), label = { Text(field) }, minLines = 2)
         }
+        ClinicalDecisionPanel(case = case, stage = stage, selected = decision,
+            onSelect = { selected ->
+                decision = selected
+                prefs.edit().putInt(visitKey + ".decision", selected).apply()
+            })
         Text("Fișa se salvează automat pe această tabletă.")
         if (stage > 0) OutlinedButton(onClick = {
             stage = stage - 1
             prefs.edit().putInt(case.id + ".visit", stage).apply()
         }) { Text("Recitește vizita precedentă") }
-        if (stage < 2) Button(enabled = notes.all { it.isNotBlank() }, onClick = {
+        if (stage < 2) Button(enabled = notes.all { it.isNotBlank() } && decision >= 0, onClick = {
             stage = stage + 1
             prefs.edit().putInt(case.id + ".visit", stage).apply()
         }) { Text("Continuă · " + days[stage + 1]) }
-        else if (notes.all { it.isNotBlank() }) {
+        else if (notes.all { it.isNotBlank() } && decision >= 0) {
             Text("Cele trei vizite sunt documentate.", fontWeight = FontWeight.Bold)
             Text(review.getValue("question"))
             val key = case.id + ".reassessment"
