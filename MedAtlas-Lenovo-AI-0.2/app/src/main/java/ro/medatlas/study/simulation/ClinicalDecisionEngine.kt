@@ -54,25 +54,19 @@ internal object ClinicalDecisionEngine {
 
 @Composable
 internal fun ClinicalDecisionPanel(
-    context: Context,
     case: ClinicalSimulatorActivity.Case,
-    stage: Int
+    stage: Int,
+    selected: Int,
+    onSelect: (Int) -> Unit
 ) {
-    val prefs = remember(context) {
-        context.getSharedPreferences("clinical-workbook", Context.MODE_PRIVATE)
-    }
-    val key = case.id + "." + stage + ".decision"
-    var selected by remember(key) { mutableIntStateOf(prefs.getInt(key, -1)) }
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Text("Decizie clinică și consecințe", fontWeight = FontWeight.SemiBold)
         Text("Alege conduita. Cazul va afișa consecințe educaționale diferite " +
             "în funcție de decizia salvată.", color = Color.Gray)
         ClinicalDecisionEngine.decisionLabels[stage].forEachIndexed { idx, label ->
             OutlinedButton(
-                onClick = {
-                    selected = idx
-                    prefs.edit().putInt(key, idx).apply()
-                }, modifier = Modifier.fillMaxWidth()
+                onClick = { onSelect(idx) },
+                modifier = Modifier.fillMaxWidth()
             ) {
                 RadioButton(selected = selected == idx, onClick = null)
                 Spacer(Modifier.width(6.dp))
