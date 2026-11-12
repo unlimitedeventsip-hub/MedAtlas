@@ -642,6 +642,19 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             TextButton(onClick = { runOcr(bitmap) }, enabled = !processing && bitmap != null) {
                 Text(if (processing) "OCR…" else "OCR pagină", fontSize = 11.sp)
             }
+            val ocrActive = fullOcrStatus?.state == WorkInfo.State.RUNNING ||
+                fullOcrStatus?.state == WorkInfo.State.ENQUEUED
+            TextButton(onClick = { runBatchOcr() }, enabled = doc.kind == "PDF" && !ocrActive) {
+                Icon(Icons.Rounded.DocumentScanner, contentDescription = null,
+                    modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("OCR tot PDF", fontSize = 11.sp)
+            }
+            if (ocrActive) {
+                TextButton(onClick = {
+                    ocrWorkManager.cancelUniqueWork(FullDocumentOcrWorker.workName(doc.id))
+                }) { Text("Oprește OCR", fontSize = 11.sp) }
+            }
             TextButton(onClick = { showOcrLibrary = true }) {
                 Icon(Icons.Rounded.TextSnippet, null)
                 Spacer(Modifier.width(4.dp))
