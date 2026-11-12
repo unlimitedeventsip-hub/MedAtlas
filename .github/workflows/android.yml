@@ -51,6 +51,9 @@ jobs:
       - name: Verify offline study catalog
         run: python3 tools/check_workbook.py
 
+      - name: Bundle licensed full medical textbooks for offline reading
+        run: python3 tools/bundle_open_books.py
+
       - name: Build debug APK
         env:
           MEDATLAS_STORE_PASSWORD: ${{ secrets.MEDATLAS_STORE_PASSWORD }}
