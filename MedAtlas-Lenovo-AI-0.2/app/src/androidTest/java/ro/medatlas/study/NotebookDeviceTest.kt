@@ -35,10 +35,11 @@ class NotebookDeviceTest {
         )
         val ink = createDigitalInk(sample, 800, 1000)
         assertEquals(4, ink.strokes.size)
-        assertEquals(3, ink.strokes[0].points.size)
-        assertEquals(80f, ink.strokes[0].points[0].x)
-        assertEquals(500f, ink.strokes[0].points[0].y)
-        assertTrue(ink.strokes.all { it.points.isNotEmpty() })
+        val first = ink.strokes[0].pointsInGlobalCoordinates
+        assertEquals(3, first.size)
+        assertEquals(80f, first[0].x)
+        assertEquals(500f, first[0].y)
+        assertTrue(ink.strokes.all { it.pointsInGlobalCoordinates.isNotEmpty() })
     }
 
     @Test fun exportIncludesEveryPageAndContinuesLongText() {
