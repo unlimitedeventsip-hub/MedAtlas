@@ -201,6 +201,7 @@ internal fun UnifiedLibraryScreen(
     onImport: (String?) -> Unit,
     onDocumentChanged: (StudyDocument) -> Unit,
     onDocumentDeleted: (String) -> Unit,
+    onLibraryRestored: () -> Unit,
     onNavigate: (Int) -> Unit
 ) {
     val context = LocalContext.current
@@ -220,6 +221,7 @@ internal fun UnifiedLibraryScreen(
     var movingRow by remember { mutableStateOf<LibraryRow?>(null) }
     var nameInput by remember { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
+    var showDrive by remember { mutableStateOf(false) }
     val folders = remember(revision) { organization.allFolders() }
     val notes = remember(revision, refreshKey, documents.size) { store.notes() }
     val query = search.trim()
@@ -327,6 +329,9 @@ internal fun UnifiedLibraryScreen(
                     }
                 }
                 Spacer(Modifier.width(8.dp))
+                IconButton(onClick = { showDrive = true }) {
+                    Icon(Icons.Rounded.CloudUpload, "Google Drive și backup", tint = glassWhite)
+                }
                 IconButton(onClick = { showSearch = true }) {
                     Icon(Icons.Rounded.Search, "Căutare", tint = glassWhite)
                 }
@@ -637,6 +642,14 @@ internal fun UnifiedLibraryScreen(
                 revision++; deletingRow = null
             }) { Text("Șterge") } },
             dismissButton = { TextButton(onClick = { deletingRow = null }) { Text("Anulează") } })
+    }
+    if (showDrive) {
+        DriveBackupDialog(
+            store = store,
+            onDismiss = { showDrive = false },
+            onImported = { onImport(null) },
+            onRestored = onLibraryRestored
+        )
     }
     if (showSearch) {
         NadiaGlobalSearch(
