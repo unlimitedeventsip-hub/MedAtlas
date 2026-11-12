@@ -219,6 +219,8 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
                     all.add(if (position >= 0) position + 1 else all.size, copy)
                     store.saveInk(inkId(nextId), 0, store.ink(inkId(source.id), 0)
                         .map { it.copy(id = UUID.randomUUID().toString()) })
+                    store.saveStickers(inkId(nextId), 0, store.stickers(inkId(source.id), 0)
+                        .map { it.copy(id = UUID.randomUUID().toString()) })
                     store.saveNotes(all)
                     notes = store.notes()
                     pageId = nextId
@@ -409,6 +411,8 @@ private fun PagePreview(note: StudyNote, store: LibraryStore) {
         image = withContext(Dispatchers.Main.immediate) {
             val view = StudyCanvasView(context)
             view.bind(paper, strokes, Tool.PEN, 0, 2f, false)
+            view.stickers = store.stickers(inkId(note.id), 0)
+            view.stickerResolver = { store.stickerBitmap(it) }
             view.smartMarker = false
             view.layout(0, 0, 650, 450)
             val thumb = Bitmap.createBitmap(260, 180, Bitmap.Config.ARGB_8888)
@@ -447,9 +451,35 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
     DisposableEffect(Unit) { onDispose { flush() } }
     BackHandler { flush(); onBack() }
     var tool by rememberSaveable { mutableStateOf(Tool.PEN) }
+    var stickers by remember { mutableStateOf(store.stickers(inkId(original.id), 0)) }
+    val stickerCache = remember { mutableMapOf<String, Bitmap>() }
+    val imageScope = rememberCoroutineScope()
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) imageScope.launch {
+            val result = withContext(Dispatchers.IO) { runCatching { store.importSticker(uri) } }
+            result.onSuccess { file ->
+                val newSticker = PageSticker(imageName = file, x = .24f, y = .24f, size = .38f)
+                stickers = stickers + newSticker
+                store.saveStickers(inkId(original.id), 0, stickers)
+                tool = Tool.STICKER
+            }.onFailure {
+                android.widget.Toast.makeText(context,
+                    "Nu pot insera imaginea: " + (it.localizedMessage ?: "eroare"),
+                    android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            stickerCache.values.forEach { bitmap ->
+                if (!bitmap.isRecycled) bitmap.recycle()
+            }
+        }
+    }
     val toolNames = mapOf(Tool.PEN to "Fineliner", Tool.BRUSH to "Pensulă", Tool.HIGHLIGHT to "Marker",
         Tool.CIRCLE to "Elipsă", Tool.RECTANGLE to "Dreptunghi", Tool.ARROW to "Săgeată",
-        Tool.LASSO to "Lasou", Tool.ERASER to "Radieră", Tool.PAN to "Deplasare")
+        Tool.LASSO to "Lasou", Tool.ERASER to "Radieră", Tool.STICKER to "Imagine",
+        Tool.PAN to "Deplasare")
     val colors = mapOf("Grafit" to Color(0xff263943), "Petrol" to Color(0xff258b86),
         "Trandafiriu" to Color(0xffd05b82), "Auriu" to Color(0xffe5ad43), "Fildeș" to Color(0xfffff8e8))
     var color by rememberSaveable { mutableStateOf(if (dark) "Fildeș" else "Grafit") }
@@ -478,6 +508,12 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             Choice(toolNames.getValue(tool), toolNames.values.toList()) { tool = toolNames.keys.elementAt(it) }
             Choice(color, colors.keys.toList()) { color = colors.keys.elementAt(it) }
             Choice("$width · grosime", listOf("Subțire", "Medie", "Groasă")) { width = listOf(2, 4, 7)[it] }
+            TextButton(onClick = { photoPicker.launch("image/*") }) { Text("+ Imagine") }
+            if (tool == Tool.STICKER) {
+                TextButton(onClick = { view?.increaseStickerSize(-.04f) }) { Text("Imagine −") }
+                TextButton(onClick = { view?.increaseStickerSize(.04f) }) { Text("Imagine +") }
+                TextButton(onClick = { view?.deleteSelectedSticker() }) { Text("Elimină imagine") }
+            }
             if (original.handwritingFile.isBlank()) {
                 Choice(patterns[paper] ?: "Linii", patterns.values.toList()) { paper = patterns.keys.elementAt(it) }
                 TextButton(onClick = { dark = !dark; color = if (dark) "Fildeș" else "Grafit" }) { Text(if (dark) "Hârtie deschisă" else "Hârtie închisă") }
@@ -516,6 +552,15 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
                     it.penWidth = width.toFloat()
                     it.fingerInk = prefs.getBoolean("notebook_finger", true)
                     it.smartMarker = false
+                    it.stickers = stickers
+                    it.stickerResolver = { file -> stickerCache.getOrPut(file) {
+                        store.stickerBitmap(file) ?:
+                            Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+                    } }
+                    it.onStickersSave = { updated ->
+                        stickers = updated
+                        store.saveStickers(inkId(original.id), 0, updated)
+                    }
                     it.smartShapes = prefs.getBoolean("smart_shapes", false)
                     it.scratchToErase = prefs.getBoolean("scratch_to_erase", false)
                     it.marks = strokes
