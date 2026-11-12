@@ -111,7 +111,7 @@ class ClassroomActivity : ComponentActivity() {
                         courses = it.first; materials = it.second
                         status = "Sincronizate " + courses.size + " cursuri și " + materials.size + " materiale / teme."
                         if (autoImport) importAttachments(token, materials, courses)
-                    }.onFailure { status = "Sincronizare nereușită: " + (it.localizedMessage ?: "Eroare Google") }
+                    }.onFailure { status = "Sincronizare nereușită: " + (it.localizedMessage ?: "Eroare Google"); busy = false }
                 if (!autoImport) busy = false
             }
         }
