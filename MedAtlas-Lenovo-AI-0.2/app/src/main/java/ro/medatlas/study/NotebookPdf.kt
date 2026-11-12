@@ -45,6 +45,8 @@ internal suspend fun exportNotebook(context: Context, store: LibraryStore, pages
                     if (line == 0) withContext(Dispatchers.Main.immediate) {
                         val view = StudyCanvasView(context)
                         view.bind(paper,strokes,Tool.PEN,Color.BLACK,2f,false)
+                        view.stickers = store.stickers(inkId(note.id), 0)
+                        view.stickerResolver = { store.stickerBitmap(it) }
                         view.smartMarker = false
                         view.layout(0,0,430,515)
                         canvas.save(); canvas.translate(24f,54f); view.draw(canvas); canvas.restore()
