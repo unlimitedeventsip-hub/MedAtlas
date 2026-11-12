@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -143,7 +144,9 @@ internal class LibraryOrganization(private val context: Context, private val sto
     /** Delete a folder without deleting study files or notes; its children and contents move up. */
     fun remove(id: String) {
         val folder = folders.firstOrNull { it.id == id } ?: return
-        folders.replaceAll { if (it.parentId == id) it.copy(parentId = folder.parentId) else it }
+        for (i in folders.indices) {
+            if (folders[i].parentId == id) folders[i] = folders[i].copy(parentId = folder.parentId)
+        }
         folders.removeAll { it.id == id }
         documents.entries.toList().filter { it.value == id }.forEach {
             if (folder.parentId == null) documents.remove(it.key) else documents[it.key] = folder.parentId
@@ -191,6 +194,7 @@ private data class LibraryRow(
 @Composable
 internal fun UnifiedLibraryScreen(
     store: LibraryStore,
+    refreshKey: Int,
     documents: List<StudyDocument>,
     onOpenDocument: (StudyDocument) -> Unit,
     onOpenNote: (String) -> Unit,
@@ -200,7 +204,7 @@ internal fun UnifiedLibraryScreen(
     onNavigate: (Int) -> Unit
 ) {
     val context = LocalContext.current
-    val organization = remember { LibraryOrganization(context, store) }
+    val organization = remember(refreshKey) { LibraryOrganization(context, store) }
     var revision by remember { mutableIntStateOf(0) }
     var selectedFolder by remember { mutableStateOf<String?>(null) }
     var section by remember { mutableStateOf("Bibliotecă") }
@@ -218,7 +222,7 @@ internal fun UnifiedLibraryScreen(
     var showAiInfo by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
     val folders = remember(revision) { organization.allFolders() }
-    val notes = remember(revision, documents.size) { store.notes() }
+    val notes = remember(revision, refreshKey, documents.size) { store.notes() }
     val query = search.trim()
     val indexedHits by produceState(emptySet<String>(), query, documents.toList()) {
         value = emptySet()
