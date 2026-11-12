@@ -221,7 +221,7 @@ private fun MedAtlasApp() {
                     },
                     onNavigate = { tab = it }
                 )
-                1 -> NotebookLibrary(store, docs, onOpen = { selected = it })
+                1 -> NotebookLibrary(store, docs, onOpen = { selected = it }, unified = true)
                 2 -> CardsScreen(store, docs, onOpen = { selected = it })
                 else -> SettingsScreen(onReplayIntro = { showIntro = true })
             }
