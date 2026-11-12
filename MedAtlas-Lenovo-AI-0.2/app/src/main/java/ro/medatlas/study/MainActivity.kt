@@ -1194,7 +1194,7 @@ private fun NoteDialog(store: LibraryStore, doc: StudyDocument, page: Int, onDis
             Spacer(Modifier.height(8.dp))
             OutlinedTextField(body, { body = it }, label = { Text("Conținut") }, modifier = Modifier.fillMaxWidth(), minLines = 4)
         }
-    }, confirmButton = { Button(onClick = { store.saveNotes(store.notes() + StudyNote(documentId = doc.id, page = page, heading = heading.ifBlank { "Notiță" }, body = body)); onDismiss() }, enabled = body.isNotBlank()) { Text("Salvează") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Anulează") } })
+    }, confirmButton = { Button(onClick = { store.saveNotes(store.notes() + StudyNote(documentId = doc.id, page = page, heading = heading.ifBlank { "Notiță" }, body = body, course = doc.course)); onDismiss() }, enabled = body.isNotBlank()) { Text("Salvează") } }, dismissButton = { TextButton(onClick = onDismiss) { Text("Anulează") } })
 }
 
 @Composable
