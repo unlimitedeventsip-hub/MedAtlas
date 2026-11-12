@@ -4,6 +4,7 @@ package ro.medatlas.study
 
 import android.content.Intent
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Color as AndroidColor
 import android.net.Uri
 import android.os.Bundle
@@ -399,13 +400,15 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
     val stickerCache = remember(doc.id) { mutableMapOf<String, Bitmap>() }
     var canvasView by remember { mutableStateOf<StudyCanvasView?>(null) }
     var exporting by remember { mutableStateOf(false) }
+    var imageToCrop by remember { mutableStateOf<Bitmap?>(null) }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        uri?.let {
-            runCatching { store.importSticker(it) }.onSuccess { imageName ->
-                stickers = stickers + PageSticker(imageName = imageName)
-                store.saveStickers(doc.id, page, stickers)
-                tool = Tool.STICKER
-            }.onFailure { Toast.makeText(context, it.localizedMessage ?: "Nu s-a importat imaginea", Toast.LENGTH_LONG).show() }
+        uri?.let { picked ->
+            runCatching {
+                context.contentResolver.openInputStream(picked)?.use { input ->
+                    BitmapFactory.decodeStream(input)
+                } ?: error("Nu am putut citi imaginea")
+            }.onSuccess { imageToCrop = it }
+             .onFailure { Toast.makeText(context, it.localizedMessage ?: "Import imposibil", Toast.LENGTH_LONG).show() }
         }
     }
     LaunchedEffect(doc.id, page) {
@@ -715,21 +718,118 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             }
         }
     }
-    if (showAtlas) AlertDialog(onDismissRequest = { showAtlas = false }, title = { Text("Stickers medicale") }, text = {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Scheme originale pentru notițe. Nu sunt atlas anatomic validat clinic.", color = Slate, fontSize = 12.sp)
-            listOf("lungs" to "Plămâni", "heart" to "Inimă", "neuron" to "Neuron").forEach { (key, name) ->
-                OutlinedButton(onClick = {
-                    runCatching { store.builtInSticker(key) }.onSuccess { fileName ->
-                        stickers = stickers + PageSticker(imageName = fileName)
-                        store.saveStickers(doc.id, page, stickers)
-                        tool = Tool.STICKER
-                    }.onFailure { Toast.makeText(context, "Nu s-a inserat: ${it.localizedMessage}", Toast.LENGTH_LONG).show() }
-                    showAtlas = false
-                }, modifier = Modifier.fillMaxWidth()) { Text(name) }
-            }
+    if (imageToCrop != null) {
+        val image = imageToCrop!!
+        var left by remember(image) { mutableFloatStateOf(0f) }
+        var right by remember(image) { mutableFloatStateOf(1f) }
+        var top by remember(image) { mutableFloatStateOf(0f) }
+        var bottom by remember(image) { mutableFloatStateOf(1f) }
+        val cx = (left * image.width).toInt().coerceIn(0, image.width - 1)
+        val cy = (top * image.height).toInt().coerceIn(0, image.height - 1)
+        val cw = ((right - left) * image.width).toInt().coerceIn(1, image.width - cx)
+        val ch = ((bottom - top) * image.height).toInt().coerceIn(1, image.height - cy)
+        val preview = remember(image, cx, cy, cw, ch) {
+            Bitmap.createBitmap(image, cx, cy, cw, ch)
         }
-    }, confirmButton = { TextButton(onClick = { showAtlas = false }) { Text("Închide") } })
+        AlertDialog(
+            onDismissRequest = { imageToCrop = null },
+            title = { Text("Decupează imaginea") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    androidx.compose.foundation.Image(preview.asImageBitmap(),
+                        contentDescription = "Previzualizare decupare",
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 210.dp),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit)
+                    Text("Stânga", fontSize = 11.sp)
+                    Slider(value = left, onValueChange = { left = it.coerceAtMost(right - .05f) },
+                        valueRange = 0f..1f)
+                    Text("Dreapta", fontSize = 11.sp)
+                    Slider(value = right, onValueChange = { right = it.coerceAtLeast(left + .05f) },
+                        valueRange = 0f..1f)
+                    Text("Sus", fontSize = 11.sp)
+                    Slider(value = top, onValueChange = { top = it.coerceAtMost(bottom - .05f) },
+                        valueRange = 0f..1f)
+                    Text("Jos", fontSize = 11.sp)
+                    Slider(value = bottom, onValueChange = { bottom = it.coerceAtLeast(top + .05f) },
+                        valueRange = 0f..1f)
+                    TextButton(onClick = { left = 0f; right = 1f; top = 0f; bottom = 1f }) {
+                        Text("Resetează decuparea")
+                    }
+                }
+            },
+            confirmButton = { Button(onClick = {
+                runCatching {
+                    val cropped = Bitmap.createBitmap(image, cx, cy, cw, ch)
+                    val name = store.saveGeneratedSticker(cropped)
+                    stickers = stickers + PageSticker(imageName = name)
+                    store.saveStickers(doc.id, page, stickers)
+                    tool = Tool.STICKER
+                    imageToCrop = null
+                }.onFailure { Toast.makeText(context, it.localizedMessage ?: "Nu s-a decupat imaginea", Toast.LENGTH_LONG).show() }
+            }) { Text("Adaugă sticker") } },
+            dismissButton = { TextButton(onClick = { imageToCrop = null }) { Text("Renunță") } }
+        )
+    }
+    if (showAtlas) {
+        var atlasQuery by remember { mutableStateOf("") }
+        val categories = listOf(
+            "Cap și gât", "Creier și neuroni", "Ochi", "Ureche și ORL",
+            "Plămâni și căi aeriene", "Inimă și vase", "Abdomen și digestie",
+            "Ficat și pancreas", "Rinichi și sistem urinar", "Aparat reproducător",
+            "Oase și articulații", "Mușchi", "Sistem nervos periferic", "Piele",
+            "Sistem endocrin", "Sistem limfatic", "Embriologie", "Patologie",
+            "Proceduri medicale", "Histologie"
+        )
+        AlertDialog(onDismissRequest = { showAtlas = false },
+            title = { Text("Atlas MedAtlas · imagini medicale") },
+            text = {
+                Column(Modifier.heightIn(max = 510.dp).verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = atlasQuery, onValueChange = { atlasQuery = it },
+                        label = { Text("Caută organ / structură") }, modifier = Modifier.fillMaxWidth(),
+                        singleLine = true)
+                    Text("Bibliotecă locală — schițe de exemplu", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    listOf("lungs" to "Plămâni", "heart" to "Inimă", "neuron" to "Neuron").forEach { (key, name) ->
+                        if (atlasQuery.isBlank() || name.contains(atlasQuery, true)) {
+                            OutlinedButton(onClick = {
+                                runCatching { store.builtInSticker(key) }.onSuccess { imageName ->
+                                    stickers = stickers + PageSticker(imageName = imageName)
+                                    store.saveStickers(doc.id, page, stickers)
+                                    tool = Tool.STICKER
+                                }
+                                showAtlas = false
+                            }, modifier = Modifier.fillMaxWidth()) { Text("Adaugă $name") }
+                        }
+                    }
+                    HorizontalDivider()
+                    Text("Caută în Servier Medical Art (3000+ imagini, CC BY 4.0)",
+                        fontWeight = FontWeight.Medium, fontSize = 12.sp)
+                    OutlinedButton(onClick = {
+                        browse(context, "site:smart.servier.com medical illustration " +
+                            atlasQuery.ifBlank { "anatomy" })
+                    }, modifier = Modifier.fillMaxWidth()) { Text("Servier · caută imagini") }
+                    OutlinedButton(onClick = {
+                        browse(context, "site:commons.wikimedia.org anatomy " +
+                            atlasQuery.ifBlank { "medical anatomy" })
+                    }, modifier = Modifier.fillMaxWidth()) { Text("Wikimedia Commons · caută") }
+                    OutlinedButton(onClick = {
+                        imagePicker.launch("image/*")
+                        showAtlas = false
+                    }, modifier = Modifier.fillMaxWidth()) { Text("Importă / decupează imaginea salvată") }
+                    Text("Categorii anatomice", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    categories.filter { atlasQuery.isBlank() || it.contains(atlasQuery, true) }.forEach { name ->
+                        TextButton(onClick = {
+                            browse(context, "site:smart.servier.com " + name + " medical art")
+                        }, modifier = Modifier.fillMaxWidth()) { Text(name) }
+                    }
+                    Text("Imaginile externe se descarcă din browser și se importă manual. Verifică licența și atribuirea.",
+                        fontSize = 11.sp, color = Slate)
+                }
+            }, confirmButton = {
+                TextButton(onClick = { showAtlas = false }) { Text("Închide") }
+            })
+    }
     if (highlightSuggestions.isNotEmpty()) {
         AlertDialog(onDismissRequest = { highlightSuggestions = emptyList() },
             title = { Text("Sublinieri propuse") },
