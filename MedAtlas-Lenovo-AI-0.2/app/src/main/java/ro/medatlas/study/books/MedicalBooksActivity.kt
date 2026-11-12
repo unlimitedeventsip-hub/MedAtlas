@@ -3,6 +3,9 @@ package ro.medatlas.study.books
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import androidx.core.content.FileProvider
+import org.json.JSONArray
+import java.io.File
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -49,6 +52,19 @@ class MedicalBooksActivity : ComponentActivity() {
         Book("Nursing Skills", "Open RN", "Proceduri", "https://wtcs.pressbooks.pub/nursingskills/", "Verifică excepțiile capitolelor")
     )
 
+    data class BundledBook(val title: String, val subject: String,
+        val file: String, val publisher: String, val rights: String)
+    private fun bundled(): List<BundledBook> = runCatching {
+        val entries = JSONArray(assets.open("open_books/catalog.json")
+            .bufferedReader().use { it.readText() })
+        (0 until entries.length()).map { i ->
+            val record = entries.getJSONObject(i)
+            BundledBook(record.getString("title"), record.getString("subject"),
+                record.getString("file"), record.getString("publisher"),
+                record.getString("rights"))
+        }
+    }.getOrDefault(emptyList())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { BooksScreen() }
@@ -57,11 +73,54 @@ class MedicalBooksActivity : ComponentActivity() {
     @Composable
     private fun BooksScreen() {
         val library = remember { LibraryStore(this@MedicalBooksActivity) }
-        var search by remember { mutableStateOf("") }
-        var subject by remember { mutableStateOf("Toate") }
         var imports by remember { mutableIntStateOf(library.documents().size) }
         var status by remember { mutableStateOf("") }
         var busy by remember { mutableStateOf(false) }
+        val packaged = remember { bundled() }
+        var packageProgress by remember { mutableIntStateOf(0) }
+        suspend fun installBooks(books: List<BundledBook>) {
+            busy = true
+            packageProgress = 0
+            var copied = 0
+            var already = 0
+            var failed = 0
+            for (book in books) {
+                val name = book.file
+                val result = withContext(Dispatchers.IO) {
+                    runCatching {
+                        require(name.matches(Regex("[A-Za-z0-9_.-]{5,120}"))) {
+                            "Invalid bundled filename"
+                        }
+                        if (library.documents().any { it.originalName == name }) {
+                            false
+                        } else {
+                            val folder = File(cacheDir, "bundled_books").apply { mkdirs() }
+                            val target = File(folder, name)
+                            try {
+                                assets.open("open_books/" + name).use { source ->
+                                    target.outputStream().use { dest -> source.copyTo(dest, 1024 * 1024) }
+                                }
+                                require(target.length() > 100_000L) { "PDF incomplete" }
+                                val uri = FileProvider.getUriForFile(
+                                    this@MedicalBooksActivity, packageName + ".files", target)
+                                library.import(uri, "Cărți medicale")
+                                true
+                            } finally { target.delete() }
+                        }
+                    }
+                }
+                result.onSuccess { if (it) copied++ else already++ }.onFailure { failed++ }
+                packageProgress++
+                imports = library.documents().size
+                status = "Instalare: " + packageProgress + "/" + books.size
+            }
+            status = "Cărți adăugate: " + copied + "; existente: " + already +
+                "; erori: " + failed + ". Deschide Bibliotecă pentru a citi."
+            busy = false
+        }
+        var search by remember { mutableStateOf("") }
+        var subject by remember { mutableStateOf("Toate") }
+
         val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
             if (uris.isNotEmpty()) {
                 busy = true
@@ -96,8 +155,19 @@ class MedicalBooksActivity : ComponentActivity() {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(imports.toString() + " documente instalate în biblioteca locală",
                             fontWeight = FontWeight.SemiBold)
-                        Text("Cele " + catalog.size + " referințe sunt linkuri oficiale, NU cărți " +
-                            "incluse integral în APK. PDF-urile importate se citesc offline.",
+                        Text("PDF-uri complete incluse offline: " + packaged.size +
+                            ". Referințe suplimentare cu link la editor: " + catalog.size + ".",
+                            fontSize = 11.sp, color = Color.Gray)
+                        if (packaged.isNotEmpty()) {
+                            Button(onClick = { lifecycleScope.launch { installBooks(packaged) } },
+                                enabled = !busy) {
+                                Icon(Icons.Rounded.FileDownload, null)
+                                Spacer(Modifier.width(5.dp))
+                                Text("Adaugă cărțile incluse în Bibliotecă")
+                            }
+                        }
+                        Text("Cărțile complete sunt în APK, cu atribuirea editorului " +
+                            "în PDF-urile originale; nu sunt 100 de cărți încă.",
                             fontSize = 11.sp, color = Color.Gray)
                         Button(enabled = !busy, onClick = {
                             picker.launch(arrayOf("application/pdf",
@@ -106,6 +176,31 @@ class MedicalBooksActivity : ComponentActivity() {
                         }) { Icon(Icons.Rounded.Add, null); Text("Importă cărți PDF în lot") }
                         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                         if (status.isNotBlank()) Text(status, fontSize = 12.sp)
+                    }
+                }
+                if (packaged.isNotEmpty()) {
+                    Text("Manuale complete incluse în aplicație",
+                        fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 13.dp, vertical = 6.dp))
+                    Row(Modifier.fillMaxWidth().horizontalScroll(
+                        androidx.compose.foundation.rememberScrollState())
+                        .padding(horizontal = 13.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        packaged.forEach { book ->
+                            Card(Modifier.width(210.dp)) {
+                                Column(Modifier.padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                                    Text(book.title, fontWeight = FontWeight.SemiBold,
+                                        maxLines = 2)
+                                    Text(book.subject, fontSize = 11.sp, color = Color.Gray)
+                                    Text("OpenStax • carte completă offline",
+                                        fontSize = 11.sp, color = Color(0xFF38786E))
+                                    Button(onClick = {
+                                        lifecycleScope.launch { installBooks(listOf(book)) }
+                                    }, enabled = !busy) { Text("Adaugă în bibliotecă") }
+                                }
+                            }
+                        }
                     }
                 }
                 OutlinedTextField(search, { search = it }, singleLine = true,
