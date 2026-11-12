@@ -29,7 +29,7 @@ class MedicalReferenceActivity : ComponentActivity() {
         val title: String, val icon: String, val steps: List<String>,
         val question: String, val answers: List<String>, val correct: Int, val explanation: String
     )
-    private val topics = listOf(
+    private val topics by lazy { listOf(
         Topic("ECG · ordinea interpretării", "ecg",
             listOf("1. Verifică identitatea, viteza și calibrarea trasării.",
                 "2. Calculează frecvența și regularitatea ritmului.",
@@ -89,7 +89,11 @@ class MedicalReferenceActivity : ComponentActivity() {
             listOf("Doar ambalajul", "Indicația, contraindicațiile și identitatea pacientului",
                 "Culoarea tabletei", "Doar ora zilei"),
             1, "Siguranța administrării implică verificări multiple, nu o singură proprietate.")
-    )
+    ) + ro.medatlas.study.simulation.readClinicalTable(this, "laboratory").map { row ->
+        Topic(row.getValue("title"), "lab", listOf("Buletin fictiv", row.getValue("report")),
+            row.getValue("question"), listOf("a", "b", "c").map(row::getValue),
+            row.getValue("correct").toInt(), row.getValue("explanation"))
+    } }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent { MedicalReferenceScreen() }
@@ -112,6 +116,12 @@ class MedicalReferenceActivity : ComponentActivity() {
                 if (selected < 0) {
                     LazyColumn(Modifier.fillMaxSize().padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        item {
+                            val uri = androidx.compose.ui.platform.LocalUriHandler.current
+                            OutlinedButton(onClick = {
+                                uri.openUri("https://www.usmle.org/exam-resources/step-1-materials/step-1-sample-test-questions")
+                            }) { Text("Grile oficiale USMLE · online, în engleză") }
+                        }
                         items(topics.indices.toList()) { index ->
                             Card(onClick = { selected = index }, modifier = Modifier.fillMaxWidth()) {
                                 Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {

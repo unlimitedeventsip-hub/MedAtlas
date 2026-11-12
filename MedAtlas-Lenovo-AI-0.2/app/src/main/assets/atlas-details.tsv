@@ -1,0 +1,200 @@
+name	location	function
+Creier	În cavitatea craniană, învelit de meninge.	Integrează informația senzorială cu răspunsurile motorii, autonome și cognitive.
+Cortex cerebral	Substanță cenușie la suprafața emisferelor.	Ariile primare și de asociație susțin percepția, mișcarea voluntară și limbajul.
+Lob frontal	Anterior de șanțul central.	Girul precentral inițiază comenzi motorii, iar cortexul prefrontal participă la planificare.
+Lob parietal	Posterior de șanțul central, superior de șanțul lateral.	Girul postcentral primește sensibilitatea somatică și contribuie la reprezentarea corpului.
+Lob temporal	Inferior de șanțul lateral.	Include cortex auditiv și structuri temporale mediale implicate în memorie.
+Lob occipital	La polul posterior al emisferelor.	Cortexul din jurul șanțului calcarin primește informație vizuală.
+Cerebel	În fosa craniană posterioară, dorsal de punte și bulb.	Compară informațiile senzoriale și motorii pentru coordonare și învățare motorie.
+Trunchi cerebral	Între diencefal și măduva spinării, anterior de cerebel.	Conține căi ascendente și descendente, nuclei de nervi cranieni și rețele autonome.
+Mezencefal	Între punte și diencefal, în jurul apeductului cerebral.	Coliculii participă la reflexele de orientare vizuală și auditivă.
+Punte	Între bulb și mezencefal, anterior de ventriculul IV.	Transmite către cerebel informații provenite din cortex.
+Bulb rahidian	Între punte și măduvă, la nivelul găurii occipitale mari.	Participă la reglarea cardiovasculară și respiratorie.
+Măduva spinării	În canalul vertebral, în continuarea bulbului.	Organizează reflexe segmentare și conduce semnale între periferie și encefal.
+Meninge	Dura, arahnoida și pia învelesc sistemul nervos central.	Protejează țesutul nervos, iar spațiul subarahnoidian conține lichid cefalorahidian.
+Nervi cranieni	Douăsprezece perechi asociate encefalului.	Transportă fibre senzitive, motorii sau autonome, în funcție de pereche.
+Nervi spinali	Se formează prin unirea rădăcinilor dorsale și ventrale.	Conduc informație senzitivă spre măduvă și comenzi motorii către periferie.
+Ganglioni nervoși	Grupări de corpi neuronali în sistemul nervos periferic.	Ganglionii senzitivi adăpostesc neuroni aferenți, iar cei autonomi conțin sinapse.
+Plex brahial	De la rădăcinile C5–T1 spre axilă.	Distribuie inervația membrului superior prin nervii săi terminali.
+Plex lombosacrat	În peretele abdominal posterior și pelvis.	Distribuie fibre către pelvis și membrul inferior.
+Nerv sciatic	Din plexul sacrat către regiunea posterioară a coapsei.	Prin ramurile terminale contribuie la funcția motorie și senzitivă a gambei și piciorului.
+Sistem nervos simpatic	Neuronii preganglionari se află în măduva toracolombară.	Modulează frecvența cardiacă, tonusul vascular și răspunsul la efort.
+Sistem nervos parasimpatic	Fibre craniene și sacrale ajung la ganglioni apropiați de organe.	Participă la controlul digestiei, micțiunii și frecvenței cardiace.
+Inimă	În mediastinul mijlociu, între plămâni.	Cele două pompe ventriculare susțin circulațiile pulmonară și sistemică.
+Atriu drept	Primește venele cave și sinusul coronar.	Dirijează sângele venos prin valva tricuspidă spre ventriculul drept.
+Atriu stâng	Posterior în inimă, la vărsarea venelor pulmonare.	Primește sângele din plămâni și îl transmite ventriculului stâng.
+Ventricul drept	Formează cea mai mare parte a feței sternocostale a inimii.	Propulsează sânge prin valva pulmonară spre plămâni.
+Ventricul stâng	Formează apexul inimii și are un perete muscular gros.	Generează presiunea care menține fluxul sistemic prin aortă.
+Sept interventricular	Între ventricule, cu porțiuni musculară și membranoasă.	Separă circuitele și conține ramurile fasciculului de conducere.
+Valvă mitrală	Între atriul și ventriculul stâng.	Cele două cuspide limitează refluxul în atriu în timpul sistolei.
+Valvă tricuspidă	Între atriul și ventriculul drept.	Coardele tendinoase și mușchii papilari stabilizează cuspidele în sistolă.
+Valvă aortică	La ieșirea ventriculului stâng în aortă.	Cuspidele semilunare împiedică revenirea sângelui în ventricul în diastolă.
+Valvă pulmonară	Între ventriculul drept și trunchiul pulmonar.	Se deschide în ejecție și se închide când presiunea din trunchiul pulmonar depășește presiunea ventriculară.
+Nod sinusal	În atriul drept, lângă vărsarea venei cave superioare.	Generează în mod obișnuit impulsul care inițiază fiecare ciclu cardiac.
+Nod atrioventricular	În zona inferioară a septului interatrial, lângă valva tricuspidă.	Întârzie conducerea impulsului înaintea activării ventriculare.
+Aortă	Pornește din ventriculul stâng și traversează toracele și abdomenul.	Peretele elastic amortizează variațiile de presiune dintre sistolă și diastolă.
+Artere coronare	Se desprind din sinusurile aortice și se distribuie pe suprafața inimii.	Furnizează oxigen miocardului.
+Arteră carotidă	Carotida comună urcă în gât și se divide în ramurile internă și externă.	Ramurile irigă encefalul și structurile extracraniene ale capului și gâtului.
+Arteră pulmonară	Ramurile dreaptă și stângă leagă trunchiul pulmonar de hili.	Transportă sânge de la ventriculul drept către capilarele pulmonare.
+Venă pulmonară	Venele pulmonare ajung de la hili în atriul stâng.	Readuc sânge oxigenat în inimă.
+Vene cave	Se deschid în atriul drept, superior și inferior.	Colectează sângele venos din cea mai mare parte a corpului.
+Capilare	Rețele microscopice între arteriole și venule.	Endoteliul subțire permite schimbul de gaze, apă și substanțe dizolvate.
+Vene periferice	Rețele superficiale și profunde, inclusiv la membre.	Întoarcerea venoasă beneficiază de pompa musculară și de valve.
+Artere periferice	Se ramifică în țesuturi până la arteriole.	Distribuie sângele, iar arteriolele reglează rezistența și perfuzia locală.
+Sistem de conducere cardiacă	De la nodul sinusal prin joncțiunea AV la fasciculul His și fibrele Purkinje.	Coordonează activarea atriilor și apoi a ventriculelor.
+Nas	La intrarea în căile respiratorii, în continuitate cu vestibulul nazal.	Dirijează aerul inspirat, iar firele vestibulului rețin particule mari.
+Cavitate nazală	Între vestibul și coane, împărțită de sept.	Cornetele și mucoasa încălzesc, umidifică și filtrează aerul.
+Sinusuri paranazale	Cavități aerate în oasele frontal, maxilar, etmoid și sfenoid.	Mucoasa ciliată deplasează secrețiile către orificiile de drenaj nazal.
+Faringe	Posterior de cavitățile nazală, bucală și de laringe.	Coordonează tranzitul bolului în deglutiție și conduce aerul spre laringe.
+Laringe	Între faringe și trahee, anterior în gât.	Pliurile vocale generează sunet și contribuie la protecția căii aeriene.
+Epiglotă	Cartilaj elastic la intrarea în laringe.	În timpul deglutiției participă la devierea bolului departe de calea aeriană.
+Trahee	Anterior de esofag, până la bifurcația bronșică.	Inelele cartilaginoase mențin lumenul, iar epiteliul ciliat transportă mucusul.
+Bronhii principale	De la carină la hilul fiecărui plămân.	Distribuie aerul între plămâni. Bronhia dreaptă este de obicei mai verticală.
+Bronhii lobare	În hil și în lobii pulmonari, după bronhiile principale.	Fiecare bronhie lobară conduce aer către un lob.
+Bronhiole	Căi aeriene mici intrapulmonare cu pereți fără cartilaj.	Musculatura netedă modifică rezistența la fluxul de aer.
+Alveole	La capătul arborelui respirator, în contact cu o rețea capilară.	Pneumocitele de tip I favorizează difuzia, iar cele de tip II secretă surfactant.
+Plămân drept	În hemitoracele drept, împărțit în trei lobi.	Ventilația alveolară și perfuzia capilară permit schimbul gazos.
+Plămân stâng	În hemitoracele stâng, cu doi lobi și incizură cardiacă.	Participă la oxigenarea sângelui și eliminarea dioxidului de carbon.
+Pleura	Foița viscerală acoperă plămânul, cea parietală căptușește toracele.	Pelicula lichidiană facilitează alunecarea între foițe în respirație.
+Diafragmă	Separă toracele de abdomen și se inseră pe coaste, stern și coloana lombară.	Contracția coboară cupolele și mărește volumul toracic.
+Mușchi intercostali	În spațiile dintre coaste.	Stabilizează spațiile intercostale și mobilizează coastele în respirație.
+Hil pulmonar	Pe fața mediastinală a fiecărui plămân.	Permite trecerea bronhiilor, vaselor, nervilor și limfaticelor rădăcinii pulmonare.
+Cavitate bucală	Între buze și istmul orofaringian.	Masticația și saliva pregătesc bolul pentru deglutiție.
+Limbă	Organ muscular pe planșeul bucal.	Repoziționează alimentele, propulsează bolul și participă la gust și vorbire.
+Dinți	Implantați în alveolele maxilare și mandibulare.	Incisivii taie, iar premolarii și molarii mărunțesc alimentele.
+Glande salivare	Parotide, submandibulare, sublinguale și glande mici în mucoasă.	Saliva umezește bolul și contribuie la digestia inițială a amidonului.
+Esofag	Între faringe și stomac, posterior de trahee.	Peristaltismul propulsează bolul prin hiatusul diafragmatic spre stomac.
+Stomac	În epigastru și hipocondrul stâng, între esofag și duoden.	Amestecă alimentele cu acid și pepsină și reglează evacuarea chimului.
+Duoden	Primul segment al intestinului subțire, în jurul capului pancreatic.	Primește bilă și secreție pancreatică pentru digestia chimului.
+Jejun	Între duoden și ileon, susținut de mezenter.	Pliurile și vilozitățile oferă suprafață pentru absorbția nutrienților.
+Ileon	Ultimul segment al intestinului subțire, până la valva ileocecală.	Ileonul terminal absoarbe vitamina B12 legată de factorul intrinsec și sărurile biliare.
+Cec	În fosa iliacă dreaptă, imediat distal de valva ileocecală.	Primește conținutul ileal și îl transmite colonului ascendent.
+Apendice vermiform	Tub îngust cu baza pe cec, cu poziție variabilă a vârfului.	Peretele său conține țesut limfoid asociat intestinului.
+Colon ascendent	De la cec pe flancul drept până la flexura hepatică.	Absoarbe apă și electroliți din conținutul intestinal.
+Colon transvers	Între flexurile hepatică și splenică, suspendat de mezocolon.	Transportă și compactează conținutul prin contracții segmentare și propulsive.
+Colon descendent	De la flexura splenică pe flancul stâng până la sigmoid.	Transportă conținutul spre segmentele distale ale colonului.
+Colon sigmoid	Ansă între colonul descendent și rect, în pelvis.	Depozitează temporar și propulsează materiile fecale.
+Rect	Între sigmoid și canalul anal, anterior de sacru.	Distensia ampulei contribuie la declanșarea reflexului de defecație.
+Canal anal	Segment terminal al tubului digestiv, traversând planșeul pelvin.	Sfincterele intern și extern contribuie la continență.
+Ficat	Sub diafragmă, predominant în hipocondrul drept.	Procesează sângele portal, sintetizează proteine plasmatice și secretă bilă.
+Vezică biliară	Pe fața viscerală a ficatului, legată de căile biliare prin ductul cistic.	Concentrează și eliberează bila în timpul digestiei.
+Căi biliare	Canale intrahepatice și extrahepatice până în duoden.	Transportă bila și o dirijează către vezica biliară sau intestin.
+Pancreas	Posterior de stomac, de la duoden către hilul splenic.	Acinii secretă enzime digestive, iar insulele endocrine eliberează hormoni în sânge.
+Peritoneu	Membrană seroasă cu foițe parietală și viscerală în abdomen.	Reduce frecarea și formează pliuri care susțin viscerele.
+Mezenter	Pliu peritoneal care ancorează jejunul și ileonul de peretele abdominal posterior.	Conține vasele, nervii și limfaticele intestinului subțire.
+Rinichi drept	Retroperitoneal, sub ficat, de obicei mai jos decât rinichiul stâng.	Filtrează plasma și reglează volumul și compoziția lichidului extracelular.
+Rinichi stâng	Retroperitoneal, sub diafragmă, lateral de aortă.	Formează urină și contribuie la reglarea presiunii arteriale și eritropoiezei.
+Cortex renal	Zona periferică a rinichiului, cu corpusculi renali și tubi contorți.	Aici începe filtrarea glomerulară și se modifică filtratul tubular.
+Medulă renală	Zona internă organizată în piramide renale.	Gradientul osmotic medular permite concentrarea urinei.
+Nefron	Corpuscul renal urmat de tub proximal, ansă și tub distal.	Filtrarea, reabsorbția și secreția modifică succesiv compoziția filtratului.
+Glomerul	Ghem capilar în capsula Bowman, între arteriolele aferentă și eferentă.	Bariera glomerulară permite trecerea apei și solviților mici și reține celulele și majoritatea proteinelor.
+Tub proximal	Primul segment tubular după capsula Bowman, predominant cortical.	Reabsoarbe cea mai mare parte a apei și sodiului filtrate și în mod normal aproape toată glucoza.
+Ansa Henle	Segment în formă de U care coboară spre medulă și revine către cortex.	Permeabilitatea diferită a ramurilor susține gradientul osmotic medular.
+Tub distal	În cortex, după ramura ascendentă a ansei.	Ajustează transportul de electroliți, inclusiv sodiu și calciu.
+Canal colector	Primește fluid din mai mulți nefroni și traversează medula.	Vasopresina modifică permeabilitatea sa la apă și astfel concentrația urinei.
+Calice renale	Cupele mici înconjoară papilele și confluează în calice mari.	Colectează urina și o conduc spre bazinet.
+Bazinet	Cavitate în formă de pâlnie în sinusul renal.	Primește urină din calice și se continuă cu ureterul.
+Ureter drept	De la bazinetul drept la peretele posterolateral al vezicii.	Undele peristaltice deplasează urina către vezică.
+Ureter stâng	Tub retroperitoneal între bazinetul stâng și vezică.	Traiectul intramural oblic contribuie la limitarea refluxului vezicoureteral.
+Vezică urinară	În pelvis, posterior de simfiza pubiană.	Detrusorul permite stocarea urinei și se contractă în micțiune.
+Uretră	De la colul vezical la exterior.	Evacuează urina sub controlul sfincterelor.
+Sfincter urinar	În zona colului vezical și în jurul uretrei, cu componente netede și striate.	Coordonează continența și relaxarea în timpul micțiunii.
+Hipotalamus	Sub talamus, în raport cu ventriculul III și tija hipofizară.	Integrează controlul temperaturii, setei și axelor endocrine.
+Hipofiză	În șaua turcească, legată de hipotalamus prin infundibul.	Adenohipofiza secretă hormoni, iar neurohipofiza eliberează vasopresină și oxitocină.
+Epifiză	În epitalamus, posterior de ventriculul III.	Melatonina semnalizează perioada de întuneric în ritmul circadian.
+Tiroidă	Anterior și lateral de trahee, cu doi lobi uniți prin istm.	Celulele foliculare produc hormoni tiroidieni implicați în metabolism și dezvoltare.
+Paratiroide	De obicei patru glande mici pe fața posterioară a tiroidei.	PTH participă la reglarea calciului și fosfatului.
+Suprarenale	La polii superiori ai rinichilor, retroperitoneal.	Cortexul și medula produc familii distincte de hormoni.
+Cortex suprarenalian	Stratul periferic al suprarenalei, cu trei zone.	Produce mineralocorticoizi, glucocorticoizi și androgeni.
+Medulă suprarenaliană	Central în glanda suprarenală.	Celulele cromafine secretă catecolamine la stimularea simpatică.
+Insulele pancreatice	Grupuri endocrine dispersate în pancreasul exocrin.	Coordonează răspunsul metabolic prin insulină, glucagon și alți hormoni.
+Celule beta pancreatice	În insulele endocrine ale pancreasului.	Secretă insulină ca răspuns la creșterea glicemiei.
+Timus	În mediastinul anterior și superior, mai dezvoltat în copilărie.	Asigură maturarea și selecția limfocitelor T.
+Ovare	În pelvis, de o parte și de alta a uterului.	Foliculii și corpul galben contribuie la secreția de estrogeni și progesteron.
+Testicule	În scrot, cu tubi seminiferi și interstițiu.	Celulele Leydig din interstițiu produc testosteron.
+Ovar	Gonadă pelvină lângă pavilionul trompei uterine.	Conține foliculi în diferite stadii și eliberează ovocitul la ovulație.
+Trompă uterină	Între vecinătatea ovarului și cavitatea uterină.	Cilii și musculatura transportă ovocitul, iar fecundația are loc frecvent în ampulă.
+Uter	În pelvis între vezică și rect, cu miometru și endometru.	Susține implantarea și dezvoltarea sarcinii, iar miometrul se contractă la naștere.
+Endometru	Mucoasa care căptușește corpul uterin.	Se modifică ciclic sub influență hormonală și primește blastocistul.
+Col uterin	Porțiunea inferioară a uterului care proemină în vagin.	Canalul cervical permite trecerea mucusului și se dilată la naștere.
+Vagin	Canal fibromuscular de la col la vestibul, posterior de uretră.	Permite evacuarea fluxului menstrual și formează o parte a canalului de naștere.
+Vulvă	Structuri genitale externe în perineul anterior.	Labiile și vestibulul protejează orificiile uretral și vaginal.
+Clitoris	Organ erectil la partea anterioară a vulvei, cu corpi și rădăcini profunde.	Inervația senzitivă bogată contribuie la răspunsul sexual.
+Glandă mamară	În țesutul subcutanat al peretelui toracic anterior.	Alveolele secretă lapte, transportat prin ducte spre mamelon.
+Testicul	Gonadă în scrot, învelită de tunica albuginee.	Tubii seminiferi sunt sediul spermatogenezei.
+Epididim	Pe fața posterioară a testiculului.	Permite maturarea și stocarea spermatozoizilor.
+Canal deferent	De la epididim prin cordonul spermatic spre pelvis.	Propulsează spermatozoizii către ductul ejaculator.
+Vezicule seminale	Posterior de vezica urinară și superior de prostată.	Secretă lichid bogat în fructoză care contribuie la volumul spermei.
+Prostată	Sub vezică, în jurul uretrei proximale.	Contribuie cu secreții la lichidul seminal.
+Penis	Organ extern cu doi corpi cavernoși și un corp spongios.	Țesutul erectil permite intromisiunea, iar uretra conduce urina și sperma.
+Uretră masculină	Traversează prostata, regiunea perineală și corpul spongios.	Conduce urina în micțiune și lichidul seminal în ejaculare.
+Scrot	Sac cutanat și muscular inferior de pubis.	Ajută la menținerea temperaturii testiculare favorabile spermatogenezei.
+Craniu	Scheletul capului, împărțit în neurocraniu și viscerocraniu.	Protejează encefalul și susține structurile feței.
+Mandibulă	Osul mobil al maxilarului inferior, articulat cu temporalul.	Mobilizează arcada dentară inferioară în masticație.
+Coloană cervicală	Șapte vertebre între craniu și torace.	Atlasul și axisul permit o mare parte din flexia și rotația capului.
+Coloană toracică	Douăsprezece vertebre articulate cu coastele.	Stabilizează cutia toracică și protejează măduva.
+Coloană lombară	Cinci vertebre între torace și sacru.	Corpii vertebrali mari suportă greutatea trunchiului.
+Sacru	Os triunghiular între oasele coxale, la baza coloanei.	Transmite greutatea prin articulațiile sacroiliace spre pelvis.
+Stern	Pe linia mediană a peretelui toracic anterior.	Primește cartilaje costale și protejează structurile mediastinale.
+Coaste	Douăsprezece perechi articulate posterior cu vertebrele toracice.	Protejează viscerele și se deplasează în timpul respirației.
+Claviculă	Între manubriul sternal și acromion.	Menține membrul superior la distanță de trunchi și transmite forțe spre scheletul axial.
+Scapulă	Os plat pe peretele toracic posterior.	Cavitatea glenoidă se articulează cu capul humeral.
+Humerus	Osul brațului, între umăr și cot.	Servește ca pârghie pentru mișcările brațului și antebrațului.
+Radius	Pe partea policelui în antebrațul aflat în poziție anatomică.	Se rotește în raport cu ulna în pronație și supinație.
+Ulna	Pe partea degetului mic a antebrațului.	Olecranul și incizura trohleară formează balamaua humeroulnară.
+Carpiene	Opt oase în două rânduri între antebraț și metacarp.	Permit mișcări coordonate ale pumnului.
+Metacarpiene	Cinci oase între carp și falangele proximale.	Formează scheletul palmei și transmit forțele în prindere.
+Falange mână	În degete, două la police și trei la fiecare dintre celelalte degete.	Articulațiile și tendoanele permit priza fină și de forță.
+Pelvis	Inel format de oasele coxale, sacru și coccis.	Transmite încărcarea către membrele inferioare și protejează viscerele pelvine.
+Femur	Osul coapsei, între acetabul și genunchi.	Transmite încărcarea și oferă brațe de pârghie pentru mers.
+Patelă	Os sesamoid anterior de genunchi, în tendonul cvadricepsului.	Mărește brațul de pârghie al aparatului extensor.
+Tibie	Osul medial al gambei, între femur și talus.	Preia cea mai mare parte a greutății transmise prin gambă.
+Fibulă	Osul lateral al gambei, cu extremitatea distală în maleola laterală.	Stabilizează glezna și oferă inserții musculare.
+Tarsiene	Șapte oase în regiunea posterioară și mijlocie a piciorului.	Talusul primește sarcina gambei, iar calcaneul formează călcâiul.
+Metatarsiene	Cinci oase între tars și falangele proximale.	Distribuie sarcina spre antepicior în faza de propulsie.
+Falange picior	În degetele piciorului, două la haluce și trei la celelalte.	Contribuie la sprijin și la desprinderea piciorului de sol.
+Mușchi deltoid	Acoperă umărul, de la claviculă și scapulă la humerus.	Fibrele mijlocii participă la abducția brațului.
+Mușchi pectoral mare	Pe fața anterioară a toracelui, cu inserție humerală.	Aduce și rotește medial brațul.
+Biceps brahial	În loja anterioară a brațului, cu inserție pe radius.	Flectează cotul și supinează antebrațul.
+Triceps brahial	În loja posterioară a brațului, cu inserție pe olecran.	Extinde antebrațul la cot.
+Mușchi abdominali	În peretele anterolateral al abdomenului.	Stabilizează trunchiul, comprimă viscerele și participă la expirația forțată.
+Cvadriceps	Patru componente anterioare ale coapsei unite spre patelă.	Extinde genunchiul, iar dreptul femural participă și la flexia șoldului.
+Ischiogambieri	Grup muscular posterior al coapsei.	Flectează genunchiul, iar componentele care traversează șoldul îl extind.
+Gastrocnemian	În stratul superficial al lojei posterioare a gambei.	Realizează flexia plantară și contribuie la flexia genunchiului.
+Tendonul lui Ahile	Unește în principal gastrocnemianul și solearul cu calcaneul.	Transmite forța flexiei plantare în mers și săritură.
+Articulația șoldului	Între capul femural și acetabul.	Combină stabilitatea la încărcare cu mobilitatea pe mai multe axe.
+Genunchi	Complexul tibiofemural și patelofemural.	Meniscurile distribuie presiunea, iar ligamentele ghidează și limitează deplasarea.
+Articulația umărului	Între capul humeral și cavitatea glenoidă a scapulei.	Mobilitatea mare necesită stabilizarea dinamică a coafei rotatorilor.
+Piele	Înveliș exterior format din epiderm și derm.	Asigură barieră, sensibilitate și termoreglare.
+Epiderm	Stratul epitelial superficial, fără vase proprii.	Keratinocitele diferențiate formează o barieră împotriva pierderii apei.
+Derm	Țesut conjunctiv sub epiderm, cu vase, nervi și anexe.	Fibrele de colagen și elastină conferă rezistență și elasticitate.
+Hipoderm	Țesut subcutanat profund față de derm.	Țesutul adipos amortizează solicitările și izolează termic.
+Folicul pilos	Invaginare epidermică extinsă în derm.	Celulele matricei produc firul de păr.
+Glande sudoripare	Tuburi glandulare în derm cu ducte către suprafață sau folicul.	Sudoarea ecrină permite pierderea căldurii prin evaporare.
+Glande sebacee	În derm, cele mai multe se deschid în foliculii piloși.	Secretă sebum care lubrifiază pielea și părul.
+Unghii	Plăci keratinizate pe fața dorsală a falangelor distale.	Protejează vârful degetului și susțin manipularea fină.
+Receptori tactili	Terminații specializate în piele, la adâncimi diferite.	Transformă presiunea, atingerea și vibrațiile în semnale nervoase.
+Melanocite	În stratul bazal al epidermului și în foliculii piloși.	Sintetizează melanină și transferă melanozomi către keratinocite.
+Keratinocite	Principala populație celulară a epidermului.	Se diferențiază din stratul bazal spre suprafață și formează stratul cornos.
+Ganglioni limfatici	De-a lungul vaselor limfatice, grupați inclusiv cervical și axilar.	Filtrează limfa și facilitează întâlnirea antigenelor cu limfocitele.
+Vase limfatice	Încep ca mici capilare cu capăt închis în țesuturi.	Returnează excesul de lichid interstițial în circulația venoasă.
+Splină	În hipocondrul stâng, lateral de stomac.	Pulpa roșie filtrează eritrocite, iar pulpa albă participă la răspunsul imun.
+Măduvă osoasă	În cavitățile osoase, cu măduvă roșie activă predominant în scheletul axial al adultului.	Produce celule sanguine prin hematopoieză.
+Amigdale palatine	În pereții laterali ai orofaringelui, între arcurile palatine.	Țesutul limfoid examinează antigenele care ajung prin gură și nas.
+Țesut limfoid asociat mucoaselor	Agregate limfoide în mucoase, inclusiv plăcile Peyer din ileon.	Participă la apărarea imună la suprafețele de contact cu exteriorul.
+Duct toracic	Urcă prin torace și se varsă la unghiul venos stâng.	Drenează limfa din cea mai mare parte a corpului.
+Limfocite	În sânge, limfă și organele limfoide.	Limfocitele B și T mediază răspunsuri adaptive, iar celulele NK au rol citotoxic înnăscut.
+Glob ocular	În orbită, cu tunici fibroasă, vasculară și nervoasă.	Formează imaginea pe retină și inițiază transmiterea informației vizuale.
+Cornee	Porțiunea transparentă anterioară a tunicii fibroase.	Contribuie major la refracția luminii.
+Iris	Diafragmă pigmentată între cornee și cristalin.	Reglează diametrul pupilei și cantitatea de lumină incidentă.
+Cristalin	Posterior de iris, suspendat prin fibre zonulare.	Își modifică forma pentru focalizare la diferite distanțe.
+Retină	Căptușește partea posterioară a globului ocular.	Bastonașele și conurile transformă lumina în semnale electrice.
+Nerv optic	De la discul optic către chiasmă.	Conduce axonii celulelor ganglionare retiniene către creier.
+Ureche externă	Pavilionul și conductul auditiv extern până la timpan.	Captează și conduce undele sonore la membrana timpanică.
+Membrană timpanică	Separă conductul auditiv extern de urechea medie.	Vibrațiile sale sunt transmise mânerului ciocanului.
+Ureche medie	Cavitate aerată în osul temporal, între timpan și urechea internă.	Lanțul osicular transmite vibrațiile, iar tuba auditivă egalizează presiunea.
+Oscioare auditive	Ciocanul, nicovala și scărița în cavitatea timpanică.	Cuplează mecanic timpanul cu fereastra ovală.
+Cohlee	Canal spiralat în urechea internă.	Celulele ciliate din organul Corti convertesc vibrațiile în semnale auditive.
+Aparat vestibular	Canalele semicirculare, utricula și sacula în urechea internă.	Detectează accelerațiile unghiulare și liniare și orientarea față de gravitație.
+Mucoasă olfactivă	În regiunea superioară a cavității nazale.	Neuronii receptori detectează molecule odorante și transmit semnal către bulbul olfactiv.
+Papile gustative	Pe limbă, mugurii gustativi sunt asociați în special papilelor fungiforme, foliate și circumvalate.	Celulele gustative detectează substanțe dizolvate în salivă.
