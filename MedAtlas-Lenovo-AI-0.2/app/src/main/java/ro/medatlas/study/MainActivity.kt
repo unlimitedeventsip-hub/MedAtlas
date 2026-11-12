@@ -73,6 +73,7 @@ import ro.medatlas.study.ui.PremiumIntro
 import ro.medatlas.study.pdf.AnnotatedPdfExporter
 import ro.medatlas.study.ai.AiClient
 import ro.medatlas.study.classroom.ClassroomActivity
+import ro.medatlas.study.classroom.ClassroomWorkspace
 import ro.medatlas.study.classroom.ClassroomSync
 import ro.medatlas.study.books.MedicalBooksActivity
 import ro.medatlas.study.simulation.ClinicalSimulatorActivity
@@ -189,8 +190,7 @@ private fun MedAtlasApp() {
                 val options = listOf(Triple("Bibliotecă", Icons.Rounded.FolderOpen, 0), Triple("Notițe", Icons.Rounded.EditNote, 1), Triple("Studiu", Icons.Rounded.School, 2), Triple("Classroom", Icons.Rounded.Class, 4), Triple("Setări", Icons.Rounded.Settings, 3))
                 options.forEach { (name, icon, number) ->
                     NavigationBarItem(selected = tab == number, onClick = {
-                        if (number == 4) context.startActivity(Intent(context, ClassroomActivity::class.java))
-                        else tab = number
+                        tab = number
                     }, icon = { Icon(icon, name) }, label = { Text(name, fontSize = 11.sp) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Color.White,
@@ -232,6 +232,7 @@ private fun MedAtlasApp() {
                     when (tab) {
                         1 -> NotebookLibrary(store, docs, onOpen = { selected = it }, unified = true)
                         2 -> CardsScreen(store, docs, onOpen = { selected = it })
+                        4 -> ClassroomWorkspace(onBack = { tab = 0 })
                         else -> SettingsScreen(onReplayIntro = { showIntro = true })
                     }
                 }
