@@ -189,7 +189,7 @@ internal fun ClassroomWorkspace(onBack: () -> Unit, embedded: Boolean = true) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(status, fontSize = 12.sp)
                         TextButton(onClick = { showImportOptions = !showImportOptions }) {
-                            Icon(Icons.Rounded.FolderDownload, null)
+                            Icon(Icons.Rounded.CloudDownload, null)
                             Spacer(Modifier.width(6.dp))
                             Text(if (showImportOptions) "Ascunde opțiunile de import"
                                 else "Opțiuni import fișiere")
