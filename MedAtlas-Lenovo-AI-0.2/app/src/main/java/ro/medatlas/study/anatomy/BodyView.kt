@@ -105,7 +105,7 @@ private class BodySurface(context: Context, private val metadata: List<Layer>) :
         metadata.filter { it.id in shown }.forEach { layer ->
             val buffer = buffers.getOrPut(layer.id) {
                 val direct = ByteBuffer.allocateDirect(layer.size).order(ByteOrder.nativeOrder())
-                GZIPInputStream(context.assets.open("body/layer${layer.id}.gz")).use { stream ->
+                GZIPInputStream(context.assets.open("body/layer${layer.id}.mesh")).use { stream ->
                     val chunk = ByteArray(65536)
                     while (true) { val n = stream.read(chunk); if (n < 0) break; direct.put(chunk,0,n) }
                 }

@@ -67,7 +67,7 @@ for name in archive.namelist():
 index = []
 for i,(_,label) in enumerate(layers):
     if not buffers[i]: continue
-    with gzip.GzipFile(str(out / f"body/layer{i}.gz"),"wb",mtime=0) as f: f.write(buffers[i])
+    with gzip.GzipFile(str(out / f"body/layer{i}.mesh"),"wb",mtime=0) as f: f.write(buffers[i])
     index.append(f"{i}\t{label}\t{counts[i]}\t{len(buffers[i])}")
 (out/"body/layers.tsv").write_text("\n".join(index),encoding="utf8")
 # Orthographic plate, painter's depth order, amber upper-left lighting and transparent background.
