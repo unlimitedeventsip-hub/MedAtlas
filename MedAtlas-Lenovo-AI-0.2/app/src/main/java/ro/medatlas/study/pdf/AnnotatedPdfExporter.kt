@@ -37,6 +37,19 @@ object AnnotatedPdfExporter {
                             source.recycle()
                         }
                         store.ink(document.id, index).forEach { stroke -> paintStroke(page.canvas, stroke, bitmap.width.toFloat(), bitmap.height.toFloat()) }
+                        store.textBoxes(document.id, index).forEach { box ->
+                            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                                color = box.color
+                                textSize = box.sizeSp * (bitmap.width / 800f).coerceAtLeast(.7f)
+                                typeface = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
+                            }
+                            val x = box.x * bitmap.width
+                            val y = box.y * bitmap.height
+                            box.content.lines().take(18).forEachIndexed { lineIndex, line ->
+                                page.canvas.drawText(line.take(180), x,
+                                    y + (lineIndex + 1) * paint.textSize * 1.22f, paint)
+                            }
+                        }
                         pdf.finishPage(page)
                     } finally { bitmap.recycle() }
                 }
@@ -91,7 +104,7 @@ object AnnotatedPdfExporter {
                 canvas.drawLine(x(last), y(last), x(last) - head * cos(angle - .5f), y(last) - head * sin(angle - .5f), paint)
                 canvas.drawLine(x(last), y(last), x(last) - head * cos(angle + .5f), y(last) - head * sin(angle + .5f), paint)
             }
-            Tool.ERASER, Tool.LASSO, Tool.ANALYZE, Tool.PAN, Tool.STICKER, Tool.COMMENT -> Unit
+            Tool.ERASER, Tool.LASSO, Tool.ANALYZE, Tool.PAN, Tool.STICKER, Tool.COMMENT, Tool.TEXT -> Unit
             else -> {
                 val path = Path().apply { moveTo(x(first), y(first)) }
                 for (i in 1 until pts.size) path.lineTo(x(pts[i]), y(pts[i]))
