@@ -63,6 +63,7 @@ import ro.medatlas.study.study.StudyEngine
 import ro.medatlas.study.ui.StudyCanvasView
 import ro.medatlas.study.pdf.AnnotatedPdfExporter
 import ro.medatlas.study.ai.AiClient
+import ro.medatlas.study.classroom.ClassroomActivity
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -127,9 +128,12 @@ private fun MedAtlasApp() {
         containerColor = Ivory,
         bottomBar = {
             NavigationBar(containerColor = Color.White, tonalElevation = 5.dp) {
-                val options = listOf(Triple("Bibliotecă", Icons.Rounded.FolderOpen, 0), Triple("Notițe", Icons.Rounded.EditNote, 1), Triple("Studiu", Icons.Rounded.School, 2), Triple("Setări", Icons.Rounded.Settings, 3))
+                val options = listOf(Triple("Bibliotecă", Icons.Rounded.FolderOpen, 0), Triple("Notițe", Icons.Rounded.EditNote, 1), Triple("Studiu", Icons.Rounded.School, 2), Triple("Classroom", Icons.Rounded.Class, 4), Triple("Setări", Icons.Rounded.Settings, 3))
                 options.forEach { (name, icon, number) ->
-                    NavigationBarItem(selected = tab == number, onClick = { tab = number }, icon = { Icon(icon, name) }, label = { Text(name, fontSize = 11.sp) })
+                    NavigationBarItem(selected = tab == number, onClick = {
+                        if (number == 4) context.startActivity(Intent(context, ClassroomActivity::class.java))
+                        else tab = number
+                    }, icon = { Icon(icon, name) }, label = { Text(name, fontSize = 11.sp) })
                 }
             }
         },
