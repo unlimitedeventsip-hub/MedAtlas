@@ -394,6 +394,19 @@ class StudyCanvasView(context: Context) : View(context) {
                     return
                 }
             }
+            Tool.PENCIL -> {
+                // Softer graphite, pressure-sensitive texture rather than a pen stroke.
+                p.alpha = 160
+                for (index in 1 until points.size) {
+                    val a = points[index - 1]
+                    val b = points[index]
+                    p.strokeWidth = stroke.width * resources.displayMetrics.density *
+                        ((a.pressure + b.pressure) / 2f).coerceIn(.32f, 1.15f)
+                    canvas.drawLine(x(a), y(a), x(b), y(b), p)
+                }
+                p.alpha = 255
+                return
+            }
             Tool.BRUSH -> {
                 for (index in 1 until points.size) {
                     val a = points[index - 1]
@@ -585,7 +598,7 @@ class StudyCanvasView(context: Context) : View(context) {
                 }
                 if (!drawing) return true
                 val pt = pos(event.x, event.y, event.pressure)
-                if (tool == Tool.PEN || tool == Tool.BRUSH) {
+                if (tool == Tool.PEN || tool == Tool.PENCIL || tool == Tool.BRUSH) {
                     val earlier = lastMeaningfulPoint
                     if (earlier == null || hypot((pt.x - earlier.x).toDouble(),
                             (pt.y - earlier.y).toDouble()) > .009) {
@@ -628,7 +641,7 @@ class StudyCanvasView(context: Context) : View(context) {
                     Tool.ERASER, Tool.PAN -> Unit
                     else -> {
                         val erasedIds = if (scratchToErase &&
-                            (tool == Tool.PEN || tool == Tool.BRUSH) &&
+                            (tool == Tool.PEN || tool == Tool.PENCIL || tool == Tool.BRUSH) &&
                             PenGestures.isScratch(completed)) {
                             val area = bounds(completed).apply { inset(-.015f, -.015f) }
                             marks.filter { stroke ->
@@ -643,7 +656,7 @@ class StudyCanvasView(context: Context) : View(context) {
                         } else {
                         val heldAtEnd = event.eventTime - lastMeaningfulMoveTime >= 550L
                         val perfect = if (smartShapes && heldAtEnd &&
-                            (tool == Tool.PEN || tool == Tool.BRUSH))
+                            (tool == Tool.PEN || tool == Tool.PENCIL || tool == Tool.BRUSH))
                             PenGestures.perfectShape(completed) else null
                         val snapped = if ((tool == Tool.UNDERLINE && smartUnderline) ||
                             (tool == Tool.HIGHLIGHT && smartMarker))
