@@ -14,7 +14,7 @@ Aplicație de studiu medical pentru tableta Lenovo, construită cu Kotlin + Jetp
 - Nadia AI: partajare către ChatGPT Plus; client pentru backend OpenAI (backend neconfigurat implicit).
 - Carnet de curs pe materii: note căutabile și editabile, asociere cu documente, desen cu pen-ul păstrat ca imagine, dictare vocală prin serviciul Android și OCR opțional pentru manuscris.
 - Studiu: flashcarduri cu repetare spațiată; Spital Virtual cu 6 cazuri acute și 94 de pacienți ambulatorii fictivi în 10 profiluri. Fiecare are fișe salvate local pentru consultație, ziua 7 și luna 3. Conduita aleasă schimbă scenariul educațional de urmărire, cu opțiuni sigur/nesigur; nu este un model fiziologic. Răspunsurile la grile sunt corectate automat, iar textul liber rămâne pentru comparație și autoevaluare.
-- Laborator medical: 12 buletine fictive cu interpretare și explicații; fișe introductive ECG, radiografie, CT, monitor, instrumente și farmacologie. Simulare examen offline cu selecție aleatorie din 28 de grile originale (laborator + reevaluare clinică), punctaj și explicații.
+- Laborator medical: 24 de buletine fictive cu interpretare și explicații; fișe introductive ECG, radiografie, CT, monitor, instrumente și farmacologie. Simulare examen offline cu selecție aleatorie din 40 de grile originale (laborator + reevaluare clinică), punctaj și explicații.
 - Anatomie 3D: fereastră cu atlase *externe* și posibilitatea de a le deschide în browser; modelele NU sunt incluse offline.
 - Enciclopedia organelor: index filtrabil și căutabil cu structuri din 11 sisteme, localizare și funcție pentru cele 199 de structuri distincte, trei planșe istorice offline (inimă, plămân, rinichi), plus 11 scheme originale vectoriale offline (stilizate, nu ilustrații anatomice validate), exemple de investigații unde sunt disponibile și linkuri către OpenStax.
 - Classroom: activitate Android separată, OAuth Google, sincronizare cursuri/materiale/teme, import opțional PDF/DOCX/PPTX din Drive cu limite de mărime. Necesită configurarea Google Cloud, client OAuth Android, SHA-1 stabil și permisiuni; vezi `CLASSROOM-CONFIGURARE.md`.
@@ -62,7 +62,15 @@ Pentru aprofundare: [feritină](https://medlineplus.gov/lab-tests/ferritin-blood
 
 - Nu avem încă sute de **scenarii distincte** validate; cele 94 de cazuri ambulatorii refolosesc 10 profiluri bine documentate.
 - Opțiunile de management influențează **narațiunea educațională**, nu o simulare farmacologică reală sau un prognostic clinic calculat.
-- Examenul offline conține 28 de întrebări originale, nu o bază exhaustivă de subiecte oficiale.
+- Examenul offline conține 40 de întrebări originale, nu o bază exhaustivă de subiecte oficiale.
 - Cele 11 scheme vectoriale sunt indicii vizuale stilizate; atlasul nu conține încă câte o imagine diagnostică verificată pentru fiecare structură.
 - Conectarea reală a contului Classroom cere OAuth și permisiuni corespunzătoare.
 - Nadia AI direct în aplicație cere configurarea sigură a backend-ului și facturare API separată.
+
+### Referințe pentru interpretarea unor grile adiționale
+
+- MedlinePlus, [Troponin Test](https://medlineplus.gov/lab-tests/troponin-test/): markerul de leziune miocardică necesită corelare clinică.
+- MedlinePlus, [D-Dimer Test](https://medlineplus.gov/lab-tests/d-dimer-test/): rezultat pozitiv nespecific.
+- MedlinePlus, [Lipase Tests](https://medlineplus.gov/lab-tests/lipase-tests/): interpretarea lipazei în afecțiuni pancreatice.
+
+Aceste linkuri sunt puncte de verificare editorială. Grilele sunt originale și nu copiază subiecte oficiale.
