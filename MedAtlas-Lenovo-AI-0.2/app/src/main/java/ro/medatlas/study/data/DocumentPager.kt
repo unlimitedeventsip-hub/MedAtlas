@@ -74,7 +74,7 @@ class DocumentPager(doc: StudyDocument, private val store: LibraryStore) : Close
                 val targetHeight = max(1, (targetWidth * page.height.toFloat() /
                     max(1, page.width)).toInt())
                 val result = Bitmap.createBitmap(targetWidth, targetHeight,
-                    Bitmap.Config.RGB_565)
+                    Bitmap.Config.ARGB_8888)
                 result.eraseColor(Color.WHITE)
                 page.render(result, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
                 return result
