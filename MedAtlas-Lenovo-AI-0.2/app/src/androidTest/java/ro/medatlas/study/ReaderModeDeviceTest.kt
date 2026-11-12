@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.view.MotionEvent
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.annotation.UiThreadTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -21,7 +22,7 @@ class ReaderModeDeviceTest {
      * Regression: users may swipe or tap a PDF with a stylus while in Citire.
      * Neither the ink model nor its persistence callback may be changed.
      */
-    @Test fun readonlyReaderRejectsEditingAndAllowsNavigation() {
+    @Test @UiThreadTest fun readonlyReaderRejectsEditingAndAllowsNavigation() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val bitmap = Bitmap.createBitmap(800, 1100, Bitmap.Config.ARGB_8888)
         val original = listOf(Stroke(tool = Tool.PEN, points = listOf(
