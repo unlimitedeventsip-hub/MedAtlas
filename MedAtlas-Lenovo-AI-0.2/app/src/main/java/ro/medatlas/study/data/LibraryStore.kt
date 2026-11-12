@@ -213,7 +213,9 @@ class LibraryStore(private val context: Context) {
             if (it.moveToFirst()) it.getString(0) else null
         } ?: uri.lastPathSegment ?: "Material"
         val ext = name.substringAfterLast('.', "").lowercase()
-        require(ext in listOf("pdf", "docx", "pptx")) { "Sunt acceptate PDF, DOCX și PPTX." }
+        require(ext in listOf("pdf", "docx", "ppt", "pptx")) {
+            "Sunt acceptate PDF, DOCX, PPT și PPTX."
+        }
         val id = UUID.randomUUID().toString()
         val filename = "$id.$ext"
         val destination = File(docsDir, filename)
@@ -224,6 +226,8 @@ class LibraryStore(private val context: Context) {
                 val text = when (ext) {
                     "docx" -> extractDocx(destination)
                     "pptx" -> extractPptx(destination)
+                    "ppt" -> "Fișier PowerPoint (.ppt) păstrat în formatul original. " +
+                        "Deschide prezentarea într-o aplicație Office compatibilă pentru a vedea diapozitivele."
                     else -> ""
                 }
                 File(docsDir, "$id.txt").writeText(text)
@@ -279,6 +283,43 @@ class LibraryStore(private val context: Context) {
                 }.getOrDefault(false)
             }
         }
+    }
+
+    /**
+     * Small source-grounded excerpts for Nadia search. Never upload entire books.
+     */
+    fun searchEvidence(doc: StudyDocument, phrase: String, maxChars: Int = 900): String? {
+        val term = phrase.trim()
+        if (term.isBlank()) return null
+        val sources = if (doc.kind == "PDF") {
+            ocrDir.listFiles { f -> f.isFile && f.name.startsWith("${doc.id}_") && f.name.endsWith(".txt") }
+                .orEmpty().sortedBy { it.name.substringAfter("${doc.id}_").substringBefore('.').toIntOrNull() ?: 0 }
+        } else listOf(File(docsDir, "${doc.id}.txt"))
+        for (source in sources) {
+            if (!source.isFile) continue
+            val snippet = runCatching {
+                source.bufferedReader().use { reader ->
+                    var previous = ""
+                    while (true) {
+                        val line = reader.readLine() ?: break
+                        if (line.contains(term, ignoreCase = true)) {
+                            val next = reader.readLine().orEmpty()
+                            return@use listOf(previous, line, next)
+                                .filter { it.isNotBlank() }.joinToString(" ").take(maxChars.coerceIn(100, 1400))
+                        }
+                        previous = line
+                    }
+                    null
+                }
+            }.getOrNull()
+            if (snippet != null) {
+                val page = if (doc.kind == "PDF") {
+                    source.name.removePrefix("${doc.id}_").substringBefore('.').toIntOrNull()?.plus(1)
+                } else null
+                return if (page != null) "Pagina $page: $snippet" else snippet
+            }
+        }
+        return null
     }
 
     fun studyText(doc: StudyDocument): String = if (doc.kind != "PDF") extractedText(doc.id) else

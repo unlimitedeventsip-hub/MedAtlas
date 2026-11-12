@@ -95,6 +95,7 @@ class NotebookDeviceTest {
         context.getSharedPreferences("medatlas_editor", 0).edit().putBoolean("show_premium_intro", false).commit()
         val title = "Schema-" + UUID.randomUUID().toString().take(8)
         ActivityScenario.launch(MainActivity::class.java).use {
+            ui.onNodeWithText("Notițe & planșe").performClick()
             ui.onNodeWithText("+ Planșă").performClick()
             ui.onNodeWithText("Numele planșei").performTextInput(title)
             ui.onNodeWithText("Creează planșa").performClick()
@@ -117,7 +118,7 @@ class NotebookDeviceTest {
         val book = "Fiziologie-" + UUID.randomUUID().toString().take(8)
         val phrase = "Potențial de repaus " + book
         ActivityScenario.launch(MainActivity::class.java).use {
-            ui.onNodeWithText("Notițe").performClick()
+            ui.onNodeWithText("Notițe & planșe").performClick()
             ui.onNodeWithText("+ Caiet").performClick()
             ui.onNodeWithText("Numele caietului").performTextInput(book)
             ui.onNodeWithText("Creează caietul").performClick()
@@ -131,7 +132,7 @@ class NotebookDeviceTest {
             ui.onNodeWithText("+ Pagină").performClick()
             ui.onNodeWithText("‹ Pagini").performClick()
             ui.onNodeWithText("‹ Caiete").performClick()
-            ui.onNodeWithText("Caută în toate caietele").performTextInput(phrase)
+            ui.onNodeWithText("Caută în bibliotecă").performTextInput(phrase)
             ui.onNodeWithText("Pagina 1").performClick()
             ui.onNodeWithText(phrase).assertExists()
             val store = LibraryStore(context)

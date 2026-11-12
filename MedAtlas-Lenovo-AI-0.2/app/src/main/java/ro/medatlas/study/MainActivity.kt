@@ -113,6 +113,9 @@ private fun MedAtlasApp() {
     val store = remember { LibraryStore(context) }
     val docs = remember { mutableStateListOf<StudyDocument>().apply { addAll(store.documents()) } }
     var selected by remember { mutableStateOf<StudyDocument?>(null) }
+    var libraryNoteId by remember { mutableStateOf<String?>(null) }
+    var libraryRevision by remember { mutableIntStateOf(0) }
+    var importFolderId by remember { mutableStateOf<String?>(null) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val introPrefs = remember { context.getSharedPreferences("medatlas_editor", android.content.Context.MODE_PRIVATE) }
     var showIntro by rememberSaveable {
@@ -123,11 +126,22 @@ private fun MedAtlasApp() {
     BackHandler(manageFiles && tab == 0 && selected == null) { manageFiles = false }
     var importError by remember { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        val targetFolder = importFolderId
+        importFolderId = null
         scope.launch {
             val outcomes = withContext(Dispatchers.IO) {
-                uris.map { uri -> runCatching { store.import(uri) } }
+                val organization = LibraryOrganization(context, store)
+                val targetCourse = organization.name(targetFolder).ifBlank { "Fără materie" }
+                uris.map { uri ->
+                    runCatching {
+                        store.import(uri, course = targetCourse).also { doc ->
+                            organization.moveDocument(doc.id, targetFolder)
+                        }
+                    }
+                }
             }
             docs.clear(); docs.addAll(store.documents())
+            libraryRevision++
             val failures = outcomes.mapNotNull { it.exceptionOrNull()?.localizedMessage }
             if (failures.isNotEmpty()) importError = failures.first()
         }
@@ -142,10 +156,15 @@ private fun MedAtlasApp() {
         })
         return
     }
+    libraryNoteId?.let { id ->
+        NotebookLibrary(store, docs, onOpen = { selected = it }, initialNoteId = id,
+            onExit = { libraryNoteId = null; libraryRevision++ })
+        return
+    }
     Scaffold(
         containerColor = Ivory,
         bottomBar = {
-            NavigationBar(containerColor = Color.White, tonalElevation = 5.dp) {
+            if (tab != 0) NavigationBar(containerColor = Color.White, tonalElevation = 5.dp) {
                 val options = listOf(Triple("Bibliotecă", Icons.Rounded.FolderOpen, 0), Triple("Notițe", Icons.Rounded.EditNote, 1), Triple("Studiu", Icons.Rounded.School, 2), Triple("Classroom", Icons.Rounded.Class, 4), Triple("Setări", Icons.Rounded.Settings, 3))
                 options.forEach { (name, icon, number) ->
                     NavigationBarItem(selected = tab == number, onClick = {
@@ -156,7 +175,7 @@ private fun MedAtlasApp() {
             }
         },
         topBar = {
-            Surface(color = Ivory, modifier = Modifier.statusBarsPadding()) {
+            if (tab != 0) Surface(color = Ivory, modifier = Modifier.statusBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.MenuBook, null, tint = Teal, modifier = Modifier.size(26.dp))
                     Spacer(Modifier.width(9.dp))
@@ -175,15 +194,40 @@ private fun MedAtlasApp() {
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
             when (tab) {
-                0 -> if (!manageFiles) NotebookLibrary(store, docs, onOpen = { selected = it }, unified = true, onManage = { manageFiles = true }) else Column {
-                    TextButton(onClick = { manageFiles = false }) { Text("‹ Toată biblioteca") }
-                    LibraryScreen(docs, search, onSearch = { search = it }, onOpen = { selected = it }, onCourse = { doc, course ->
-                    val changed = doc.copy(course = course.trim().ifBlank { "Fără materie" })
-                    store.saveDocuments(store.documents().map { if (it.id == doc.id) changed else it })
-                    val i = docs.indexOfFirst { it.id == doc.id }; if (i >= 0) docs[i] = changed
-                }, onImport = { picker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation")) })
-                }
-                1 -> NotebookLibrary(store, docs, onOpen = { selected = it })
+                0 -> UnifiedLibraryScreen(
+                    store = store,
+                    refreshKey = libraryRevision,
+                    documents = docs,
+                    onOpenDocument = { selected = it },
+                    onOpenNote = { libraryNoteId = it },
+                    onImport = { folderId ->
+                        importFolderId = folderId
+                        picker.launch(arrayOf(
+                            "application/pdf",
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                            "application/vnd.ms-powerpoint"
+                        ))
+                    },
+                    onDocumentChanged = { updated ->
+                        store.saveDocuments(store.documents().map {
+                            if (it.id == updated.id) updated else it
+                        })
+                        val index = docs.indexOfFirst { it.id == updated.id }
+                        if (index >= 0) docs[index] = updated
+                    },
+                    onDocumentDeleted = { id ->
+                        store.removeDocument(id)
+                        docs.removeAll { it.id == id }
+                    },
+                    onLibraryRestored = {
+                        docs.clear()
+                        docs.addAll(store.documents())
+                        libraryRevision++
+                    },
+                    onNavigate = { tab = it }
+                )
+                1 -> NotebookLibrary(store, docs, onOpen = { selected = it }, unified = true)
                 2 -> CardsScreen(store, docs, onOpen = { selected = it })
                 else -> SettingsScreen(onReplayIntro = { showIntro = true })
             }
@@ -268,6 +312,8 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
     var color by remember { mutableIntStateOf(AndroidColor.rgb(41, 93, 82)) }
     var width by remember { mutableFloatStateOf(3f) }
     var fingerInk by remember { mutableStateOf(false) }
+    // Always open documents in safe reading mode; edit is explicit.
+    var readOnly by rememberSaveable(doc.id) { mutableStateOf(true) }
     // AI stays hidden until the reader explicitly requests it.
     var expanded by rememberSaveable(doc.id) { mutableStateOf(false) }
     var continuous by rememberSaveable(doc.id) { mutableStateOf(true) }
@@ -452,14 +498,22 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
         FullDocumentOcrWorker.enqueue(context, doc.id)
         Toast.makeText(context, "OCR pentru documentul complet a fost programat în fundal.", Toast.LENGTH_LONG).show()
     }
-    Column(Modifier.fillMaxSize().background(Ivory).statusBarsPadding().navigationBarsPadding()) {
-        // Always visible, independent from the PDF scrolling surface.
-        Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 8.dp, vertical = 3.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.Rounded.ArrowBack, "Bibliotecă") }
+    Column(Modifier.fillMaxSize()
+        .background(if (readOnly) Color(0xFF0B1C32) else Ivory)
+        .statusBarsPadding().navigationBarsPadding()) {
+        // The reading/editing switch is always visible, independent from PDF scrolling.
+        Row(Modifier.fillMaxWidth().background(if (readOnly) Color(0xFF122A49) else Color.White)
+            .padding(horizontal = 8.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Rounded.ArrowBack, "Bibliotecă",
+                    tint = if (readOnly) Color.White else Navy)
+            }
             Column(Modifier.weight(1f)) {
-                Text(doc.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                Text("${doc.kind} • pagina ${page + 1}/${pager.count}", fontSize = 11.sp, color = Slate)
+                Text(doc.title, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    fontWeight = FontWeight.Bold, fontSize = 15.sp,
+                    color = if (readOnly) Color.White else Navy)
+                Text("${doc.kind} • pagina ${page + 1}/${pager.count}", fontSize = 11.sp,
+                    color = if (readOnly) Color(0xFFB9CDE6) else Slate)
                 if (fullOcrStatus != null && fullOcrStatus.state == WorkInfo.State.RUNNING) {
                     val done = fullOcrStatus.progress.getInt(FullDocumentOcrWorker.KEY_DONE, 0)
                     val total = fullOcrStatus.progress.getInt(FullDocumentOcrWorker.KEY_TOTAL, pager.count)
@@ -470,12 +524,51 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                     Text("OCR întrerupt; reîncearcă din panoul Studiu", fontSize = 11.sp, color = Rose)
                 }
             }
-            TextButton(onClick = { expanded = !expanded }) {
+            Row(
+                Modifier.clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFF0E2948)).padding(3.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                listOf(true to "Citire", false to "Editare").forEach { (reading, label) ->
+                    Surface(
+                        shape = RoundedCornerShape(20.dp),
+                        color = if (readOnly == reading) Color(0xFF338DFA) else Color.Transparent,
+                        modifier = Modifier.clickable {
+                            readOnly = reading
+                            if (reading) {
+                                expanded = false
+                                crop = null
+                                highlightSuggestions = emptyList()
+                                textAnchor = null
+                                selectedText = null
+                                commentAnchor = null
+                                selectedComment = null
+                                showNote = false
+                                showRemove = false
+                                showOcrLibrary = false
+                                imageToCrop = null
+                                canvasView?.clearSelection()
+                            }
+                        }
+                    ) {
+                        Row(Modifier.padding(horizontal = 11.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Icon(if (reading) Icons.Rounded.Visibility else Icons.Rounded.Edit,
+                                label, tint = if (readOnly == reading) Color.White else Color(0xFFB7CAE3),
+                                modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(5.dp))
+                            Text(label, color = if (readOnly == reading) Color.White else Color(0xFFB7CAE3),
+                                fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
+            if (!readOnly) TextButton(onClick = { expanded = !expanded }) {
                 Icon(Icons.Rounded.AutoAwesome, "Nadia AI", tint = Rose)
                 Spacer(Modifier.width(4.dp))
                 Text(if (expanded) "Ascunde AI" else "Nadia AI", fontSize = 12.sp, color = Navy)
             }
-            IconButton(enabled = !exporting, onClick = {
+            if (!readOnly) IconButton(enabled = !exporting, onClick = {
                 exporting = true
                 scope.launch {
                     runCatching { withContext(Dispatchers.IO) { AnnotatedPdfExporter.export(context, doc, store) } }
@@ -484,14 +577,29 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                     exporting = false
                 }
             }) { Icon(Icons.Rounded.IosShare, "Export PDF") }
-            IconButton(onClick = { showRemove = true }) { Icon(Icons.Rounded.MoreVert, "Mai multe") }
+            if (!readOnly) IconButton(onClick = { showRemove = true }) {
+                Icon(Icons.Rounded.MoreVert, "Mai multe")
+            }
         }
-        ToolBar(tool = tool, onTool = { tool = it }, color = color, onColor = { color = it },
-            width = width, onWidth = { width = it }, onUndo = { canvasView?.undo() },
-            onRedo = { canvasView?.redo() }, onImportSticker = { imagePicker.launch("image/*") },
-            onAtlas = { showAtlas = true }, onClearSelection = { canvasView?.eraseSelection() },
-            onStickerResize = { canvasView?.increaseStickerSize(it) },
-            onStickerRemove = { canvasView?.deleteSelectedSticker() })
+        if (!readOnly) {
+            ToolBar(tool = tool, onTool = { tool = it }, color = color, onColor = { color = it },
+                width = width, onWidth = { width = it }, onUndo = { canvasView?.undo() },
+                onRedo = { canvasView?.redo() }, onImportSticker = { imagePicker.launch("image/*") },
+                onAtlas = { showAtlas = true }, onClearSelection = { canvasView?.eraseSelection() },
+                onStickerResize = { canvasView?.increaseStickerSize(it) },
+                onStickerRemove = { canvasView?.deleteSelectedSticker() })
+        } else {
+            Row(
+                Modifier.fillMaxWidth().background(Color(0xFF183452))
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Rounded.Lock, null, tint = Color(0xFF9CD8FF), modifier = Modifier.size(15.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Mod Citire · adnotările sunt vizibile, dar protejate",
+                    fontSize = 11.sp, color = Color(0xFFD2E5FA))
+            }
+        }
 
         Row(Modifier.fillMaxWidth().weight(1f)) {
             if (showThumbnails) {
@@ -570,33 +678,49 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                                                     update = { view ->
                                                         if (page == index) canvasView = view
                                                         view.scrollThroughFingers = true
+                                                        view.readOnly = readOnly
                                                         view.onSave = { strokes ->
-                                                            pageMarks = strokes
+                                                            if (!readOnly) {
+                                                                pageMarks = strokes
                                                             store.saveInk(doc.id, index, strokes)
-                                                            if (page == index) marks = strokes
+                                                                if (page == index) marks = strokes
+                                                            }
                                                         }
-                                                        view.onAnalyze = { selectedImage -> page = index; crop = selectedImage }
+                                                        view.onAnalyze = { selectedImage ->
+                                                            if (!readOnly) { page = index; crop = selectedImage }
+                                                        }
                                                         view.comments = store.comments(doc.id, index).also { commentsVersion }
                                                         view.textBoxes = store.textBoxes(doc.id, index).also { textBoxesVersion }
-                                                        view.onTextCreate = { point -> textAnchor = index to point }
-                                                        view.onTextOpen = { box -> selectedText = box }
-                                                        view.onTextsSave = { list ->
-                                                            store.saveTextBoxes(doc.id, index, list)
-                                                            textBoxesVersion++
+                                                        view.onTextCreate = { point ->
+                                                            if (!readOnly) textAnchor = index to point
                                                         }
-                                                        view.onCommentCreate = { point, word -> commentAnchor = Triple(index, point, word) }
-                                                        view.onCommentOpen = { comment -> selectedComment = comment }
+                                                        view.onTextOpen = { box -> if (!readOnly) selectedText = box }
+                                                        view.onTextsSave = { list ->
+                                                            if (!readOnly) {
+                                                                store.saveTextBoxes(doc.id, index, list)
+                                                                textBoxesVersion++
+                                                            }
+                                                        }
+                                                        view.onCommentCreate = { point, word ->
+                                                            if (!readOnly) commentAnchor = Triple(index, point, word)
+                                                        }
+                                                        view.onCommentOpen = { comment ->
+                                                            if (!readOnly) selectedComment = comment
+                                                        }
                                                         view.stickerResolver = { name -> stickerCache.getOrPut(name) {
                                                             store.stickerBitmap(name) ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
                                                         } }
                                                         view.onStickersSave = { list ->
-                                                            pageStickers = list
-                                                            store.saveStickers(doc.id, index, list)
-                                                            if (page == index) stickers = list
+                                                            if (!readOnly) {
+                                                                pageStickers = list
+                                                                store.saveStickers(doc.id, index, list)
+                                                                if (page == index) stickers = list
+                                                            }
                                                         }
                                                         view.stickers = if (page == index) stickers else pageStickers
                                                         view.bind(pageBitmap, if (page == index) marks else pageMarks,
-                                                            tool, color, width, fingerInk)
+                                                            if (readOnly) Tool.PAN else tool,
+                                                            color, width, if (readOnly) false else fingerInk)
                                                     }
                                                 )
                                             } else if (itemError != null) {
@@ -617,23 +741,36 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                         update = { view ->
                             canvasView = view
                             view.scrollThroughFingers = false
-                            view.onSave = { strokes -> marks = strokes; store.saveInk(doc.id, page, strokes) }
-                            view.onAnalyze = { crop = it }
+                            view.readOnly = readOnly
+                            view.onSave = { strokes ->
+                                if (!readOnly) {
+                                    marks = strokes
+                                    store.saveInk(doc.id, page, strokes)
+                                }
+                            }
+                            view.onAnalyze = { if (!readOnly) crop = it }
                             view.comments = store.comments(doc.id, page).also { commentsVersion }
                             view.textBoxes = store.textBoxes(doc.id, page).also { textBoxesVersion }
-                            view.onTextCreate = { point -> textAnchor = page to point }
-                            view.onTextOpen = { box -> selectedText = box }
+                            view.onTextCreate = { point -> if (!readOnly) textAnchor = page to point }
+                            view.onTextOpen = { box -> if (!readOnly) selectedText = box }
                             view.onTextsSave = { list ->
-                                store.saveTextBoxes(doc.id, page, list); textBoxesVersion++
+                                if (!readOnly) {
+                                    store.saveTextBoxes(doc.id, page, list); textBoxesVersion++
+                                }
                             }
-                            view.onCommentCreate = { point, word -> commentAnchor = Triple(page, point, word) }
-                            view.onCommentOpen = { comment -> selectedComment = comment }
+                            view.onCommentCreate = { point, word ->
+                                if (!readOnly) commentAnchor = Triple(page, point, word)
+                            }
+                            view.onCommentOpen = { comment -> if (!readOnly) selectedComment = comment }
                             view.stickerResolver = { name -> stickerCache.getOrPut(name) {
                                 store.stickerBitmap(name) ?: Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
                             } }
-                            view.onStickersSave = { list -> stickers = list; store.saveStickers(doc.id, page, list) }
+                            view.onStickersSave = { list ->
+                                if (!readOnly) { stickers = list; store.saveStickers(doc.id, page, list) }
+                            }
                             view.stickers = stickers
-                            view.bind(bitmap, marks, tool, color, width, fingerInk)
+                            view.bind(bitmap, marks, if (readOnly) Tool.PAN else tool, color, width,
+                                if (readOnly) false else fingerInk)
                         }
                     ) else if (loadError != null) Text(loadError.orEmpty(), Modifier.align(Alignment.Center))
                     else CircularProgressIndicator(Modifier.align(Alignment.Center))
@@ -651,14 +788,18 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
         }
 
         // Fixed reader controls. No longer hidden below an oversized PDF or quiz panel.
-        Row(Modifier.fillMaxWidth().background(Color.White).horizontalScroll(rememberScrollState())
+        Row(Modifier.fillMaxWidth().background(if (readOnly) Color(0xFF17314D) else Color.White)
+            .horizontalScroll(rememberScrollState())
             .padding(horizontal = 6.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { showThumbnails = !showThumbnails }) {
+            val navColor = if (readOnly) Color(0xFFE4F0FF) else Navy
+            TextButton(onClick = { showThumbnails = !showThumbnails },
+                colors = ButtonDefaults.textButtonColors(contentColor = navColor)) {
                 Icon(Icons.Rounded.ViewSidebar, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(4.dp))
                 Text(if (showThumbnails) "Ascunde pagini" else "Miniaturi", fontSize = 12.sp)
             }
-            TextButton(onClick = { continuous = !continuous }) {
+            TextButton(onClick = { continuous = !continuous },
+                colors = ButtonDefaults.textButtonColors(contentColor = navColor)) {
                 Icon(if (continuous) Icons.Rounded.ViewDay else Icons.Rounded.Description, null)
                 Spacer(Modifier.width(4.dp))
                 Text(if (continuous) "Pagini continue" else "O pagină", fontSize = 12.sp)
@@ -667,22 +808,31 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                 val target = (page - 1).coerceAtLeast(0)
                 page = target
                 if (continuous) scope.launch { scrollState.scrollToItem(target) }
-            }, enabled = page > 0) { Icon(Icons.Rounded.ChevronLeft, "Pagina precedentă") }
-            Text("${page + 1} / ${pager.count}", fontSize = 12.sp, color = Navy)
+            }, enabled = page > 0) {
+                Icon(Icons.Rounded.ChevronLeft, "Pagina precedentă", tint = navColor)
+            }
+            Text("${page + 1} / ${pager.count}", fontSize = 12.sp, color = navColor)
             IconButton(onClick = {
                 val target = (page + 1).coerceAtMost(pager.count - 1)
                 page = target
                 if (continuous) scope.launch { scrollState.scrollToItem(target) }
-            }, enabled = page < pager.count - 1) { Icon(Icons.Rounded.ChevronRight, "Pagina următoare") }
+            }, enabled = page < pager.count - 1) {
+                Icon(Icons.Rounded.ChevronRight, "Pagina următoare", tint = navColor)
+            }
             if (continuous) {
                 IconButton(onClick = { documentScale = (documentScale - 0.15f).coerceAtLeast(0.6f) }) {
                     Icon(Icons.Rounded.ZoomOut, "Micșorează")
                 }
-                Text("${(documentScale * 100).toInt()}%", fontSize = 11.sp, color = Slate)
+                Text("${(documentScale * 100).toInt()}%", fontSize = 11.sp,
+                    color = if (readOnly) Color(0xFFB9CDE6) else Slate)
                 IconButton(onClick = { documentScale = (documentScale + 0.15f).coerceAtMost(2f) }) {
                     Icon(Icons.Rounded.ZoomIn, "Mărește")
                 }
-            } else TextButton(onClick = { canvasView?.resetView() }) { Text("Reset zoom") }
+            } else TextButton(onClick = { canvasView?.resetView() },
+                colors = ButtonDefaults.textButtonColors(contentColor = navColor)) {
+                Text("Reset zoom")
+            }
+            if (!readOnly) {
             TextButton(onClick = { fingerInk = !fingerInk }) {
                 Text(if (fingerInk) "Deget: desen" else "Deget: scroll", fontSize = 11.sp)
             }
@@ -702,7 +852,9 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                     ocrWorkManager.cancelUniqueWork(FullDocumentOcrWorker.workName(doc.id))
                 }) { Text("Oprește OCR", fontSize = 11.sp) }
             }
-            TextButton(onClick = { showOcrLibrary = true }) {
+            }
+            TextButton(onClick = { showOcrLibrary = true },
+                colors = ButtonDefaults.textButtonColors(contentColor = navColor)) {
                 Icon(Icons.Rounded.TextSnippet, null)
                 Spacer(Modifier.width(4.dp))
                 Text("Text OCR", fontSize = 11.sp)
@@ -741,8 +893,11 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                     }
                     if (ocrText.isBlank()) Text("Nu există încă text OCR pentru această pagină. Închide și apasă OCR pagină.",
                         color = Slate, fontSize = 12.sp)
-                    OutlinedTextField(value = ocrText, onValueChange = { ocrText = it },
-                        label = { Text("Text recunoscut — poți corecta erorile") },
+                    OutlinedTextField(value = ocrText,
+                        onValueChange = { if (!readOnly) ocrText = it },
+                        readOnly = readOnly,
+                        label = { Text(if (readOnly) "Text recunoscut · doar citire" else
+                            "Text recunoscut — poți corecta erorile") },
                         modifier = Modifier.fillMaxWidth(), minLines = 7, maxLines = 18)
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         OutlinedButton(onClick = {
@@ -758,7 +913,7 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                 }
             },
             confirmButton = {
-                Button(onClick = {
+                if (!readOnly) Button(onClick = {
                     if (doc.kind == "PDF") store.savePageText(doc.id, ocrPage, ocrText)
                     else store.saveExtractedText(doc.id, ocrText)
                     textVersion++

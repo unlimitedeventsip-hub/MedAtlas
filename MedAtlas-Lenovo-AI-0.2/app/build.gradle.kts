@@ -59,6 +59,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.7")
     implementation("androidx.work:work-runtime-ktx:2.10.1")
+    implementation("androidx.documentfile:documentfile:1.0.1")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.google.mlkit:digital-ink-recognition:19.0.0")
