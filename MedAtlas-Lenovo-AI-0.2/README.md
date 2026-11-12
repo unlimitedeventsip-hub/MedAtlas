@@ -1,10 +1,10 @@
-# MedAtlas Nadia — Android Beta 0.7
+# MedAtlas Nadia — Android Beta 0.8
 
 Aplicație de studiu medical pentru tableta Lenovo, construită cu Kotlin + Jetpack Compose. Aplicația este un prototip educațional, **nu un dispozitiv medical**. Codul este în subfolderul `MedAtlas-Lenovo-AI-0.2/`; istoricul folderului a fost păstrat pentru compatibilitatea workflow-ului.
 
 ## Implementat în cod și compilat prin GitHub Actions
 
-- Lansare directă în bibliotecă fără ecran introductiv sau animație. Mod portret/peisaj.
+- Intro nativ elegant pentru Nadia, cu inimă vectorială fină și mesaje personale; poate fi dezactivat sau reactivat din Setări. Mod portret/peisaj.
 - Biblioteca PDF/DOCX/PPTX; Word/PowerPoint sunt redate ca text extras, nu layout original.
 - Cititor PDF cu scroll continuu, zoom și pix, marker, smart underline, forme, Lasso, radieră.
 - OCR local, text extras editabil, quiz și rezumate offline.
@@ -13,10 +13,10 @@ Aplicație de studiu medical pentru tableta Lenovo, construită cu Kotlin + Jetp
 - Import imagine cu decupare dreptunghiulară; atlas cu căutare externă după termeni.
 - Nadia AI: partajare către ChatGPT Plus; client pentru backend OpenAI (backend neconfigurat implicit).
 - Carnet de curs pe materii: note căutabile și editabile, asociere cu documente, desen cu pen-ul păstrat ca imagine, dictare vocală prin serviciul Android și OCR opțional pentru manuscris.
-- Studiu: flashcarduri cu repetare spațiată; Spital Virtual cu 6 cazuri acute și 94 de pacienți ambulatorii fictivi în 10 profiluri. Fiecare are fișe salvate local pentru consultație, ziua 7 și luna 3. Răspunsul la grilă are corectare automată; textul liber se compară cu explicația și conduita de referință.
-- Laborator medical: 12 buletine fictive cu întrebări de interpretare și explicații, plus fișe introductive și quiz-uri pentru ECG, radiografie, CT, monitor, instrumente și farmacologie.
+- Studiu: flashcarduri cu repetare spațiată; Spital Virtual cu 6 cazuri acute și 94 de pacienți ambulatorii fictivi în 10 profiluri. Fiecare are fișe salvate local pentru consultație, ziua 7 și luna 3. Conduita aleasă schimbă scenariul educațional de urmărire, cu opțiuni sigur/nesigur; nu este un model fiziologic. Răspunsurile la grile sunt corectate automat, iar textul liber rămâne pentru comparație și autoevaluare.
+- Laborator medical: 12 buletine fictive cu interpretare și explicații; fișe introductive ECG, radiografie, CT, monitor, instrumente și farmacologie. Simulare examen offline cu selecție aleatorie din 28 de grile originale (laborator + reevaluare clinică), punctaj și explicații.
 - Anatomie 3D: fereastră cu atlase *externe* și posibilitatea de a le deschide în browser; modelele NU sunt incluse offline.
-- Enciclopedia organelor: index filtrabil și căutabil cu structuri din 11 sisteme, localizare și funcție pentru fiecare dintre cele 199 de structuri distincte, trei planșe istorice offline cu exerciții de identificare (inimă, lobul pulmonar, rinichi), exemple de investigații unde sunt disponibile și acces la manualul OpenStax.
+- Enciclopedia organelor: index filtrabil și căutabil cu structuri din 11 sisteme, localizare și funcție pentru cele 199 de structuri distincte, trei planșe istorice offline (inimă, plămân, rinichi), plus 11 scheme originale vectoriale offline (stilizate, nu ilustrații anatomice validate), exemple de investigații unde sunt disponibile și linkuri către OpenStax.
 - Classroom: activitate Android separată, OAuth Google, sincronizare cursuri/materiale/teme, import opțional PDF/DOCX/PPTX din Drive cu limite de mărime. Necesită configurarea Google Cloud, client OAuth Android, SHA-1 stabil și permisiuni; vezi `CLASSROOM-CONFIGURARE.md`.
 - Backup/restore ZIP local și export PDF adnotat.
 
@@ -50,9 +50,19 @@ Nu include niciodată `OPENAI_API_KEY`, parole sau fișiere `.jks` în repositor
 - [ ] Validare pe tableta Lenovo: tastatură, rotație, TTS, reluare după închiderea aplicației și actualizare peste versiunea instalată.
 - [ ] Extinderea atlasului cu histologie, vascularizație, inervație și ilustrații documentate pentru fiecare structură.
 - [ ] Testarea Classroom pe contul destinat, cu aplicația semnată și OAuth configurat.
-- [ ] Animația personalizată pentru Nadia și verificarea celorlalte cerințe de prezentare pe dispozitiv.
+- [x] Intro nativ pentru Nadia cu opțiune activare/dezactivare și reluare din Setări.
+- [ ] Verificare vizuală a intro-ului pe Lenovo și revizuirea estetică.
 
 ### Resurse pentru studiu
 
 Grilele offline sunt exerciții originale. Laboratorul include acces online la [exemplele oficiale USMLE](https://www.usmle.org/exam-resources/step-1-materials/step-1-sample-test-questions).
 Pentru aprofundare: [feritină](https://medlineplus.gov/lab-tests/ferritin-blood-test/), [HbA1c](https://medlineplus.gov/lab-tests/hemoglobin-a1c-hba1c-test/) și [anatomie renală microscopică](https://openstax.org/books/anatomy-and-physiology-2e/pages/25-4-microscopic-anatomy-of-the-kidney).
+
+## Ce nu este încă finalizat
+
+- Nu avem încă sute de **scenarii distincte** validate; cele 94 de cazuri ambulatorii refolosesc 10 profiluri bine documentate.
+- Opțiunile de management influențează **narațiunea educațională**, nu o simulare farmacologică reală sau un prognostic clinic calculat.
+- Examenul offline conține 28 de întrebări originale, nu o bază exhaustivă de subiecte oficiale.
+- Cele 11 scheme vectoriale sunt indicii vizuale stilizate; atlasul nu conține încă câte o imagine diagnostică verificată pentru fiecare structură.
+- Conectarea reală a contului Classroom cere OAuth și permisiuni corespunzătoare.
+- Nadia AI direct în aplicație cere configurarea sigură a backend-ului și facturare API separată.
