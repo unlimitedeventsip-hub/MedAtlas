@@ -18,6 +18,21 @@ class LibraryStore(private val context: Context) {
     private val inkDir = File(root, "ink").apply { mkdirs() }
     private val stickersDir = File(root, "stickers").apply { mkdirs() }
     private val ocrDir = File(root, "ocr").apply { mkdirs() }
+    private val commentsDir = File(root, "comments").apply { mkdirs() }
+    fun comments(documentId: String, page: Int): List<PageComment> {
+        val file = File(commentsDir, "${documentId}_${page}.json")
+        return runCatching {
+            val array = JSONArray(file.readText())
+            (0 until array.length()).map { PageComment.parse(array.getJSONObject(it)) }
+        }.getOrDefault(emptyList())
+    }
+    fun saveComments(documentId: String, page: Int, comments: List<PageComment>) {
+        val file = File(commentsDir, "${documentId}_${page}.json")
+        val temp = File(commentsDir, "${documentId}_${page}.tmp")
+        temp.writeText(JSONArray().apply { comments.forEach { put(it.json()) } }.toString())
+        if (!temp.renameTo(file)) { temp.copyTo(file, overwrite = true); temp.delete() }
+    }
+
 
     private fun <T> loadArray(name: String, parse: (JSONObject) -> T): List<T> = runCatching {
         val arr = JSONArray(File(root, name).readText())
@@ -103,6 +118,7 @@ class LibraryStore(private val context: Context) {
         File(docsDir, "${doc.id}.txt").delete()
         inkDir.listFiles()?.filter { it.name.startsWith("${doc.id}_") }?.forEach { it.delete() }
         ocrDir.listFiles()?.filter { it.name.startsWith("${doc.id}_") }?.forEach { it.delete() }
+        commentsDir.listFiles()?.filter { it.name.startsWith("${doc.id}_") }?.forEach { it.delete() }
         stickersDir.listFiles()?.filter { it.name.startsWith("${doc.id}_") }?.forEach { it.delete() }
         saveDocuments(documents().filterNot { it.id == documentId })
         saveNotes(notes().filterNot { it.documentId == documentId })
