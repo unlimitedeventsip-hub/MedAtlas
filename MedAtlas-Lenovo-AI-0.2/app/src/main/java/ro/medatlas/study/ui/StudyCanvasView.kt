@@ -55,6 +55,24 @@ class StudyCanvasView(context: Context) : View(context) {
     var marks: List<Stroke> = emptyList()
         set(value) { field = value; invalidate() }
     var tool: Tool = Tool.PEN
+    /**
+     * Read-only mode keeps existing annotations visible without allowing new
+     * strokes, erased content, moved stickers or edited overlays.
+     */
+    var readOnly: Boolean = false
+        set(value) {
+            if (value && !field) {
+                pending.clear()
+                drawing = false
+                multiTouch = false
+                draggingTextId = null
+                currentStickerId = null
+                selectedIds = emptySet()
+                parent?.requestDisallowInterceptTouchEvent(false)
+            }
+            field = value
+            invalidate()
+        }
     var inkColor: Int = Color.rgb(36, 75, 67)
     var penWidth: Float = 3.0f
     var smartUnderline = true
@@ -152,11 +170,13 @@ class StudyCanvasView(context: Context) : View(context) {
     }
 
     fun increaseStickerSize(delta: Float) {
+        if (readOnly) return
         val id = currentStickerId ?: return
         stickers = stickers.map { if (it.id == id) it.copy(size = (it.size + delta).coerceIn(0.08f, 0.95f)) else it }
         onStickersSave(stickers)
     }
     fun deleteSelectedSticker() {
+        if (readOnly) return
         val id = currentStickerId ?: return
         stickers = stickers.filterNot { it.id == id }
         currentStickerId = null
@@ -164,16 +184,19 @@ class StudyCanvasView(context: Context) : View(context) {
     }
     fun resetView() { zoom = 1f; panX = 0f; panY = 0f; selectedIds = emptySet(); invalidate() }
     fun undo() {
+        if (readOnly) return
         if (marks.isNotEmpty()) {
             undone.add(marks.last()); marks = marks.dropLast(1); onSave(marks)
         }
     }
     fun redo() {
+        if (readOnly) return
         if (undone.isNotEmpty()) { marks = marks + undone.removeAt(undone.lastIndex); onSave(marks) }
     }
     fun selectedInk(): List<Stroke> = if (selectedIds.isEmpty()) marks else marks.filter { it.id in selectedIds }
     fun clearSelection() { selectedIds = emptySet(); invalidate() }
     fun eraseSelection() {
+        if (readOnly) return
         if (selectedIds.isNotEmpty()) { marks = marks.filterNot { it.id in selectedIds }; selectedIds = emptySet(); undone.clear(); onSave(marks) }
     }
 
@@ -198,6 +221,7 @@ class StudyCanvasView(context: Context) : View(context) {
     }
 
     fun pasteSelection(): Boolean {
+        if (readOnly) return false
         val copied = runCatching {
             val file = inkClipboard()
             val array = JSONArray(file.readText())
@@ -225,6 +249,7 @@ class StudyCanvasView(context: Context) : View(context) {
 
     /** Resize selected ink proportionally about its center. Does not alter other page content. */
     fun resizeSelection(factor: Float): Boolean {
+        if (readOnly) return false
         if (!factor.isFinite() || factor <= 0f) return false
         val selection = marks.filter { it.id in selectedIds }
         val allPoints = selection.flatMap { it.points }
@@ -291,7 +316,7 @@ class StudyCanvasView(context: Context) : View(context) {
             val sh = sw * source.height.toFloat() / max(1f, source.width.toFloat())
             val rectangle = RectF(left, top, left + sw, top + sh)
             canvas.drawBitmap(source, null, rectangle, bitmapPaint)
-            if (sticker.id == currentStickerId && tool == Tool.STICKER) {
+            if (!readOnly && sticker.id == currentStickerId && tool == Tool.STICKER) {
                 val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     style = Paint.Style.STROKE; color = Color.rgb(0, 140, 132); strokeWidth = 3f
                 }
@@ -311,7 +336,7 @@ class StudyCanvasView(context: Context) : View(context) {
             box.content.lines().take(18).forEachIndexed { row, line ->
                 canvas.drawText(line.take(180), x, y + (row + 1) * fontSize * 1.22f, paint)
             }
-            if (tool == Tool.TEXT) {
+            if (!readOnly && tool == Tool.TEXT) {
                 val widthText = box.content.lines().maxOfOrNull { paint.measureText(it.take(180)) } ?: 20f
                 val highlight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                     color = Color.rgb(58, 128, 123); style = Paint.Style.STROKE; strokeWidth = 1.8f
@@ -420,6 +445,43 @@ class StudyCanvasView(context: Context) : View(context) {
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (pageBitmap == null || pageRect.isEmpty) return false
+        if (readOnly) {
+            // Continuous reader: let LazyColumn scroll by finger OR stylus.
+            if (scrollThroughFingers) return false
+            // Single-page reader: allow only pan and pinch-to-zoom, no writes.
+            scaler.onTouchEvent(event)
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    priorMidX = event.x
+                    priorMidY = event.y
+                    return true
+                }
+                MotionEvent.ACTION_POINTER_DOWN -> {
+                    if (event.pointerCount >= 2) {
+                        priorMidX = (event.getX(0) + event.getX(1)) / 2f
+                        priorMidY = (event.getY(0) + event.getY(1)) / 2f
+                    }
+                    return true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val x = if (event.pointerCount >= 2)
+                        (event.getX(0) + event.getX(1)) / 2f else event.x
+                    val y = if (event.pointerCount >= 2)
+                        (event.getY(0) + event.getY(1)) / 2f else event.y
+                    panX += x - priorMidX
+                    panY += y - priorMidY
+                    priorMidX = x
+                    priorMidY = y
+                    invalidate()
+                    return true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    parent?.requestDisallowInterceptTouchEvent(false)
+                    return true
+                }
+                else -> return true
+            }
+        }
         if (scrollThroughFingers && !fingerInk && event.actionMasked == MotionEvent.ACTION_DOWN
             && event.getToolType(0) != MotionEvent.TOOL_TYPE_STYLUS
             && event.getToolType(0) != MotionEvent.TOOL_TYPE_ERASER) {
