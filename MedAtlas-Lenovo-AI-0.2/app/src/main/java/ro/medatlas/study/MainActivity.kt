@@ -113,6 +113,7 @@ private fun MedAtlasApp() {
     val store = remember { LibraryStore(context) }
     val docs = remember { mutableStateListOf<StudyDocument>().apply { addAll(store.documents()) } }
     var selected by remember { mutableStateOf<StudyDocument?>(null) }
+    var officeTextMode by remember { mutableStateOf(false) }
     var libraryNoteId by remember { mutableStateOf<String?>(null) }
     var libraryRevision by remember { mutableIntStateOf(0) }
     var importFolderId by remember { mutableStateOf<String?>(null) }
@@ -151,9 +152,21 @@ private fun MedAtlasApp() {
         return
     }
     selected?.let { doc ->
-        ReaderScreen(doc, store, onBack = { selected = null }, onRemove = {
-            store.removeDocument(doc.id); docs.removeAll { it.id == doc.id }; selected = null
-        })
+        if (!officeTextMode && doc.kind in listOf("PPTX", "DOCX", "PPT", "DOC")) {
+            OfficePreviewScreen(doc, store,
+                onBack = { selected = null; officeTextMode = false },
+                onTextMode = { officeTextMode = true })
+        } else {
+            ReaderScreen(doc, store, onBack = {
+                if (officeTextMode) officeTextMode = false
+                else selected = null
+            }, onRemove = {
+                store.removeDocument(doc.id)
+                docs.removeAll { it.id == doc.id }
+                selected = null
+                officeTextMode = false
+            })
+        }
         return
     }
     libraryNoteId?.let { id ->
