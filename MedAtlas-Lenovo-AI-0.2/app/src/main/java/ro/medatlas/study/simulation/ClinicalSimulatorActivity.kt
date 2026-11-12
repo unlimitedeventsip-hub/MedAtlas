@@ -47,6 +47,8 @@ class ClinicalSimulatorActivity : ComponentActivity() {
         val explanation: String, val day7: String, val month3: String, val profile: String = id
     )
 
+    private val resourcesByProfile by lazy { readClinicalTable(this, "resources").associateBy { it.getValue("id") } }
+
     private val cases by lazy { listOf(
         Case("asthma", "Dispnee episodică", "Începător", "Femeie, 24 ani",
             "Mă sufoc uneori și îmi șuieră pieptul, mai ales noaptea.",
@@ -157,6 +159,10 @@ class ClinicalSimulatorActivity : ComponentActivity() {
                     HospitalHeaderTrace()
                 }
                 if (current == null) {
+                    val recent = cases.firstOrNull { it.id == prefs.getString("recent", null) }
+                    if (recent != null) {
+                        TextButton(onClick = { currentId = recent.id }) { Text("Continuă ultima fișă · " + recent.title) }
+                    }
                     val matching = cases.filter { c ->
                         (!activeOnly || prefs.contains(c.id + ".opened")) &&
                             listOf(c.title, c.patient, c.history, c.difficulty).any { it.contains(query.trim(), ignoreCase = true) }
@@ -171,7 +177,7 @@ class ClinicalSimulatorActivity : ComponentActivity() {
                         if (matching.isEmpty()) item { Text("Nicio fișă pentru selecția curentă.") }
                         items(matching, key = { it.id }) { c ->
                             Card(Modifier.fillMaxWidth().clickable {
-                                prefs.edit().putBoolean(c.id + ".opened", true).apply()
+                                prefs.edit().putBoolean(c.id + ".opened", true).putString("recent", c.id).apply()
                                 currentId = c.id
                             }) {
                                 Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -212,6 +218,20 @@ class ClinicalSimulatorActivity : ComponentActivity() {
                             }
                         }
                         item {
+                            PatientInterview(c) { reply -> speaker?.speak(reply, TextToSpeech.QUEUE_FLUSH, null, "interview") }
+                            val resources = resourcesByProfile.getValue(c.profile)
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedButton(onClick = {
+                                    startActivity(android.content.Intent(this@ClinicalSimulatorActivity,
+                                        ro.medatlas.study.anatomy.OrganAtlasActivity::class.java)
+                                        .putExtra("organ", resources.getValue("organ")))
+                                }) { Text("Consultă atlasul") }
+                                OutlinedButton(onClick = {
+                                    startActivity(android.content.Intent(this@ClinicalSimulatorActivity,
+                                        ro.medatlas.study.reference.MedicalReferenceActivity::class.java)
+                                        .putExtra("topic", resources.getValue("topic")))
+                                }) { Text("Deschide laboratorul") }
+                            }
                             Text("Fișa clinică", fontWeight = FontWeight.Bold)
                             Text(c.vitals, fontSize = 13.sp)
                             Text(c.history, fontSize = 13.sp)

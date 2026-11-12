@@ -103,12 +103,15 @@ class MedicalReferenceActivity : ComponentActivity() {
     }
     @Composable
     private fun MedicalReferenceScreen() {
-        var selected by remember { mutableIntStateOf(-1) }
+        val target = intent.getStringExtra("topic")
+        var selected by androidx.compose.runtime.saveable.rememberSaveable { mutableIntStateOf(topics.indexOfFirst { it.title == target }) }
+        fun back() { if (target != null || selected < 0) finish() else selected = -1 }
+        androidx.activity.compose.BackHandler(selected >= 0) { back() }
         var answer by remember(selected) { mutableIntStateOf(-1) }
         MedAtlasGlassTheme {
             Column(Modifier.fillMaxSize().background(GlassTokens.LightPage).statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { if (selected >= 0) selected = -1 else finish() }) {
+                    IconButton(onClick = { back() }) {
                         Icon(Icons.Rounded.ArrowBack, "Înapoi")
                     }
                     Column(Modifier.weight(1f)) {
@@ -143,28 +146,8 @@ class MedicalReferenceActivity : ComponentActivity() {
                         contentPadding = PaddingValues(bottom = 25.dp)) {
                         item {
                             Text(topic.title, style = MaterialTheme.typography.titleLarge)
-                            if (topic.icon == "ecg") {
-                                Card {
-                                    Canvas(Modifier.fillMaxWidth().height(150.dp).padding(8.dp)) {
-                                        val w = size.width
-                                        val h = size.height
-                                        val path = Path()
-                                        val segments = listOf(
-                                            .0f to .57f, .13f to .57f, .17f to .51f, .20f to .57f,
-                                            .30f to .57f, .335f to .64f, .365f to .16f, .395f to .75f,
-                                            .42f to .57f, .55f to .57f, .62f to .43f, .72f to .57f,
-                                            1f to .57f
-                                        )
-                                        segments.forEachIndexed { idx, p ->
-                                            val x = p.first * w; val y = p.second * h
-                                            if (idx == 0) path.moveTo(x, y) else path.lineTo(x, y)
-                                        }
-                                        drawPath(path, Color(0xFF38786E), style = Stroke(width = 3.dp.toPx()))
-                                    }
-                                    Text("Schemă ECG ilustrativă, nu înregistrare clinică.",
-                                        modifier = Modifier.padding(9.dp), fontSize = 11.sp)
-                                }
-                            }
+                            DiagnosticMedia(topic.icon)
+                            if (topic.icon == "monitor") BloodPressureStation()
                             topic.steps.forEach { statement ->
                                 Card(Modifier.fillMaxWidth()) {
                                     Text(statement, modifier = Modifier.padding(12.dp), fontSize = 13.sp)

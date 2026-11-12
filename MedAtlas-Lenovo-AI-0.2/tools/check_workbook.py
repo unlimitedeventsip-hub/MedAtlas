@@ -45,3 +45,11 @@ details = unique(organs, "name")
 assert len(groups) == 11 and names == details, names.symmetric_difference(details)
 print(f"{len(patients) + len(legacy_ids)} patients, {len(profiles)} additional profiles, "
       f"{len(labs)} lab reports, {len(details)} named structures across {len(groups)} systems")
+
+links = table("clinical/resources.tsv")
+assert unique(links, "id") == profile_ids.union(legacy_ids)
+reference = next(app.rglob("MedicalReferenceActivity.kt")).read_text(encoding="utf8")
+topics = {row["title"] for row in labs} | set(re.findall(r'Topic\("([^"]+)"', reference))
+assert all(row["organ"] in details and row["topic"] in topics for row in links)
+
+assert unique(table("clinical/paths.tsv"), "id") == profile_ids.union(legacy_ids)

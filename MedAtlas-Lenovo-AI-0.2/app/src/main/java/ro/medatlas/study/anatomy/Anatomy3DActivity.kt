@@ -30,6 +30,7 @@ class Anatomy3DActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             val providers = listOf(
+                "Corp offline" to "",
                 "OpenDissect · 3D / ECG / CT" to "https://opendissect.com/en/",
                 "Ana3D · anatomie în straturi" to "https://ana3d.app/en/",
                 "Cogni Anatomy · structuri 3D" to "https://cogni.cards/anatomy/"
@@ -42,9 +43,9 @@ class Anatomy3DActivity : ComponentActivity() {
                         IconButton(onClick = { finish() }) { Icon(Icons.Rounded.ArrowBack, "Înapoi") }
                         Column(Modifier.weight(1f)) {
                             Text("Anatomie 3D", style = MaterialTheme.typography.titleLarge)
-                            Text("Atlase externe · model educațional, nu instrument diagnostic", fontSize = 10.sp)
+                            Text("Atlas de studiu al Nadiei", fontSize = 10.sp)
                         }
-                        IconButton(onClick = {
+                        if (selected > 0) IconButton(onClick = {
                             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(providers[selected].second)))
                         }) { Icon(Icons.Rounded.OpenInNew, "Deschide în browser") }
                     }
@@ -54,7 +55,7 @@ class Anatomy3DActivity : ComponentActivity() {
                                 text = { Text(provider.first, fontSize = 11.sp) })
                         }
                     }
-                    key(selected) {
+                    if (selected == 0) OfflineBody() else key(selected) {
                         AndroidView(
                             factory = { context ->
                                 WebView(context).apply {

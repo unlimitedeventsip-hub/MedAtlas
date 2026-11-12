@@ -6,6 +6,7 @@ import ro.medatlas.study.MedAtlasGlassTheme
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import androidx.compose.ui.graphics.asImageBitmap
 import ro.medatlas.study.data.LibraryStore
 import ro.medatlas.study.data.StudyNote
 import androidx.activity.ComponentActivity
@@ -110,7 +111,10 @@ class OrganAtlasActivity : ComponentActivity() {
     private fun AtlasScreen() {
         var query by remember { mutableStateOf("") }
         var activeSystem by remember { mutableStateOf("Toate") }
-        var selected by remember { mutableStateOf<Organ?>(null) }
+        val target = intent.getStringExtra("organ")
+        var selected by remember { mutableStateOf(groups.flatMap { it.organs }.firstOrNull { it.name == target }) }
+        fun back() { if (target != null || selected == null) finish() else selected = null }
+        androidx.activity.compose.BackHandler(selected != null) { back() }
         val store = remember { LibraryStore(this@OrganAtlasActivity) }
         val activeKey = selected?.let { "atlas:" + it.system + ":" + it.name }.orEmpty()
         var organNotes by remember(activeKey) {
@@ -122,7 +126,7 @@ class OrganAtlasActivity : ComponentActivity() {
             Column(Modifier.fillMaxSize().background(GlassTokens.LightPage)
                 .statusBarsPadding().navigationBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(9.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { if (selected != null) selected = null else finish() }) {
+                    IconButton(onClick = { back() }) {
                         Icon(Icons.Rounded.ArrowBack, "Înapoi")
                     }
                     Column(Modifier.weight(1f)) {
@@ -186,6 +190,16 @@ class OrganAtlasActivity : ComponentActivity() {
                             Text(organ.system, color = Color(0xFF38786E))
                             Text("Localizare și raporturi", fontWeight = FontWeight.Bold)
                             Text(organ.location)
+                            val models = remember {
+                                assets.open("stickers/catalog.tsv").bufferedReader().useLines { lines ->
+                                    lines.map { it.split('\t') }.groupBy { it[2] }
+                                }
+                            }
+                            models[organ.name].orEmpty().forEach { model ->
+                                val bitmap = remember(model[0]) { assets.open("stickers/" + model[0] + ".png").use { android.graphics.BitmapFactory.decodeStream(it) } }
+                                androidx.compose.foundation.Image(bitmap.asImageBitmap(), model[1], Modifier.fillMaxWidth().height(190.dp))
+                                Text(model[1] + " · BodyParts3D, DBCLS · CC BY 4.0", fontSize = 11.sp)
+                            }
                             AtlasPlate(organ.name)
                             if (organ.role.isNotBlank()) {
                                 Card(Modifier.fillMaxWidth()) {

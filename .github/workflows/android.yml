@@ -52,6 +52,19 @@ jobs:
             printf '%s' "$MEDATLAS_KEYSTORE_BASE64" | base64 --decode > app/medatlas-signing.jks
           fi
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install anatomy generation dependencies
+        run: python -m pip install numpy==2.2.6 pillow==11.3.0
+
+      - name: Cache original anatomical data
+        uses: actions/cache@v4
+        with:
+          path: MedAtlas-Lenovo-AI-0.2/.gradle/bodyparts
+          key: bodyparts3d-4-partof-9fbc713f
+
       - name: Verify offline study catalog
         run: python3 tools/check_workbook.py
 

@@ -85,7 +85,10 @@ class LibraryStore(private val context: Context) {
         val output = context.contentResolver.openOutputStream(uri) ?: error("Nu se poate deschide destinația.")
         output.use { stream ->
             java.util.zip.ZipOutputStream(stream).use { zip ->
-                root.walkTopDown().filter { it.isFile && !it.name.endsWith(".tmp") }.forEach { file ->
+                zip.putNextEntry(java.util.zip.ZipEntry("clinical-workbook-v1.json"))
+                zip.write(ClinicalBackup(context).encode().toByteArray(Charsets.UTF_8))
+                zip.closeEntry()
+                root.walkTopDown().filter { it.isFile && !it.name.endsWith(".tmp") && it.relativeTo(root).path != "clinical-workbook-v1.json" }.forEach { file ->
                     val relative = file.relativeTo(root).invariantSeparatorsPath
                     zip.putNextEntry(java.util.zip.ZipEntry(relative))
                     file.inputStream().use { it.copyTo(zip) }
@@ -98,11 +101,17 @@ class LibraryStore(private val context: Context) {
     /** Restore only paths inside the app's private MedAtlas directory. */
     fun importBackup(uri: Uri) {
         val input = context.contentResolver.openInputStream(uri) ?: error("Arhiva nu poate fi citită.")
+        var clinical: String? = null
         input.use { source ->
             java.util.zip.ZipInputStream(source).use { zip ->
                 while (true) {
                     val entry = zip.nextEntry ?: break
                     if (entry.isDirectory) { zip.closeEntry(); continue }
+                    if (entry.name == "clinical-workbook-v1.json") {
+                        clinical = zip.readBytes().toString(Charsets.UTF_8)
+                        zip.closeEntry()
+                        continue
+                    }
                     val dest = File(root, entry.name)
                     require(dest.canonicalPath.startsWith(root.canonicalPath + File.separator)) {
                         "Arhiva conține o cale invalidă."
@@ -113,6 +122,7 @@ class LibraryStore(private val context: Context) {
                 }
             }
         }
+        clinical?.let { ClinicalBackup(context).restore(it) }
     }
 
     fun documents(): List<StudyDocument> = loadArray("documents.json", StudyDocument::parse).sortedByDescending { it.importedAt }
@@ -182,8 +192,13 @@ class LibraryStore(private val context: Context) {
         return filename
     }
 
+    fun stickerCatalog(): List<Pair<String,String>> =
+        context.assets.open("stickers/catalog.tsv").bufferedReader().useLines { lines ->
+            lines.map { it.split('\t') }.map { it[0] to it[1] }.toList()
+        } + listOf("lungs" to "Plămâni", "heart" to "Inimă", "neuron" to "Neuron")
+
     fun builtInSticker(name: String): String {
-        require(name in listOf("lungs", "heart", "neuron")) { "Sticker necunoscut" }
+        require(stickerCatalog().any { it.first == name }) { "Sticker necunoscut" }
         val filename = UUID.randomUUID().toString() + ".png"
         val dest = File(stickersDir, filename)
         context.assets.open("stickers/$name.png").use { input -> dest.outputStream().use { input.copyTo(it) } }

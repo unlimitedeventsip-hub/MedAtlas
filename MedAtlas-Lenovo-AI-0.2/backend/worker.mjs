@@ -1,5 +1,5 @@
 /** MedAtlas AI backend for Cloudflare Workers. Never expose OPENAI_API_KEY to Android or GitHub. */
-const MODES = new Set(['explain', 'summary', 'quiz', 'free', 'web', 'highlights', 'sticker']);
+const MODES = new Set(['explain', 'summary', 'quiz', 'free', 'web', 'highlights', 'sticker', 'patient', 'case_feedback']);
 const JSON_HEADERS = { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' };
 const reply = (data, code = 200) => new Response(JSON.stringify(data), { status: code, headers: JSON_HEADERS });
 const extractAnswer = (r) => (r.output ?? []).flatMap(item => item.content ?? []).filter(p => p.type === 'output_text').map(p => p.text).join('\n').trim();
@@ -34,6 +34,8 @@ export default {
       `Nu inventa citări, pagini, surse sau date medicale; indică incertitudinile și limitele OCR.\n` +
       `Explică structurat folosind scheme logice, exemple și întrebări de examen, fără a face recomandări pentru un pacient real.`;
     const tasks = {
+      patient: "Joacă rolul pacientului fictiv. Răspunde în română la persoana întâi, pe scurt și numai pe baza anamnezei date. Dacă o informație lipsește, spune că nu știi. Nu dezvălui diagnosticul sau tratamentul.",
+      case_feedback: "Evaluează fișa studentului față de baremul fictiv. Identifică un argument susținut, o lacună și o întrebare de reevaluare. Nu prescrie pentru persoane reale.",
       explain: 'Explică logic selecția, mecanismul, semnificația, o mnemonică și 3 idei pentru examen.',
       summary: 'Fă un rezumat fidel, cu definiții, clasificări, praguri, diagnostice, tratamente și idei-cheie. Nu completa lacunele din fragment cu presupuneri.',
       quiz: 'Generează 8 grile medicale cu patru variante A–D, un singur răspuns corect, explicații, capcane și precizarea fragmentului-sursă.',

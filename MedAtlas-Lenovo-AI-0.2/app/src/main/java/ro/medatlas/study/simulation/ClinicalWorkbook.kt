@@ -44,6 +44,8 @@ private fun priorVisitDecisionKey(id: String, stage: Int) = id + "." + (stage - 
 internal fun VisitWorkbook(context: Context, case: ClinicalSimulatorActivity.Case) {
     val prefs = remember(context) { context.getSharedPreferences("clinical-workbook", Context.MODE_PRIVATE) }
     val review = remember(case.profile) { readClinicalTable(context, "reassessment").first { it["id"] == case.profile } }
+    val pathway = remember(case.profile) { readClinicalTable(context, "paths").first { it["id"] == case.profile } }
+    var focused by remember(case.id) { mutableStateOf(prefs.getString(case.id + ".care", "standard") == "focused") }
     val days = listOf("Consultație inițială", "Ziua 7", "Luna 3")
     var stage by remember(case.id) { mutableIntStateOf(prefs.getInt(case.id + ".visit", 0)) }
     val visitKey = case.id + "." + stage
@@ -56,6 +58,8 @@ internal fun VisitWorkbook(context: Context, case: ClinicalSimulatorActivity.Cas
             val previousChoice = prefs.getInt(priorVisitDecisionKey(case.id, stage), -1)
             Text(if (previousChoice < 0) {
                 if (stage == 1) case.day7 else case.month3
+            } else if (focused && previousChoice == 0) {
+                if (stage == 1) pathway.getValue("day7") else listOf(pathway.getValue("month3"), case.month3.substringAfter("\n\n","")).filter { it.isNotBlank() }.joinToString("\n\n")
             } else ClinicalDecisionEngine.outcome(stage - 1, previousChoice, case))
             val priorKey = case.id + "." + (stage - 1)
             Text("La vizita precedentă ai scris")
@@ -73,6 +77,10 @@ internal fun VisitWorkbook(context: Context, case: ClinicalSimulatorActivity.Cas
                 prefs.edit().putString(visitKey + "." + field, it).apply()
             }, modifier = Modifier.fillMaxWidth(), label = { Text(field) }, minLines = 2)
         }
+        if (stage == 0) FilterChip(selected = focused, onClick = {
+            focused = !focused
+            prefs.edit().putString(case.id + ".care", if (focused) "focused" else "standard").apply()
+        }, label = { Text("Plan focalizat · " + pathway.getValue("action")) })
         ClinicalDecisionPanel(case = case, stage = stage, selected = decision,
             onSelect = { selected ->
                 decision = selected
