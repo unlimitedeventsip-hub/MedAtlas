@@ -4,7 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-enum class Tool { PEN, HIGHLIGHT, UNDERLINE, WAVE, CIRCLE, RECTANGLE, ARROW, LASSO, ERASER, ANALYZE, PAN, STICKER }
+enum class Tool { PEN, HIGHLIGHT, UNDERLINE, WAVE, CIRCLE, RECTANGLE, ARROW, LASSO, ERASER, ANALYZE, PAN, STICKER, COMMENT }
 
 data class InkPoint(val x: Float, val y: Float, val pressure: Float = 1f) {
     fun json() = JSONArray().put(x.toDouble()).put(y.toDouble()).put(pressure.toDouble())
@@ -99,6 +99,32 @@ data class PageSticker(
             x = o.optDouble("x", 0.25).toFloat(),
             y = o.optDouble("y", 0.25).toFloat(),
             size = o.optDouble("size", 0.32).toFloat()
+        )
+    }
+}
+
+/** A margin comment anchored to normalized PDF coordinates, independent of zoom. */
+data class PageComment(
+    val id: String = UUID.randomUUID().toString(),
+    val documentId: String,
+    val page: Int,
+    val x: Float,
+    val y: Float,
+    val body: String,
+    val quote: String = "",
+    val createdAt: Long = System.currentTimeMillis()
+) {
+    fun json() = JSONObject().apply {
+        put("id", id); put("documentId", documentId); put("page", page)
+        put("x", x.toDouble()); put("y", y.toDouble())
+        put("body", body); put("quote", quote); put("createdAt", createdAt)
+    }
+    companion object {
+        fun parse(o: JSONObject) = PageComment(
+            id = o.getString("id"), documentId = o.getString("documentId"),
+            page = o.optInt("page"), x = o.optDouble("x").toFloat(),
+            y = o.optDouble("y").toFloat(), body = o.optString("body"),
+            quote = o.optString("quote"), createdAt = o.optLong("createdAt")
         )
     }
 }
