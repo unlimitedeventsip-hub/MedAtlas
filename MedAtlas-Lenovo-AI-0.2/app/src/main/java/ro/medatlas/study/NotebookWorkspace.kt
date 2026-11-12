@@ -222,7 +222,7 @@ internal fun NotebookLibrary(store: LibraryStore, docs: List<StudyDocument>, onO
             delay(180)
             val snapshot = docs.toList()
             value = withContext(Dispatchers.IO) {
-                snapshot.filter { store.studyText(it).contains(query, true) }.map { it.id }.toSet()
+                snapshot.filter { store.containsIndexedText(it, query) }.map { it.id }.toSet()
             }
         }
     }
