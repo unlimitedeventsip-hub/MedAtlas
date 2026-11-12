@@ -405,6 +405,7 @@ private fun PagePreview(note: StudyNote, store: LibraryStore) {
 private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: SharedPreferences,
     position: Int, count: Int, move: (Int) -> Unit, onDuplicate: () -> Unit, onPrevious: () -> Unit,
     onBack: () -> Unit, onNext: () -> Unit, onDelete: () -> Unit, document: StudyDocument?, onOpen: (StudyDocument) -> Unit) {
+    val context = LocalContext.current
     var title by rememberSaveable { mutableStateOf(original.heading) }
     var body by rememberSaveable { mutableStateOf(original.body) }
     var paper by rememberSaveable { mutableStateOf(original.paper) }
