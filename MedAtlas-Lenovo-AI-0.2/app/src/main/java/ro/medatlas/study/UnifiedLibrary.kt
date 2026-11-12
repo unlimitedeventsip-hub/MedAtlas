@@ -219,7 +219,6 @@ internal fun UnifiedLibraryScreen(
     var deletingRow by remember { mutableStateOf<LibraryRow?>(null) }
     var movingRow by remember { mutableStateOf<LibraryRow?>(null) }
     var nameInput by remember { mutableStateOf("") }
-    var showAiInfo by remember { mutableStateOf(false) }
     var showSearch by remember { mutableStateOf(false) }
     val folders = remember(revision) { organization.allFolders() }
     val notes = remember(revision, refreshKey, documents.size) { store.notes() }
@@ -320,7 +319,7 @@ internal fun UnifiedLibraryScreen(
                 }
                 Spacer(Modifier.weight(1f))
                 Surface(color = glassBlue.copy(alpha = .18f), shape = RoundedCornerShape(40.dp),
-                    border = BorderStroke(1.dp, glassBorder), modifier = Modifier.clickable { showAiInfo = true }) {
+                    border = BorderStroke(1.dp, glassBorder), modifier = Modifier.clickable { showSearch = true }) {
                     Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.AutoAwesome, null, tint = Color(0xFFC8B4FF), modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
@@ -328,7 +327,7 @@ internal fun UnifiedLibraryScreen(
                     }
                 }
                 Spacer(Modifier.width(8.dp))
-                IconButton(onClick = { showSearch = !showSearch }) {
+                IconButton(onClick = { showSearch = true }) {
                     Icon(Icons.Rounded.Search, "Căutare", tint = glassWhite)
                 }
             }
@@ -639,8 +638,13 @@ internal fun UnifiedLibraryScreen(
             }) { Text("Șterge") } },
             dismissButton = { TextButton(onClick = { deletingRow = null }) { Text("Anulează") } })
     }
-    if (showAiInfo) AlertDialog(onDismissRequest = { showAiInfo = false },
-        title = { Text("Nadia AI") },
-        text = { Text("Nadia AI rămâne disponibilă în cititorul de documente. Deschide un curs și selectează informația pe care vrei să o explici. Căutarea globală AI va fi integrată separat.") },
-        confirmButton = { TextButton(onClick = { showAiInfo = false }) { Text("Am înțeles") } })
+    if (showSearch) {
+        NadiaGlobalSearch(
+            store = store,
+            documents = documents,
+            onDismiss = { showSearch = false },
+            onOpenDocument = onOpenDocument,
+            onOpenNote = onOpenNote
+        )
+    }
 }
