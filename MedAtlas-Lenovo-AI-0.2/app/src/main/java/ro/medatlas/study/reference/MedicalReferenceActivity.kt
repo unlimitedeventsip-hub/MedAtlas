@@ -116,6 +116,12 @@ class MedicalReferenceActivity : ComponentActivity() {
                 if (selected < 0) {
                     LazyColumn(Modifier.fillMaxSize().padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        item {
+                            val uri = androidx.compose.ui.platform.LocalUriHandler.current
+                            OutlinedButton(onClick = {
+                                uri.openUri("https://www.usmle.org/exam-resources/step-1-materials/step-1-sample-test-questions")
+                            }) { Text("Grile oficiale USMLE · online, în engleză") }
+                        }
                         items(topics.indices.toList()) { index ->
                             Card(onClick = { selected = index }, modifier = Modifier.fillMaxWidth()) {
                                 Row(Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {

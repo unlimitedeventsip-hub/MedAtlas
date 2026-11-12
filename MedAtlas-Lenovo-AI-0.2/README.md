@@ -1,4 +1,4 @@
-# MedAtlas Nadia — Android Beta 0.6
+# MedAtlas Nadia — Android Beta 0.7
 
 Aplicație de studiu medical pentru tableta Lenovo, construită cu Kotlin + Jetpack Compose. Aplicația este un prototip educațional, **nu un dispozitiv medical**. Codul este în subfolderul `MedAtlas-Lenovo-AI-0.2/`; istoricul folderului a fost păstrat pentru compatibilitatea workflow-ului.
 
@@ -13,10 +13,10 @@ Aplicație de studiu medical pentru tableta Lenovo, construită cu Kotlin + Jetp
 - Import imagine cu decupare dreptunghiulară; atlas cu căutare externă după termeni.
 - Nadia AI: partajare către ChatGPT Plus; client pentru backend OpenAI (backend neconfigurat implicit).
 - Carnet de curs pe materii: note căutabile și editabile, asociere cu documente, desen cu pen-ul păstrat ca imagine, dictare vocală prin serviciul Android și OCR opțional pentru manuscris.
-- Studiu: flashcarduri cu repetare spațiată; Spital Virtual cu 6 cazuri fictive interactive și voce TTS.
-- Laborator medical: fișe introductive și quiz-uri pentru ECG, radiografie, CT, monitor, instrumente și farmacologie.
+- Studiu: flashcarduri cu repetare spațiată; Spital Virtual cu 6 cazuri acute și 94 de pacienți ambulatorii fictivi în 10 profiluri. Fiecare are fișe salvate local pentru consultație, ziua 7 și luna 3. Răspunsul la grilă are corectare automată; textul liber se compară cu explicația și conduita de referință.
+- Laborator medical: 12 buletine fictive cu întrebări de interpretare și explicații, plus fișe introductive și quiz-uri pentru ECG, radiografie, CT, monitor, instrumente și farmacologie.
 - Anatomie 3D: fereastră cu atlase *externe* și posibilitatea de a le deschide în browser; modelele NU sunt incluse offline.
-- Enciclopedia organelor: index filtrabil și căutabil cu structuri din 11 sisteme, funcții introductive pentru unele structuri, exemple de investigații și linkuri către OpenStax Anatomy & Physiology 2e. Fișele complexe de histologie/vascularizație/inervație/patologie/tratament sunt marcate ca necompletate până la verificare; **nu este un atlas clinic complet**.
+- Enciclopedia organelor: index filtrabil și căutabil cu structuri din 11 sisteme, localizare și funcție pentru fiecare dintre cele 199 de structuri distincte, exemple de investigații unde sunt disponibile și acces la manualul OpenStax.
 - Classroom: activitate Android separată, OAuth Google, sincronizare cursuri/materiale/teme, import opțional PDF/DOCX/PPTX din Drive cu limite de mărime. Necesită configurarea Google Cloud, client OAuth Android, SHA-1 stabil și permisiuni; vezi `CLASSROOM-CONFIGURARE.md`.
 - Backup/restore ZIP local și export PDF adnotat.
 
@@ -41,3 +41,18 @@ GitHub → Actions → `Build MedAtlas Android APK` → ultimele builduri verzi 
 
 Citește `INSTALARE-WINDOWS.md`, `CLASSROOM-CONFIGURARE.md` și `backend/README.md`.
 Nu include niciodată `OPENAI_API_KEY`, parole sau fișiere `.jks` în repository. Pentru un APK semnat stabil, folosește GitHub Secrets.
+
+
+## Continuarea dezvoltării
+
+- [ ] Verificare editorială medicală pentru cazuri, grile și conținut anatomic.
+- [ ] Extindere la investigații și traiectorii dependente de deciziile studentului. Evoluțiile actuale sunt scenarii prestabilite.
+- [ ] Validare pe tableta Lenovo: tastatură, rotație, TTS, reluare după închiderea aplicației și actualizare peste versiunea instalată.
+- [ ] Extinderea atlasului cu histologie, vascularizație, inervație și ilustrații documentate pentru fiecare structură.
+- [ ] Testarea Classroom pe contul destinat, cu aplicația semnată și OAuth configurat.
+- [ ] Animația personalizată pentru Nadia și verificarea celorlalte cerințe de prezentare pe dispozitiv.
+
+### Resurse pentru studiu
+
+Grilele offline sunt exerciții originale. Laboratorul include acces online la [exemplele oficiale USMLE](https://www.usmle.org/exam-resources/step-1-materials/step-1-sample-test-questions).
+Pentru aprofundare: [feritină](https://medlineplus.gov/lab-tests/ferritin-blood-test/), [HbA1c](https://medlineplus.gov/lab-tests/hemoglobin-a1c-hba1c-test/) și [anatomie renală microscopică](https://openstax.org/books/anatomy-and-physiology-2e/pages/25-4-microscopic-anatomy-of-the-kidney).

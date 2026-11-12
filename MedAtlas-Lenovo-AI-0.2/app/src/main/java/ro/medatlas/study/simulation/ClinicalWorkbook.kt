@@ -33,7 +33,7 @@ internal fun loadPatientCases(context: Context): List<ClinicalSimulatorActivity.
             listOf(profile.getValue("test") to profile.getValue("result"), profile.getValue("secondTest") to profile.getValue("secondResult")),
             options, correct, profile.getValue("plan"),
             listOf(profile.getValue("result"), profile.getValue("secondResult")).joinToString(" "),
-            profile.getValue("day7"), profile.getValue("month3")
+            profile.getValue("day7"), profile.getValue("month3") + "\n\n" + patient.getValue("evolution")
         )
     }
 }

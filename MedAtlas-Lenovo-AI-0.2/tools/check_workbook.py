@@ -22,6 +22,7 @@ organs = table("atlas-details.tsv")
 ids = unique(patients, "id")
 unique(patients, "complaint")
 unique(patients, "history")
+unique(patients, "evolution")
 profile_ids = unique(profiles, "id")
 assert {p["profile"] for p in patients} == profile_ids
 for p in profiles:

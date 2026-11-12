@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -166,7 +167,11 @@ class ClinicalSimulatorActivity : ComponentActivity() {
                     }
                 } else {
                     val c = current
-                    LazyColumn(Modifier.fillMaxSize().padding(horizontal = 14.dp),
+                    fun choose(index: Int) {
+                        diagnosis = index
+                        prefs.edit().putInt("$currentId.choice", index).apply()
+                    }
+                    LazyColumn(Modifier.testTag("case-details").fillMaxSize().padding(horizontal = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                         contentPadding = PaddingValues(bottom = 30.dp)) {
                         item {
@@ -213,9 +218,9 @@ class ClinicalSimulatorActivity : ComponentActivity() {
                             VisitWorkbook(this@ClinicalSimulatorActivity, c, therapyShown)
                             Text("Verificare prin grilă", fontWeight = FontWeight.Bold)
                             c.diagnoses.forEachIndexed { i, option ->
-                                Row(Modifier.fillMaxWidth().clickable { diagnosis = i; prefs.edit().putInt("$currentId.choice", i).apply() }.padding(8.dp),
+                                Row(Modifier.fillMaxWidth().clickable { choose(i) }.padding(8.dp),
                                     verticalAlignment = Alignment.CenterVertically) {
-                                    RadioButton(selected = diagnosis == i, onClick = { diagnosis = i; prefs.edit().putInt("$currentId.choice", i).apply() })
+                                    RadioButton(selected = diagnosis == i, onClick = { choose(i) })
                                     Text(option)
                                 }
                             }
