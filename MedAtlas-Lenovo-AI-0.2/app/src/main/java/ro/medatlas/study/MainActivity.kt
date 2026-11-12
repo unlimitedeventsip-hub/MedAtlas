@@ -73,6 +73,7 @@ import ro.medatlas.study.ui.PremiumIntro
 import ro.medatlas.study.pdf.AnnotatedPdfExporter
 import ro.medatlas.study.ai.AiClient
 import ro.medatlas.study.classroom.ClassroomActivity
+import ro.medatlas.study.classroom.ClassroomSync
 import ro.medatlas.study.books.MedicalBooksActivity
 import ro.medatlas.study.simulation.ClinicalSimulatorActivity
 import ro.medatlas.study.simulation.ExamSimulatorActivity
@@ -95,6 +96,9 @@ private val PaleRose = Color(0xFFFFEFF2)
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // One non-blocking, silent sync at every app launch when Classroom was
+        // already authorized. Never opens a Google login prompt automatically.
+        ClassroomSync.refreshOnAppOpen(applicationContext)
         window.statusBarColor = android.graphics.Color.rgb(12, 29, 52)
         window.navigationBarColor = android.graphics.Color.rgb(12, 29, 52)
         @Suppress("DEPRECATION")
