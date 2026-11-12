@@ -62,11 +62,13 @@ data class StudyDocument(
 
 data class StudyNote(
     val id: String = UUID.randomUUID().toString(), val documentId: String,
-    val page: Int, val heading: String, val body: String, val createdAt: Long = System.currentTimeMillis()
+    val page: Int, val heading: String, val body: String, val createdAt: Long = System.currentTimeMillis(),
+    val course: String = "", val handwritingFile: String = "", val updatedAt: Long = createdAt
 ) {
-    fun json() = JSONObject().apply { put("id", id); put("documentId", documentId); put("page", page); put("heading", heading); put("body", body); put("createdAt", createdAt) }
+    fun json() = JSONObject().apply { put("id", id); put("documentId", documentId); put("page", page); put("heading", heading); put("body", body); put("createdAt", createdAt); put("course", course); put("handwritingFile", handwritingFile); put("updatedAt", updatedAt) }
     companion object {
-        fun parse(o: JSONObject) = StudyNote(o.getString("id"), o.getString("documentId"), o.optInt("page"), o.optString("heading"), o.optString("body"), o.optLong("createdAt"))
+        fun parse(o: JSONObject) = StudyNote(o.getString("id"), o.getString("documentId"), o.optInt("page"), o.optString("heading"), o.optString("body"), o.optLong("createdAt"),
+        o.optString("course"), o.optString("handwritingFile"), o.optLong("updatedAt", o.optLong("createdAt")))
     }
 }
 
