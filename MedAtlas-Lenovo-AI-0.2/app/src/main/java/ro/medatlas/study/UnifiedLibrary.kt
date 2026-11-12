@@ -222,7 +222,7 @@ internal fun UnifiedLibraryScreen(
     var nameInput by remember { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
     var showDrive by remember { mutableStateOf(false) }
-    val folders = remember(revision) { organization.allFolders() }
+    val folders = remember(revision, refreshKey) { organization.allFolders() }
     val notes = remember(revision, refreshKey, documents.size) { store.notes() }
     val query = search.trim()
     val indexedHits by produceState(emptySet<String>(), query, documents.toList()) {
