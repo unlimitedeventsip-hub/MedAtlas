@@ -1201,6 +1201,23 @@ private fun NoteDialog(store: LibraryStore, doc: StudyDocument, page: Int, onDis
 private fun NotesScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: (StudyDocument) -> Unit) {
     val context = LocalContext.current
     var refresh by remember { mutableIntStateOf(0) }
+    LaunchedEffect(docs.size) {
+        val original = store.notes()
+        var changed = false
+        val migrated = original.map { note ->
+            if (note.course.isBlank()) {
+                val match = docs.firstOrNull { it.id == note.documentId }
+                if (match != null) {
+                    changed = true
+                    note.copy(course = match.course.ifBlank { "General" })
+                } else note
+            } else note
+        }
+        if (changed) {
+            store.saveNotes(migrated)
+            refresh++
+        }
+    }
     val notes = remember(refresh) { store.notes().sortedByDescending { it.updatedAt } }
     val courses = (listOf("General") + docs.map { it.course } + notes.map { it.course })
         .map { it.ifBlank { "General" } }.distinct().sorted()
