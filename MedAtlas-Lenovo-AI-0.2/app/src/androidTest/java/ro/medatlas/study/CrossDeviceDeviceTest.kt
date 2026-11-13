@@ -14,6 +14,7 @@ import org.junit.runner.RunWith
 import ro.medatlas.study.data.LibraryStore
 import ro.medatlas.study.data.PortableNotes
 import ro.medatlas.study.data.StudyNote
+import ro.medatlas.study.data.StudyDocument
 import ro.medatlas.study.data.Stroke
 import ro.medatlas.study.data.InkPoint
 import ro.medatlas.study.data.Tool
@@ -112,6 +113,32 @@ class CrossDeviceDeviceTest {
             }
             file.delete()
         }
+    }
+
+    @Test fun scannedQrCanBeSearchedWithItsOriginalPdfPage() {
+        val id = UUID.randomUUID().toString()
+        val doc = StudyDocument(
+            id = id,
+            title = "Curs pneumologie",
+            originalName = "curs.pdf",
+            kind = "PDF",
+            localName = "$id.pdf",
+            importedAt = System.currentTimeMillis()
+        )
+        val qrValue = "https://example.org/medatlas/ref/$id"
+        val report = SmartScanReport(
+            text = "Materiale respiratorii",
+            lines = emptyList(),
+            codes = listOf(ScanCode("QR", qrValue, null))
+        )
+        val index = File(context.filesDir, "medatlas/ocr/${id}_2.layout.json")
+        try {
+            SmartDocumentScanner.save(context, id, 2, report)
+            assertTrue(store.containsIndexedText(doc, qrValue))
+            val evidence = store.searchEvidenceHit(doc, qrValue)
+            assertEquals(2, evidence?.page)
+            assertTrue(evidence?.excerpt?.contains(qrValue) == true)
+        } finally { index.delete() }
     }
 
     @Test fun invalidPortablePayloadCannotChangeExistingNotes() {
