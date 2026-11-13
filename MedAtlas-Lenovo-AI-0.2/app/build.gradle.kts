@@ -68,6 +68,8 @@ dependencies {
     implementation("androidx.documentfile:documentfile:1.0.1")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // Bundled offline model: QR, Data Matrix and common textbook barcodes.
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.google.mlkit:digital-ink-recognition:19.0.0")
     implementation("com.google.android.gms:play-services-auth:21.3.0")
 }
