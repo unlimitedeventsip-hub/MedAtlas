@@ -14,6 +14,9 @@ import org.junit.runner.RunWith
 import ro.medatlas.study.data.LibraryStore
 import ro.medatlas.study.data.PortableNotes
 import ro.medatlas.study.data.StudyNote
+import ro.medatlas.study.data.Stroke
+import ro.medatlas.study.data.InkPoint
+import ro.medatlas.study.data.Tool
 import java.io.File
 import java.util.UUID
 
@@ -69,6 +72,44 @@ class CrossDeviceDeviceTest {
             assertEquals(1, notes.count { it.body == "Versiunea laptop" })
         } finally {
             store.saveNotes(before)
+            file.delete()
+        }
+    }
+
+    @Test fun vectorHandwritingTransfersWithoutOverwritingExistingInk() {
+        val before = store.notes()
+        val id = UUID.randomUUID().toString()
+        val local = StudyNote(
+            id = id, documentId = "medical-notebook", page = 0,
+            heading = "Anatomie", body = "Versiune tabletă"
+        )
+        val ink = Stroke(
+            tool = Tool.PENCIL, width = 2f,
+            points = listOf(InkPoint(.1f, .2f, .4f), InkPoint(.9f, .8f, .8f))
+        )
+        store.saveNotes(before + local)
+        val document = local.copy(body = "Versiune laptop").json().apply {
+            put("strokes", JSONArray().put(ink.json()))
+        }
+        val file = File.createTempFile("medatlas-ink-transfer-", ".json", context.cacheDir)
+        file.writeText(JSONArray().put(document).toString())
+        var duplicateId: String? = null
+        try {
+            val result = PortableNotes.import(context, store, Uri.fromFile(file))
+            assertEquals(1, result.copiedConflicts)
+            assertEquals("Versiune tabletă", store.notes().single { it.id == id }.body)
+            val copy = store.notes().single { it.body == "Versiune laptop" }
+            duplicateId = copy.id
+            val key = "notebook-" + UUID.nameUUIDFromBytes(
+                copy.id.toByteArray(Charsets.UTF_8))
+            assertEquals(listOf(ink), store.ink(key, 0))
+        } finally {
+            store.saveNotes(before)
+            duplicateId?.let { newId ->
+                val key = "notebook-" + UUID.nameUUIDFromBytes(
+                    newId.toByteArray(Charsets.UTF_8))
+                store.saveInk(key, 0, emptyList())
+            }
             file.delete()
         }
     }
