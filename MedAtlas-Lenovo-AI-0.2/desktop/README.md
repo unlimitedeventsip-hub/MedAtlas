@@ -6,14 +6,16 @@ originale MedAtlas, nu cod sau elemente copiate din Nebo.
 
 ## Lansare pe Windows, macOS sau Linux
 
-1. Deschide terminalul în folderul `desktop`.
-2. Pornește un server static local: `python -m http.server 8765`
-   (pe Windows funcționează și `py -m http.server 8765`).
-3. Deschide `http://localhost:8765` în Microsoft Edge sau Chrome.
+1. Instalează Python 3 dacă nu este disponibil pe laptop.
+2. Pe **Windows**, deschide prin dublu clic `START-MEDATLAS-WINDOWS.bat`.
+   Pe **macOS/Linux**, în folderul `desktop`, rulează `sh start-medatlas.sh`.
+   Alternativ: `python3 -m http.server 8765 --bind 127.0.0.1`.
+3. Deschide `http://127.0.0.1:8765` în Microsoft Edge sau Chrome.
 4. În browser alege **Install this site as an app** / **Instalează aplicația**
    dacă opțiunea este disponibilă. Altfel, funcționează normal într-o filă.
 5. După prima încărcare, fișierele aplicației sunt memorate prin service worker.
    Documentele și notițele sunt stocate local în IndexedDB, în acel browser.
+6. Exportă periodic notițele în JSON. Browserul nu este un backup permanent.
 
 **Nu folosi `file://`** pentru a deschide direct `index.html`: service worker
 și unele funcții PWA necesită `localhost` sau HTTPS.
