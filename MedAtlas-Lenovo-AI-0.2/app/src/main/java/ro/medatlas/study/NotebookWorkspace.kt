@@ -499,6 +499,7 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
     var color by rememberSaveable { mutableStateOf(if (dark) "Fildeș" else "Grafit") }
     var width by rememberSaveable { mutableIntStateOf(2) }
     var showTextPanel by rememberSaveable { mutableStateOf(original.paper != "BLANK" && original.body.isNotBlank()) }
+    var showPageOptions by rememberSaveable { mutableStateOf(false) }
     var delete by rememberSaveable { mutableStateOf(false) }
     var strokes by remember { mutableStateOf(store.ink(inkId(original.id), 0)) }
     var recognition by remember { mutableStateOf<List<Stroke>?>(null) }
@@ -513,6 +514,11 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             TextButton(onClick = { flush(); onBack() }) { Text("‹ Pagini") }
             OutlinedTextField(title, { title = it }, Modifier.weight(1f), singleLine = true, label = { Text("Titlul paginii") })
             if (position > 1) TextButton(onClick = { flush(); onPrevious() }) { Text("‹") }
+            Text(if (title != saved.heading || body != saved.body ||
+                paper != saved.paper || dark != saved.darkPaper) "Se salvează…"
+                else "Salvat", style = MaterialTheme.typography.labelSmall,
+                color = if (title != saved.heading || body != saved.body)
+                    Color(0xFFB16C2D) else Color(0xFF557B6B))
             Text("$position / $count", style = MaterialTheme.typography.labelSmall)
             TextButton(onClick = { flush(); onNext() }) { Text(if (position == count) "+ Pagină" else "Următoarea ›") }
         }
@@ -527,20 +533,30 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             onUndo = { view?.undo() },
             onRedo = { view?.redo() }
         )
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        // Keep the three frequent actions visible. Rare tools, page reorder,
+        // deletion and layout switches are tucked away until requested.
+        Row(Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             TextButton(enabled = bitmap != null && (original.handwritingFile.isNotBlank() ||
                 strokes.any { it.tool in listOf(Tool.PEN, Tool.PENCIL, Tool.BRUSH) }), onClick = {
                 recognition = (view?.selectedInk() ?: strokes).filter {
                     it.tool in listOf(Tool.PEN, Tool.PENCIL, Tool.BRUSH)
                 }
             }) { Text("Transcrie") }
-            Choice("Forme și opțiuni", advancedTools.values.toList()) {
-                tool = advancedTools.keys.elementAt(it)
-            }
             TextButton(onClick = { showTextPanel = !showTextPanel }) {
                 Text(if (showTextPanel) "Foaie liberă" else "+ Text")
             }
             TextButton(onClick = { photoPicker.launch("image/*") }) { Text("+ Imagine") }
+            TextButton(onClick = { showPageOptions = !showPageOptions }) {
+                Text(if (showPageOptions) "Mai puține opțiuni" else "Mai multe opțiuni")
+            }
+        }
+        if (showPageOptions) {
+            Row(Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Choice("Forme și opțiuni", advancedTools.values.toList()) {
+                tool = advancedTools.keys.elementAt(it)
+            }
             if (tool == Tool.STICKER) {
                 TextButton(onClick = { view?.increaseStickerSize(-.04f) }) { Text("Imagine −") }
                 TextButton(onClick = { view?.increaseStickerSize(.04f) }) { Text("Imagine +") }
@@ -572,6 +588,7 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
             if (position < count) TextButton(onClick = { flush(); move(1) }) { Text("Mută mai târziu") }
             document?.let { TextButton(onClick = { flush(); onOpen(it) }) { Text("Curs asociat") } }
             TextButton(onClick = { delete = true }) { Text("Șterge pagina") }
+            }
         }
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val ink: @Composable (Modifier) -> Unit = { modifier ->
