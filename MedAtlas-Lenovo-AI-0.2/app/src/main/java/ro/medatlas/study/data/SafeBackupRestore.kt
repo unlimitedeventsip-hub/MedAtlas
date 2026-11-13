@@ -118,9 +118,33 @@ internal object SafeBackupRestore {
             }) { "Acest fișier nu este o arhivă MedAtlas validă." }
 
             // Corrupted core metadata must not poison the app's local library.
+            // A ZIP entry can have a safe path while its JSON points to ../
+            // outside the MedAtlas folder. Reject such references BEFORE commit.
             for (filename in listOf("documents.json", "notes.json", "boards.json", "cards.json")) {
                 val file = File(staging, filename)
-                if (file.exists()) JSONArray(file.readText())
+                if (!file.exists()) continue
+                require(file.length() <= 32L * 1024 * 1024) {
+                    "Metadatele din $filename sunt prea mari."
+                }
+                val rows = JSONArray(file.readText())
+                for (i in 0 until rows.length()) {
+                    val row = rows.getJSONObject(i)
+                    SafeStorageNames.id(row.getString("id"))
+                    when (filename) {
+                        "documents.json" -> {
+                            val local = SafeStorageNames.documentFilename(row.getString("localName"))
+                            val kind = row.getString("kind").lowercase(java.util.Locale.ROOT)
+                            require(kind in setOf("pdf", "ppt", "pptx", "docx") &&
+                                local.endsWith(".$kind", ignoreCase = true)) {
+                                "Documentul din backup are un tip de fișier nevalid."
+                            }
+                        }
+                        "notes.json", "cards.json", "boards.json" -> {
+                            val documentId = row.optString("documentId")
+                            if (documentId.isNotBlank()) SafeStorageNames.id(documentId)
+                        }
+                    }
+                }
             }
             val organization = File(staging, "organization.json")
             if (organization.exists()) {

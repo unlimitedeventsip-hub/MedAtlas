@@ -115,7 +115,7 @@ jobs:
           MEDATLAS_KEY_PASSWORD: ${{ secrets.MEDATLAS_KEY_PASSWORD }}
 
       # Publish a usable v2 APK only after the instrumentation suite passes.
-      - name: Build MedAtlas v2 signed release APK
+      - name: Build MedAtlas v2.0.1 signed release APK
         env:
           MEDATLAS_STORE_PASSWORD: ${{ secrets.MEDATLAS_STORE_PASSWORD }}
           MEDATLAS_KEY_ALIAS: ${{ secrets.MEDATLAS_KEY_ALIAS }}
@@ -133,18 +133,18 @@ jobs:
           package_info=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | head -n 1)
           printf '%s\n' "$package_info"
           printf '%s\n' "$package_info" | grep -F "name='ro.medatlas.study'"
-          printf '%s\n' "$package_info" | grep -F "versionCode='20'"
-          printf '%s\n' "$package_info" | grep -F "versionName='2.0.0'"
-          cp "$apk" app/build/outputs/apk/release/MedAtlas-v2.0.0.apk
+          printf '%s\n' "$package_info" | grep -F "versionCode='21'"
+          printf '%s\n' "$package_info" | grep -F "versionName='2.0.1'"
+          cp "$apk" app/build/outputs/apk/release/MedAtlas-v2.0.1.apk
           cd app/build/outputs/apk/release
-          sha256sum MedAtlas-v2.0.0.apk > SHA256SUMS.txt
+          sha256sum MedAtlas-v2.0.1.apk > SHA256SUMS.txt
 
       - name: Upload tested MedAtlas v2 signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: MedAtlas-v2.0.0-signed-release
+          name: MedAtlas-v2.0.1-signed-release
           path: |
-            MedAtlas-Lenovo-AI-0.2/app/build/outputs/apk/release/MedAtlas-v2.0.0.apk
+            MedAtlas-Lenovo-AI-0.2/app/build/outputs/apk/release/MedAtlas-v2.0.1.apk
             MedAtlas-Lenovo-AI-0.2/app/build/outputs/apk/release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 90

@@ -25,13 +25,11 @@ class LibraryStore(private val context: Context) {
         val safe = existing.takeIf { it.matches(Regex("[0-9a-f-]{36}\\.png")) }
             ?: (UUID.randomUUID().toString() + ".png")
         val destination = File(notebookPagesDir, safe)
-        val temp = File(notebookPagesDir, safe + ".tmp")
-        temp.outputStream().use { out ->
+        AtomicLocalFiles.write(destination) { out ->
             require(bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)) {
                 "Nu am putut salva pagina desenată"
             }
         }
-        if (!temp.renameTo(destination)) { temp.copyTo(destination, overwrite = true); temp.delete() }
         return safe
     }
     fun notebookDrawing(name: String): android.graphics.Bitmap? {
@@ -40,44 +38,41 @@ class LibraryStore(private val context: Context) {
     }
 
     fun textBoxes(documentId: String, page: Int): List<PageTextBox> {
-        val file = File(textBoxesDir, "${documentId}_${page}.json")
+        val file = File(textBoxesDir, "${SafeStorageNames.id(documentId)}_${page}.json")
         return runCatching {
-            val array = JSONArray(file.readText())
+            val array = JSONArray(AtomicLocalFiles.readText(file))
             (0 until array.length()).map { PageTextBox.parse(array.getJSONObject(it)) }
         }.getOrDefault(emptyList())
     }
     fun saveTextBoxes(documentId: String, page: Int, boxes: List<PageTextBox>) {
-        val target = File(textBoxesDir, "${documentId}_${page}.json")
-        val temp = File(textBoxesDir, "${documentId}_${page}.tmp")
-        temp.writeText(JSONArray().apply { boxes.forEach { put(it.json()) } }.toString())
-        if (!temp.renameTo(target)) { temp.copyTo(target, overwrite = true); temp.delete() }
+        val target = File(textBoxesDir, "${SafeStorageNames.id(documentId)}_${page}.json")
+        AtomicLocalFiles.writeText(target,
+            JSONArray().apply { boxes.forEach { put(it.json()) } }.toString())
     }
 
     fun comments(documentId: String, page: Int): List<PageComment> {
-        val file = File(commentsDir, "${documentId}_${page}.json")
+        val file = File(commentsDir, "${SafeStorageNames.id(documentId)}_${page}.json")
         return runCatching {
-            val array = JSONArray(file.readText())
+            val array = JSONArray(AtomicLocalFiles.readText(file))
             (0 until array.length()).map { PageComment.parse(array.getJSONObject(it)) }
         }.getOrDefault(emptyList())
     }
     fun saveComments(documentId: String, page: Int, comments: List<PageComment>) {
-        val file = File(commentsDir, "${documentId}_${page}.json")
-        val temp = File(commentsDir, "${documentId}_${page}.tmp")
-        temp.writeText(JSONArray().apply { comments.forEach { put(it.json()) } }.toString())
-        if (!temp.renameTo(file)) { temp.copyTo(file, overwrite = true); temp.delete() }
+        val file = File(commentsDir, "${SafeStorageNames.id(documentId)}_${page}.json")
+        AtomicLocalFiles.writeText(file,
+            JSONArray().apply { comments.forEach { put(it.json()) } }.toString())
     }
 
 
     private fun <T> loadArray(name: String, parse: (JSONObject) -> T): List<T> = runCatching {
-        val arr = JSONArray(File(root, name).readText())
+        val arr = JSONArray(AtomicLocalFiles.readText(File(root, name)))
         (0 until arr.length()).map { parse(arr.getJSONObject(it)) }
     }.getOrDefault(emptyList())
 
     private fun saveArray(name: String, objects: List<JSONObject>) {
         val target = File(root, name)
-        val temp = File(root, "$name.tmp")
-        temp.writeText(JSONArray().apply { objects.forEach { put(it) } }.toString())
-        if (!temp.renameTo(target)) { temp.copyTo(target, overwrite = true); temp.delete() }
+        AtomicLocalFiles.writeText(target,
+            JSONArray().apply { objects.forEach { put(it) } }.toString())
     }
 
     /** Full local backup for migrations and reinstallations; exported only by explicit user action. */
@@ -88,7 +83,13 @@ class LibraryStore(private val context: Context) {
                 zip.putNextEntry(java.util.zip.ZipEntry("clinical-workbook-v1.json"))
                 zip.write(ClinicalBackup(context).encode().toByteArray(Charsets.UTF_8))
                 zip.closeEntry()
-                root.walkTopDown().filter { it.isFile && !it.name.endsWith(".tmp") && it.relativeTo(root).path != "clinical-workbook-v1.json" }.forEach { file ->
+                root.walkTopDown().filter {
+                    it.isFile &&
+                        !it.name.endsWith(".tmp") &&
+                        !it.name.endsWith(".new") &&
+                        !it.name.endsWith(".bak") &&
+                        it.relativeTo(root).path != "clinical-workbook-v1.json"
+                }.forEach { file ->
                     val relative = file.relativeTo(root).invariantSeparatorsPath
                     zip.putNextEntry(java.util.zip.ZipEntry(relative))
                     file.inputStream().use { it.copyTo(zip) }
@@ -111,26 +112,26 @@ class LibraryStore(private val context: Context) {
     fun saveNotes(items: List<StudyNote>) = saveArray("notes.json", items.map { it.json() })
     fun saveCards(items: List<Flashcard>) = saveArray("cards.json", items.map { it.json() })
     fun saveDocuments(items: List<StudyDocument>) = saveArray("documents.json", items.map { it.json() })
-    fun fileOf(doc: StudyDocument) = File(docsDir, doc.localName)
+    fun fileOf(doc: StudyDocument) = File(docsDir,
+        SafeStorageNames.documentFilename(doc.localName))
 
     fun ink(documentId: String, page: Int): List<Stroke> {
-        val f = File(inkDir, "${documentId}_$page.json")
+        val f = File(inkDir, "${SafeStorageNames.id(documentId)}_$page.json")
         return runCatching {
-            val array = JSONArray(f.readText())
+            val array = JSONArray(AtomicLocalFiles.readText(f))
             (0 until array.length()).map { Stroke.parse(array.getJSONObject(it)) }
         }.getOrDefault(emptyList())
     }
     fun saveInk(documentId: String, page: Int, strokes: List<Stroke>) {
-        val target = File(inkDir, "${documentId}_$page.json")
-        val temp = File(inkDir, "${documentId}_$page.tmp")
-        temp.writeText(JSONArray().apply { strokes.forEach { put(it.json()) } }.toString())
-        if (!temp.renameTo(target)) { temp.copyTo(target, overwrite = true); temp.delete() }
+        val target = File(inkDir, "${SafeStorageNames.id(documentId)}_$page.json")
+        AtomicLocalFiles.writeText(target,
+            JSONArray().apply { strokes.forEach { put(it.json()) } }.toString())
     }
 
     fun stickers(documentId: String, page: Int): List<PageSticker> {
-        val file = File(stickersDir, "${documentId}_$page.json")
+        val file = File(stickersDir, "${SafeStorageNames.id(documentId)}_$page.json")
         return runCatching {
-            val arr = JSONArray(file.readText())
+            val arr = JSONArray(AtomicLocalFiles.readText(file))
             (0 until arr.length()).map { PageSticker.parse(arr.getJSONObject(it)) }
         }.getOrDefault(emptyList())
     }
@@ -140,17 +141,16 @@ class LibraryStore(private val context: Context) {
         .filter { it.name.endsWith(".json") }
         .flatMap { file ->
             runCatching {
-                val a = JSONArray(file.readText())
+                val a = JSONArray(AtomicLocalFiles.readText(file))
                 (0 until a.length()).map { PageSticker.parse(a.getJSONObject(it)) }
             }.getOrDefault(emptyList())
         }.filter { it.sourceUrl.isNotBlank() || it.attribution.isNotBlank() }
         .distinctBy { it.sourceUrl.ifBlank { it.imageName } }
 
     fun saveStickers(documentId: String, page: Int, items: List<PageSticker>) {
-        val file = File(stickersDir, "${documentId}_$page.json")
-        val temp = File(stickersDir, "${documentId}_$page.tmp")
-        temp.writeText(JSONArray().apply { items.forEach { put(it.json()) } }.toString())
-        if (!temp.renameTo(file)) { temp.copyTo(file, overwrite = true); temp.delete() }
+        val file = File(stickersDir, "${SafeStorageNames.id(documentId)}_$page.json")
+        AtomicLocalFiles.writeText(file,
+            JSONArray().apply { items.forEach { put(it.json()) } }.toString())
     }
 
     fun importSticker(uri: Uri): String {
@@ -184,13 +184,16 @@ class LibraryStore(private val context: Context) {
     }
 
     fun stickerBitmap(name: String): android.graphics.Bitmap? = runCatching {
+        require(name.matches(Regex("[A-Za-z0-9_-]{1,120}\\.png"))) {
+            "Nume de imagine nesigur"
+        }
         android.graphics.BitmapFactory.decodeFile(File(stickersDir, name).absolutePath)
     }.getOrNull()
 
     fun removeDocument(documentId: String) {
         val doc = documents().firstOrNull { it.id == documentId } ?: return
         fileOf(doc).delete()
-        File(docsDir, "${doc.id}.txt").delete()
+        File(docsDir, "${SafeStorageNames.id(doc.id)}.txt").delete()
         inkDir.listFiles()?.filter { it.name.startsWith("${doc.id}_") }?.forEach { it.delete() }
         ocrDir.listFiles()?.filter { it.name.startsWith("${doc.id}_") }?.forEach { it.delete() }
         commentsDir.listFiles()?.filter { it.name.startsWith("${doc.id}_") }?.forEach { it.delete() }
@@ -234,22 +237,18 @@ class LibraryStore(private val context: Context) {
         }
     }
 
-    fun extractedText(documentId: String): String = runCatching { File(docsDir, "$documentId.txt").readText() }.getOrDefault("")
+    fun extractedText(documentId: String): String = runCatching { AtomicLocalFiles.readText(File(docsDir, "${SafeStorageNames.id(documentId)}.txt")) }.getOrDefault("")
     fun saveExtractedText(documentId: String, text: String) {
-        val file = File(docsDir, "$documentId.txt")
-        val temp = File(docsDir, "$documentId.txt.tmp")
-        temp.writeText(text)
-        if (!temp.renameTo(file)) { temp.copyTo(file, overwrite = true); temp.delete() }
+        val file = File(docsDir, "${SafeStorageNames.id(documentId)}.txt")
+        AtomicLocalFiles.writeText(file, text)
     }
 
     fun savePageText(documentId: String, page: Int, text: String) {
-        val dest = File(ocrDir, "${documentId}_${page}.txt")
-        val tmp = File(ocrDir, "${documentId}_${page}.tmp")
-        tmp.writeText(text)
-        if (!tmp.renameTo(dest)) { tmp.copyTo(dest, overwrite = true); tmp.delete() }
+        val dest = File(ocrDir, "${SafeStorageNames.id(documentId)}_${page}.txt")
+        AtomicLocalFiles.writeText(dest, text)
     }
     fun pageText(documentId: String, page: Int): String = runCatching {
-        File(ocrDir, "${documentId}_${page}.txt").readText()
+        AtomicLocalFiles.readText(File(ocrDir, "${SafeStorageNames.id(documentId)}_${page}.txt"))
     }.getOrDefault("")
     /**
      * Search OCR page text without concatenating an entire medical textbook into memory.
@@ -259,7 +258,7 @@ class LibraryStore(private val context: Context) {
         val keyword = phrase.trim()
         if (keyword.isBlank()) return false
         return if (doc.kind != "PDF") {
-            val source = File(docsDir, "${doc.id}.txt")
+            val source = File(docsDir, "${SafeStorageNames.id(doc.id)}.txt")
             source.isFile && runCatching {
                 source.bufferedReader().useLines { lines ->
                     lines.any { it.contains(keyword, ignoreCase = true) }
@@ -287,7 +286,7 @@ class LibraryStore(private val context: Context) {
         val sources = if (doc.kind == "PDF") {
             ocrDir.listFiles { f -> f.isFile && f.name.startsWith("${doc.id}_") && f.name.endsWith(".txt") }
                 .orEmpty().sortedBy { it.name.substringAfter("${doc.id}_").substringBefore('.').toIntOrNull() ?: 0 }
-        } else listOf(File(docsDir, "${doc.id}.txt"))
+        } else listOf(File(docsDir, "${SafeStorageNames.id(doc.id)}.txt"))
         for (source in sources) {
             if (!source.isFile) continue
             val snippet = runCatching {

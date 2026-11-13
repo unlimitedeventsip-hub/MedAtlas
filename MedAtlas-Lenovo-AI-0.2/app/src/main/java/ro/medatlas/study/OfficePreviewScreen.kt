@@ -363,23 +363,39 @@ internal fun OfficePreviewScreen(
             contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = Color(0xFF64A6FD))
         } else {
-            AndroidView(factory = { context ->
-                @SuppressLint("SetJavaScriptEnabled")
-                WebView(context).apply {
-                    settings.javaScriptEnabled = false
-                    settings.allowFileAccess = false
-                    settings.allowContentAccess = false
-                    settings.blockNetworkLoads = true
-                    settings.domStorageEnabled = false
-                    settings.setSupportZoom(true)
-                    settings.builtInZoomControls = true
-                    settings.displayZoomControls = false
-                    webViewClient = WebViewClient()
-                }
-            }, modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp),
+            // The WebView must not reload on every Compose recomposition:
+            // that would lose the reading position, zoom and selection in Word.
+            // Only navigating to a different slide/document changes the key.
+            val previewKey = document.id + ":" + page
+            AndroidView(
+                factory = { context ->
+                    @SuppressLint("SetJavaScriptEnabled")
+                    WebView(context).apply {
+                        settings.javaScriptEnabled = false
+                        settings.allowFileAccess = false
+                        settings.allowContentAccess = false
+                        settings.blockNetworkLoads = true
+                        settings.domStorageEnabled = false
+                        settings.setSupportZoom(true)
+                        settings.builtInZoomControls = true
+                        settings.displayZoomControls = false
+                        webViewClient = WebViewClient()
+                    }
+                },
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp),
+                onReset = null,
+                onRelease = { view ->
+                    view.stopLoading()
+                    view.loadUrl("about:blank")
+                    view.destroy()
+                },
                 update = { view ->
-                    view.loadDataWithBaseURL(null, current, "text/html", "UTF-8", null)
-                })
+                    if (view.tag != previewKey) {
+                        view.tag = previewKey
+                        view.loadDataWithBaseURL(null, current, "text/html", "UTF-8", null)
+                    }
+                }
+            )
         }
         if (preview?.slides == true && (preview?.pages?.size ?: 0) > 1) {
             Row(Modifier.fillMaxWidth().padding(10.dp),
