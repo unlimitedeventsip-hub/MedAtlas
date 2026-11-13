@@ -225,6 +225,7 @@ internal fun UnifiedLibraryScreen(
     var showSearch by remember { mutableStateOf(false) }
     var showDrive by remember { mutableStateOf(false) }
     var showPortableNotes by remember { mutableStateOf(false) }
+    var showPhoneActions by remember { mutableStateOf(false) }
     val folders = remember(revision, refreshKey) { organization.allFolders() }
     val notes = remember(revision, refreshKey, documents.size) { store.notes() }
     val query = search.trim()
@@ -318,15 +319,41 @@ internal fun UnifiedLibraryScreen(
                         Text("Nadia AI", color = glassWhite, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                     }
                 }
-                Spacer(Modifier.width(if (phoneProfile) 0.dp else 8.dp))
-                IconButton(onClick = { showDrive = true }) {
-                    Icon(Icons.Rounded.CloudUpload, "Google Drive și backup", tint = glassWhite)
-                }
-                IconButton(onClick = { showPortableNotes = true }) {
-                    Icon(Icons.Rounded.Sync, "Transferă notițe cu laptopul", tint = glassWhite)
-                }
-                IconButton(onClick = { showSearch = true }) {
-                    Icon(Icons.Rounded.Search, "Căutare", tint = glassWhite)
+                Spacer(Modifier.width(8.dp))
+                if (phoneProfile) {
+                    IconButton(onClick = { showSearch = true }) {
+                        Icon(Icons.Rounded.Search, "Caută în bibliotecă", tint = glassWhite)
+                    }
+                    Box {
+                        IconButton(onClick = { showPhoneActions = true }) {
+                            Icon(Icons.Rounded.MoreVert, "Mai multe acțiuni", tint = glassWhite)
+                        }
+                        DropdownMenu(
+                            expanded = showPhoneActions,
+                            onDismissRequest = { showPhoneActions = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Google Drive și backup") },
+                                leadingIcon = { Icon(Icons.Rounded.CloudUpload, null) },
+                                onClick = { showPhoneActions = false; showDrive = true }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Transferă notițe cu laptopul") },
+                                leadingIcon = { Icon(Icons.Rounded.Sync, null) },
+                                onClick = { showPhoneActions = false; showPortableNotes = true }
+                            )
+                        }
+                    }
+                } else {
+                    IconButton(onClick = { showDrive = true }) {
+                        Icon(Icons.Rounded.CloudUpload, "Google Drive și backup", tint = glassWhite)
+                    }
+                    IconButton(onClick = { showPortableNotes = true }) {
+                        Icon(Icons.Rounded.Sync, "Transferă notițe cu laptopul", tint = glassWhite)
+                    }
+                    IconButton(onClick = { showSearch = true }) {
+                        Icon(Icons.Rounded.Search, "Căutare", tint = glassWhite)
+                    }
                 }
             }
 
