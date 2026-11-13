@@ -40,7 +40,7 @@ internal fun PortableNotesDialog(
                 val count = withContext(Dispatchers.IO) {
                     PortableNotes.export(context, store, destination)
                 }
-                result = "$count notițe exportate. Transferul conține doar textul."
+                result = "$count notițe exportate. Transferul include text și trasee manuscrise vectoriale."
             } catch (exception: Exception) {
                 error = exception.localizedMessage ?: "Nu am putut exporta notițele."
             } finally { busy = false }
@@ -73,7 +73,7 @@ internal fun PortableNotesDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    "Transferă notițele text între MedAtlas Android și Companion " +
+                    "Transferă textul și scrisul cu stylus între MedAtlas Android și Companion " +
                         "pe laptop. Nu este sincronizare automată.",
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -95,7 +95,7 @@ internal fun PortableNotesDialog(
                 }
                 Text(
                     "Dacă o notiță diferă de cea existentă, se creează o copie. " +
-                        "Desenele și stickerele se transferă numai prin backupul complet.",
+                        "Imaginile raster și stickerele se transferă numai prin backupul complet.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
