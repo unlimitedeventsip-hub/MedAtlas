@@ -108,7 +108,15 @@ async function renderList() {
     list.append(button);
   }
 }
+function finishPendingInk() {
+  if (state.activeStroke?.points?.length) {
+    state.inkStrokes.push(state.activeStroke);
+  }
+  state.activeStroke = null;
+  state.activePointer = null;
+}
 function closeCurrent() {
+  if (state.selected?.kind === 'note') finishPendingInk();
   if (state.saveTimer) {
     clearTimeout(state.saveTimer);
     state.saveTimer = null;
@@ -135,8 +143,12 @@ async function createNote() {
   await openNote(note.id);
 }
 async function openNote(id) {
-  if (state.selected?.kind === 'note' && state.selected.id !== id)
+  if (state.selected?.kind === 'note' && state.selected.id !== id) {
+    clearTimeout(state.saveTimer);
+    state.saveTimer = null;
+    finishPendingInk();
     await saveSelectedNote();
+  }
   if (state.blobUrl) URL.revokeObjectURL(state.blobUrl);
   state.blobUrl = null;
   const note = await get('notes', id);
@@ -502,7 +514,12 @@ async function importDocuments(files) {
   toast(count+' documente adăugate offline.');
 }
 async function openDocument(id) {
-  if (state.selected?.kind==='note') await saveSelectedNote();
+  if (state.selected?.kind==='note') {
+    clearTimeout(state.saveTimer);
+    state.saveTimer = null;
+    finishPendingInk();
+    await saveSelectedNote();
+  }
   const item=await get('documents',id);
   if (!item) return toast('Documentul nu mai este disponibil.');
   if (state.blobUrl) URL.revokeObjectURL(state.blobUrl);
@@ -565,6 +582,7 @@ function connect() {
   document.addEventListener('visibilitychange',()=>{
     if (document.hidden && state.selected?.kind==='note') {
       clearTimeout(state.saveTimer);state.saveTimer=null;
+      finishPendingInk();
       saveSelectedNote().catch(()=>{});
     }
   });
