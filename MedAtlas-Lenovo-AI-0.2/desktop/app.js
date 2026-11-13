@@ -1,5 +1,6 @@
 import { safeStrokes, cssInkColor, inkArgb } from './stroke-format.mjs';
 import { reconcileNotes } from './note-merge.mjs';
+import { scanImage } from './image-scan.mjs';
 /* MedAtlas Companion · no external APIs and no telemetry.
  * Text notes follow StudyNote JSON fields from the Android app.
  * The desktop cache is independent until explicit file transfer.
@@ -539,6 +540,102 @@ async function openDocument(id) {
   byId('reader').hidden=false;
   renderList();
 }
+let scanPreviewUrl = null;
+let scanBusy = false;
+
+function dismissScan() {
+  if (scanBusy) return;
+  const dialog = byId('scan-dialog');
+  if (typeof dialog.close === 'function' && dialog.open) dialog.close();
+  else dialog.removeAttribute('open');
+  if (scanPreviewUrl) URL.revokeObjectURL(scanPreviewUrl);
+  scanPreviewUrl = null;
+  byId('scan-preview').removeAttribute('src');
+  byId('scan-preview').hidden = true;
+}
+
+async function copyScanValue(value) {
+  if (!navigator.clipboard?.writeText) {
+    toast('Copierea necesită HTTPS sau localhost în acest browser.');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(value);
+    toast('Text copiat.');
+  } catch {
+    toast('Copierea a eșuat. Selectează textul și copiază manual.');
+  }
+}
+
+async function runImageScan(file) {
+  if (!file || scanBusy) return;
+  if (file.size > 16 * 1024 * 1024)
+    throw new Error('Imaginea este prea mare (maxim 16 MB).');
+  if (!/^image\/(png|jpeg|webp)$/.test(file.type))
+    throw new Error('Alege o imagine PNG, JPEG sau WebP.');
+  scanBusy = true;
+  const dialog = byId('scan-dialog');
+  byId('scan-text').value = '';
+  byId('scan-codes').replaceChildren();
+  byId('scan-warning').textContent = '';
+  byId('scan-status').textContent = 'Analizez local imaginea…';
+  byId('scan-add-note').disabled = true;
+  if (scanPreviewUrl) URL.revokeObjectURL(scanPreviewUrl);
+  scanPreviewUrl = URL.createObjectURL(file);
+  const preview = byId('scan-preview');
+  preview.src = scanPreviewUrl;
+  preview.hidden = false;
+  if (!dialog.open) {
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+    else dialog.setAttribute('open', '');
+  }
+  let bitmap;
+  try {
+    await preview.decode();
+    bitmap = typeof createImageBitmap === 'function'
+      ? await createImageBitmap(file) : null;
+    let image = bitmap || preview;
+    const width = bitmap?.width || preview.naturalWidth;
+    const height = bitmap?.height || preview.naturalHeight;
+    if (width > 2800 || height > 2800) {
+      const factor = 2800 / Math.max(width, height);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(width * factor);
+      canvas.height = Math.round(height * factor);
+      canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+      image = canvas;
+    }
+    const result = await scanImage(image);
+    byId('scan-text').value = result.lines.join('\n');
+    byId('scan-status').textContent =
+      result.lines.length + ' fragmente de text și ' +
+      result.codes.length + ' coduri detectate. Verifică originalul.';
+    byId('scan-warning').textContent = result.warnings.join(' ');
+    const codesList = byId('scan-codes');
+    for (const code of result.codes) {
+      const box = document.createElement('div');
+      box.className = 'scan-code';
+      const title = document.createElement('strong');
+      title.textContent = code.format.toUpperCase();
+      const value = document.createElement('code');
+      value.textContent = code.value;
+      const copy = document.createElement('button');
+      copy.textContent = 'Copiază codul';
+      copy.addEventListener('click', () => copyScanValue(code.value));
+      box.append(title,value,copy);
+      codesList.append(box);
+    }
+    byId('scan-add-note').disabled =
+      !result.lines.length || state.selected?.kind !== 'note';
+  } catch (error) {
+    byId('scan-status').textContent = 'Scanarea nu a putut fi finalizată.';
+    byId('scan-warning').textContent = error.message || String(error);
+  } finally {
+    bitmap?.close?.();
+    scanBusy = false;
+  }
+}
+
 function connect() {
   connectInk();
   document.querySelectorAll('[data-view]').forEach(button=>
@@ -557,6 +654,28 @@ function connect() {
     try { await importDocuments(Array.from(event.target.files || [])); }
     catch (error) { toast('Import nereușit: '+error.message); }
     event.target.value='';
+  });
+  byId('scan-image').addEventListener('change',async event=>{
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    try { await runImageScan(file); }
+    catch (error) { toast('Scanare nereușită: '+error.message); }
+  });
+  byId('scan-close').addEventListener('click',dismissScan);
+  byId('scan-dialog').addEventListener('cancel',event=>{
+    if (scanBusy) event.preventDefault();
+    else dismissScan();
+  });
+  byId('scan-copy').addEventListener('click',()=>copyScanValue(byId('scan-text').value));
+  byId('scan-add-note').addEventListener('click',()=>{
+    if (state.selected?.kind !== 'note') return toast('Deschide mai întâi o notiță.');
+    const text = byId('scan-text').value.trim();
+    if (!text) return toast('Nu există text recunoscut de adăugat.');
+    const editor = byId('note-content');
+    editor.value = [editor.value.trimEnd(),text].filter(Boolean).join('\n\n');
+    scheduleSave();
+    dismissScan();
+    toast('Text adăugat în notiță. Verifică-l față de imagine.');
   });
   byId('export-notes').addEventListener('click',()=>exportNotes().catch(e=>toast(e.message)));
   byId('import-notes').addEventListener('change',async event=>{
