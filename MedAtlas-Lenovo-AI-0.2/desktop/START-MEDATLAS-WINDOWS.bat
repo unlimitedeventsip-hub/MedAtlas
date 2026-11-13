@@ -12,11 +12,14 @@ echo Instaleaza Python 3, apoi ruleaza acest fisier din nou.
 pause
 exit /b 1
 :withpy
-start "" "http://127.0.0.1:8765"
-py -m http.server 8765 --bind 127.0.0.1
-goto end
+start "MedAtlas Companion server" /min py -m http.server 8765 --bind 127.0.0.1
+goto browser
 :withpython
+start "MedAtlas Companion server" /min python -m http.server 8765 --bind 127.0.0.1
+:browser
+timeout /t 2 /nobreak >nul
 start "" "http://127.0.0.1:8765"
-python -m http.server 8765 --bind 127.0.0.1
+echo Companion este disponibil local la http://127.0.0.1:8765
+echo Pentru oprire, inchide fereastra "MedAtlas Companion server".
 :end
 endlocal
