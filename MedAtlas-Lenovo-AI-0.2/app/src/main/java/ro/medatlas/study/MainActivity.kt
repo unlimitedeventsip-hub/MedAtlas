@@ -456,6 +456,10 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore,
     var processing by remember { mutableStateOf(false) }
     var textVersion by remember { mutableIntStateOf(0) }
     var showOcrLibrary by remember { mutableStateOf(false) }
+    var smartScanReport by remember(doc.id) { mutableStateOf<SmartScanReport?>(null) }
+    var smartScanOpen by remember(doc.id) { mutableStateOf(false) }
+    var smartScanBusy by remember(doc.id) { mutableStateOf(false) }
+    var smartScanError by remember(doc.id) { mutableStateOf<String?>(null) }
     var marks by remember(doc.id, page) { mutableStateOf(store.ink(doc.id, page)) }
     var stickers by remember(doc.id, page) { mutableStateOf(store.stickers(doc.id, page)) }
     val stickerCache = remember(doc.id) { mutableMapOf<String, Bitmap>() }
@@ -491,6 +495,34 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore,
             }
             .addOnFailureListener { Toast.makeText(context, it.localizedMessage ?: "OCR nereușit", Toast.LENGTH_LONG).show() }
             .addOnCompleteListener { processing = false; client.close() }
+    }
+    fun runSmartScan() {
+        val source = bitmap ?: return
+        if (smartScanBusy || processing) return
+        val requestedPage = page
+        smartScanBusy = true
+        smartScanError = null
+        scope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val detected = SmartDocumentScanner.scan(source)
+                    SmartDocumentScanner.save(context, doc.id, requestedPage, detected)
+                    if (store.pageText(doc.id, requestedPage).isBlank() &&
+                        detected.text.isNotBlank()) {
+                        store.savePageText(doc.id, requestedPage, detected.text)
+                    }
+                    detected
+                }
+                if (requestedPage == page) {
+                    smartScanReport = result
+                    smartScanOpen = true
+                    textVersion++
+                }
+            } catch (error: Exception) {
+                smartScanError = error.localizedMessage ?:
+                    "Nu pot analiza imaginea. Încearcă o pagină mai clară."
+            } finally { smartScanBusy = false }
+        }
     }
     fun suggestImportantLines() {
         val source = bitmap ?: return
@@ -934,6 +966,13 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore,
                 }) { Text("Oprește OCR", fontSize = 11.sp) }
             }
             }
+            TextButton(onClick = { runSmartScan() },
+                enabled = bitmap != null && !smartScanBusy && !processing,
+                colors = ButtonDefaults.textButtonColors(contentColor = navColor)) {
+                Icon(Icons.Rounded.DocumentScanner, "Scanare inteligentă")
+                Spacer(Modifier.width(4.dp))
+                Text(if (smartScanBusy) "Scanez…" else "Text + QR", fontSize = 11.sp)
+            }
             TextButton(onClick = { showOcrLibrary = true },
                 colors = ButtonDefaults.textButtonColors(contentColor = navColor)) {
                 Icon(Icons.Rounded.TextSnippet, null)
@@ -950,6 +989,77 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore,
                     onAiSuggest = { suggestAiHighlights() }, onNote = { showNote = true },
                     onClose = { expanded = false })
             }
+        }
+    }
+    if (smartScanError != null) AlertDialog(
+        onDismissRequest = { smartScanError = null },
+        title = { Text("Scanare indisponibilă") },
+        text = { Text(smartScanError.orEmpty()) },
+        confirmButton = {
+            TextButton(onClick = { smartScanError = null }) { Text("Închide") }
+        }
+    )
+    if (smartScanOpen) {
+        smartScanReport?.let { report ->
+            AlertDialog(
+                onDismissRequest = { smartScanOpen = false },
+                title = { Text("Text și coduri · pagina ${page + 1}") },
+                text = {
+                    Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Text("Detectare locală: ${report.lines.size} rânduri, " +
+                            "${report.codes.size} coduri. Textul poate necesita corectare.",
+                            color = Slate, fontSize = 12.sp)
+                        val uncertain = report.lines.count {
+                            it.confidence > 0f && it.confidence < .65f
+                        }
+                        if (uncertain > 0) {
+                            Text("${uncertain} rânduri au scor OCR redus; verifică originalul.",
+                                color = Color(0xFF925829), fontSize = 12.sp)
+                        }
+                        if (report.text.isNotBlank()) {
+                            Text("Text detectat", fontWeight = FontWeight.SemiBold)
+                            Text(report.text.take(12000), fontSize = 12.sp)
+                        } else Text("Nu am detectat text pe această pagină.",
+                            color = Slate, fontSize = 12.sp)
+                        if (report.codes.isNotEmpty()) {
+                            HorizontalDivider()
+                            Text("Coduri detectate", fontWeight = FontWeight.SemiBold)
+                            report.codes.forEach { code ->
+                                Column {
+                                    Text(code.type, fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold)
+                                    Text(code.value, fontSize = 12.sp)
+                                    TextButton(onClick = {
+                                        val clipboard = context.getSystemService(
+                                            android.content.Context.CLIPBOARD_SERVICE)
+                                            as android.content.ClipboardManager
+                                        clipboard.setPrimaryClip(
+                                            android.content.ClipData.newPlainText(
+                                                "Cod MedAtlas", code.value))
+                                        Toast.makeText(context, "Cod copiat",
+                                            Toast.LENGTH_SHORT).show()
+                                    }) { Text("Copiază codul") }
+                                }
+                            }
+                            Text("Linkurile din QR nu se deschid automat.",
+                                fontSize = 11.sp, color = Slate)
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { smartScanOpen = false }) { Text("Închide") }
+                },
+                dismissButton = {
+                    if (report.text.isNotBlank()) TextButton(onClick = {
+                        val clipboard = context.getSystemService(
+                            android.content.Context.CLIPBOARD_SERVICE)
+                            as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(
+                            android.content.ClipData.newPlainText("MedAtlas OCR", report.text))
+                    }) { Text("Copiază textul") }
+                }
+            )
         }
     }
     if (showOcrLibrary) {
