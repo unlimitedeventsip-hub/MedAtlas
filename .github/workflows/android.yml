@@ -1,11 +1,14 @@
 name: Build MedAtlas Android APK
 
+# APK creation requires an explicit manual action.
+# Routine source pushes and PRs must NEVER assemble or publish APKs.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      confirm_apk:
+        description: 'Type BUILD to confirm that you explicitly want an APK'
+        required: true
+        type: string
 
 concurrency:
   group: medatlas-android-${{ github.ref }}
@@ -16,6 +19,7 @@ permissions:
 
 jobs:
   build:
+    if: ${{ inputs.confirm_apk == 'BUILD' }}
     name: Compile debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
