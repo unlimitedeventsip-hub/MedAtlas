@@ -11,8 +11,8 @@ android {
         applicationId = "ro.medatlas.study"
         minSdk = 26
         targetSdk = 35
-        versionCode = 9
-        versionName = "0.9.0"
+        versionCode = 20
+        versionName = "2.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     val stableKeystore = file("medatlas-signing.jks")
@@ -32,6 +32,11 @@ android {
         }
         release {
             isMinifyEnabled = false
+            // Same stable signing certificate as previous MedAtlas installs:
+            // updates retain local notes and keep Google Classroom OAuth valid.
+            if (stableKeystore.exists()) {
+                signingConfig = signingConfigs.getByName("medatlas")
+            }
         }
     }
     compileOptions {
