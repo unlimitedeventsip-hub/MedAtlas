@@ -392,6 +392,35 @@ async function importNotes(file) {
   toast(imported + ' notițe importate.' + (conflicts ? ' ' + conflicts + ' copii create pentru conflicte.' : ''));
 }
 
+// Refuse ZIP bombs even when the archive's claimed uncompressed size lies.
+// Unlike Response(arrayBuffer), this never accumulates unlimited inflated bytes.
+async function readBoundedStream(stream, limit) {
+  const reader=stream.getReader();
+  const chunks=[];
+  let length=0;
+  try {
+    while(true) {
+      const {done,value}=await reader.read();
+      if(done) break;
+      length+=value.byteLength;
+      if(length>limit) {
+        await reader.cancel('Office XML size limit exceeded');
+        throw new Error('Document Office decomprimat prea mare.');
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const output=new Uint8Array(length);
+  let offset=0;
+  for(const part of chunks) {
+    output.set(part,offset);
+    offset+=part.byteLength;
+  }
+  return output;
+}
+
 // Minimal local Office text extraction. PDF rendering is delegated to the native
 // browser PDF viewer. Office preview is text-only, not layout fidelity.
 async function officeEntries(file) {
@@ -428,7 +457,7 @@ async function officeEntries(file) {
     if (method===0) xmlBytes=bytes;
     else if (method===8 && typeof DecompressionStream!=='undefined') {
       const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-      xmlBytes = new Uint8Array(await new Response(stream).arrayBuffer());
+      xmlBytes = await readBoundedStream(stream,12_000_000);
     } else throw Error('Browserul nu poate decomprima acest format Office.');
     if (xmlBytes.byteLength > 12_000_000) throw Error('Conținut Office prea mare.');
     extracted.set(name,utf8.decode(xmlBytes));
