@@ -259,7 +259,8 @@ internal fun UnifiedLibraryScreen(
     }.sortedByDescending { it.updated }
     val wide = LocalConfiguration.current.screenWidthDp >= 800
     val phoneProfile = DeviceExperience.profile(
-        LocalConfiguration.current.screenWidthDp) == WorkspaceProfile.PHONE
+        LocalConfiguration.current.smallestScreenWidthDp) == WorkspaceProfile.PHONE
+    val compactLayout = phoneProfile || LocalConfiguration.current.screenWidthDp < 600
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
     fun createNote() {
@@ -332,7 +333,7 @@ internal fun UnifiedLibraryScreen(
             // On phones the tablet's 163 dp fixed sidebar would leave the
             // document list unreadable. Replace it with a compact scrollable
             // navigation/folder strip, and give the list the entire width.
-            if (phoneProfile) {
+            if (compactLayout) {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                     .padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     listOf("Bibliotecă", "Recente", "Favorite").forEach { choice ->
@@ -367,7 +368,7 @@ internal fun UnifiedLibraryScreen(
                 }
             }
             Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (!phoneProfile) Surface(shape = glassShape, color = glassSurface,
+                if (!compactLayout) Surface(shape = glassShape, color = glassSurface,
                     border = BorderStroke(1.dp, glassBorder),
                     modifier = Modifier.width(if (wide) 258.dp else 163.dp).fillMaxHeight()) {
                     Column(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 16.dp)) {
