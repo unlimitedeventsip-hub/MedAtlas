@@ -198,6 +198,7 @@ internal fun UnifiedLibraryScreen(
     documents: List<StudyDocument>,
     onOpenDocument: (StudyDocument) -> Unit,
     onOpenNote: (String) -> Unit,
+    onOpenDocumentAtPage: (StudyDocument, Int) -> Unit = { doc, _ -> onOpenDocument(doc) },
     onImport: (String?) -> Unit,
     onDocumentChanged: (StudyDocument) -> Unit,
     onDocumentDeleted: (String) -> Unit,
@@ -698,7 +699,8 @@ internal fun UnifiedLibraryScreen(
             documents = documents,
             onDismiss = { showSearch = false },
             onOpenDocument = onOpenDocument,
-            onOpenNote = onOpenNote
+            onOpenNote = onOpenNote,
+            onOpenDocumentAtPage = onOpenDocumentAtPage
         )
     }
 }
