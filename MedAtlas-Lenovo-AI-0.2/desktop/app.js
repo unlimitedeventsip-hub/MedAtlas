@@ -1,4 +1,5 @@
 import { safeStrokes, cssInkColor, inkArgb } from './stroke-format.mjs';
+import { reconcileNotes } from './note-merge.mjs';
 /* MedAtlas Companion · no external APIs and no telemetry.
  * Text notes follow StudyNote JSON fields from the Android app.
  * The desktop cache is independent until explicit file transfer.
@@ -42,6 +43,20 @@ const all = name => collection(name, 'getAll');
 const get = (name, id) => collection(name, 'get', id);
 const put = (name, entry) => collection(name, 'put', entry);
 const remove = (name, id) => collection(name, 'delete', id);
+
+// Apply a prepared import atomically: a browser/storage failure rolls back all
+// imported additions together, rather than exposing half an imported notebook.
+function putNotesAtomically(notes) {
+  return new Promise((resolve, reject) => {
+    if (!notes.length) return resolve();
+    const transaction = database.transaction('notes', 'readwrite');
+    const store = transaction.objectStore('notes');
+    for (const note of notes) store.put(note);
+    transaction.oncomplete = () => resolve();
+    transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error || new Error('Import anulat.'));
+  });
+}
 let notification;
 function toast(message) {
   const box = byId('toast');
@@ -367,41 +382,20 @@ async function exportNotes() {
 async function importNotes(file) {
   if (!file) return;
   if (file.size > 12 * 1024 * 1024) throw Error('Fișierul JSON este prea mare.');
-  const raw = JSON.parse(await file.text());
-  if (!Array.isArray(raw) || raw.length > 10000) throw Error('Fișierul nu este notes.json MedAtlas.');
-  const known = new Map((await all('notes')).map(note => [note.id,note]));
-  let imported = 0, conflicts = 0;
-  for (const source of raw) {
-    if (!source || typeof source !== 'object' || typeof source.body !== 'string') continue;
-    let id = typeof source.id === 'string' && /^[a-zA-Z0-9_-]{1,120}$/.test(source.id)
-      ? source.id : crypto.randomUUID();
-    const existing = known.get(id);
-    const valid = {
-      id, documentId: 'medical-notebook', page: 0,
-      heading: String(source.heading || 'Notiță importată').slice(0,180),
-      body: source.body.slice(0,300000),
-      course: String(source.course || 'General').slice(0,80),
-      paper: String(source.paper || 'BLANK').slice(0,24),
-      darkPaper:!!source.darkPaper,
-      handwritingFile:'', // Raster images are transferred only through ZIP backup.
-      strokes: safeStrokes(source.strokes || []),
-      createdAt: Number(source.createdAt) || Date.now(),
-      updatedAt: Number(source.updatedAt) || Date.now()
-    };
-    if (existing) {
-      if (existing.body === valid.body && existing.heading === valid.heading &&
-        JSON.stringify(existing.strokes || []) === JSON.stringify(valid.strokes)) continue;
-      // Never silently overwrite a newer or differently edited note.
-      id = crypto.randomUUID();
-      valid.id = id; valid.heading += ' (copie importată)';
-      conflicts++;
-    }
-    await put('notes',valid);
-    known.set(valid.id,valid);
-    imported++;
+  // Commit the open note before comparing imported revisions against IndexedDB.
+  if (state.selected?.kind === 'note') {
+    clearTimeout(state.saveTimer);
+    state.saveTimer = null;
+    finishPendingInk();
+    await saveSelectedNote();
   }
+  const raw = JSON.parse(await file.text());
+  const plan = await reconcileNotes(await all('notes'), raw);
+  await putNotesAtomically(plan.additions);
   await renderList();
-  toast(imported + ' notițe importate.' + (conflicts ? ' ' + conflicts + ' copii create pentru conflicte.' : ''));
+  toast(plan.additions.length + ' notițe importate.' +
+    (plan.conflicts ? ' ' + plan.conflicts + ' copii pentru conflicte.' : '') +
+    (plan.ignored ? ' ' + plan.ignored + ' deja existente.' : ''));
 }
 
 // Refuse ZIP bombs even when the archive's claimed uncompressed size lies.
