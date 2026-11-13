@@ -251,13 +251,43 @@ class LibraryStore(private val context: Context) {
         AtomicLocalFiles.readText(File(ocrDir, "${SafeStorageNames.id(documentId)}_${page}.txt"))
     }.getOrDefault("")
     /**
+     * QR and barcode values are indexed only on this device. Malformed or
+     * oversized reports are ignored; scanning never follows external links.
+     * A user can locate the original page by searching an exact code value.
+     */
+    private fun scannedCodeHit(documentId: String, term: String): Pair<Int, String>? {
+        val id = SafeStorageNames.id(documentId)
+        val sources = ocrDir.listFiles { file ->
+            file.isFile && file.length() <= 512 * 1024 &&
+                file.name.startsWith("${id}_") && file.name.endsWith(".layout.json")
+        }.orEmpty().sortedBy {
+            it.name.removePrefix("${id}_").substringBefore('.').toIntOrNull()
+                ?: Int.MAX_VALUE
+        }
+        for (file in sources) {
+            val page = file.name.removePrefix("${id}_")
+                .substringBefore('.').toIntOrNull() ?: continue
+            val found = runCatching {
+                val codes = JSONObject(AtomicLocalFiles.readText(file))
+                    .optJSONArray("codes") ?: return@runCatching null
+                (0 until codes.length()).asSequence()
+                    .map { codes.getJSONObject(it) }
+                    .firstOrNull { it.optString("value").contains(term, ignoreCase = true) }
+                    ?.let { "${it.optString("type", "Cod")}: ${it.optString("value").take(2000)}" }
+            }.getOrNull()
+            if (found != null) return page to found
+        }
+        return null
+    }
+
+    /**
      * Search OCR page text without concatenating an entire medical textbook into memory.
      * Called on Dispatchers.IO by the library UI, not on the main thread.
      */
     fun containsIndexedText(doc: StudyDocument, phrase: String): Boolean {
         val keyword = phrase.trim()
         if (keyword.isBlank()) return false
-        return if (doc.kind != "PDF") {
+        val textMatch = if (doc.kind != "PDF") {
             val source = File(docsDir, "${SafeStorageNames.id(doc.id)}.txt")
             source.isFile && runCatching {
                 source.bufferedReader().useLines { lines ->
@@ -275,6 +305,7 @@ class LibraryStore(private val context: Context) {
                 }.getOrDefault(false)
             }
         }
+        return textMatch || (doc.kind == "PDF" && scannedCodeHit(doc.id, keyword) != null)
     }
 
     /**
@@ -328,6 +359,11 @@ class LibraryStore(private val context: Context) {
                     source.name.removePrefix("${id}_").substringBefore('.').toIntOrNull()
                 else null
                 return EvidenceHit(doc.id, doc.originalName, doc.kind, page, snippet)
+            }
+        }
+        if (doc.kind == "PDF") {
+            scannedCodeHit(doc.id, term)?.let { (page, code) ->
+                return EvidenceHit(doc.id, doc.originalName, doc.kind, page, code.take(maxChars))
             }
         }
         return null
