@@ -28,7 +28,9 @@ jobs:
       - name: Validate Companion JavaScript
         run: |
           node --check desktop/app.js
+          node --check desktop/stroke-format.mjs
           node --check desktop/sw.js
+          node --test desktop/tests/*.test.mjs
           python3 -m json.tool desktop/manifest.webmanifest > /dev/null
           test -s desktop/index.html
           test -s desktop/styles.css
@@ -60,8 +62,8 @@ jobs:
           path: MedAtlas-Lenovo-AI-0.2/.gradle/bodyparts
           key: bodyparts3d-4-partof-9fbc713f
 
-      - name: Compile only Kotlin Android sources (no assemble, no APK)
-        run: gradle --no-daemon --stacktrace :app:compileDebugKotlin
+      - name: Compile Android app and instrumentation test sources only
+        run: gradle --no-daemon --stacktrace :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin
 
       - name: Assert no installable APK was generated
         run: |
