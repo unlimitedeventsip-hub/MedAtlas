@@ -95,7 +95,7 @@ internal object PortableNotes {
                 }
                 (0 until list.length()).map { n ->
                     val row = list.getJSONObject(n)
-                    require(row.optJSONArray("points")?.length() ?: 0 <= MAX_POINTS_PER_STROKE) {
+                    require((row.optJSONArray("points")?.length() ?: 0) <= MAX_POINTS_PER_STROKE) {
                         "Traseu manuscris prea lung."
                     }
                     Stroke.parse(row).also { stroke ->
