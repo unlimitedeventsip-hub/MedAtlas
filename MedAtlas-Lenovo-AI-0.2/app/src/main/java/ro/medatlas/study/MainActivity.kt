@@ -121,6 +121,7 @@ private fun MedAtlasApp() {
     val store = remember { LibraryStore(context) }
     val docs = remember { mutableStateListOf<StudyDocument>().apply { addAll(store.documents()) } }
     var selected by remember { mutableStateOf<StudyDocument?>(null) }
+    var selectedStartPage by remember { mutableIntStateOf(0) }
     var officeTextMode by remember { mutableStateOf(false) }
     var libraryNoteId by remember { mutableStateOf<String?>(null) }
     var libraryRevision by remember { mutableIntStateOf(0) }
@@ -179,7 +180,8 @@ private fun MedAtlasApp() {
                 onBack = { selected = null; officeTextMode = false },
                 onTextMode = { officeTextMode = true })
         } else {
-            ReaderScreen(doc, store, allowDocumentEditing = !phoneMode, onBack = {
+            ReaderScreen(doc, store, initialPage = selectedStartPage,
+                allowDocumentEditing = !phoneMode, onBack = {
                 if (officeTextMode) officeTextMode = false
                 else selected = null
             }, onRemove = {
@@ -193,7 +195,8 @@ private fun MedAtlasApp() {
     }
     libraryNoteId?.let { id ->
         GlassPageFrame(Modifier.fillMaxSize()) {
-            NotebookLibrary(store, docs, onOpen = { selected = it }, initialNoteId = id,
+            NotebookLibrary(store, docs,
+                onOpen = { selectedStartPage = 0; selected = it }, initialNoteId = id,
                 onExit = { libraryNoteId = null; libraryRevision++ })
         }
         return
@@ -256,8 +259,8 @@ private fun MedAtlasApp() {
                     border = BorderStroke(1.dp, GlassTokens.Stroke)
                 ) {
                     when (tab) {
-                        1 -> NotebookLibrary(store, docs, onOpen = { selected = it }, unified = true)
-                        2 -> CardsScreen(store, docs, onOpen = { selected = it })
+                        1 -> NotebookLibrary(store, docs, onOpen = { selectedStartPage = 0; selected = it }, unified = true)
+                        2 -> CardsScreen(store, docs, onOpen = { selectedStartPage = 0; selected = it })
                         4 -> ClassroomWorkspace(onBack = { tab = 0 })
                         else -> SettingsScreen(onReplayIntro = { showIntro = true })
                     }
@@ -268,8 +271,12 @@ private fun MedAtlasApp() {
                     store = store,
                     refreshKey = libraryRevision,
                     documents = docs,
-                    onOpenDocument = { selected = it },
+                    onOpenDocument = { selectedStartPage = 0; selected = it },
                     onOpenNote = { libraryNoteId = it },
+                    onOpenDocumentAtPage = { doc, page ->
+                        selectedStartPage = page
+                        selected = doc
+                    },
                     onImport = { folderId ->
                         importFolderId = folderId
                         picker.launch(arrayOf(
@@ -300,8 +307,8 @@ private fun MedAtlasApp() {
                             tab = target
                     }
                 )
-                1 -> NotebookLibrary(store, docs, onOpen = { selected = it }, unified = true)
-                2 -> CardsScreen(store, docs, onOpen = { selected = it })
+                1 -> NotebookLibrary(store, docs, onOpen = { selectedStartPage = 0; selected = it }, unified = true)
+                2 -> CardsScreen(store, docs, onOpen = { selectedStartPage = 0; selected = it })
                 else -> SettingsScreen(onReplayIntro = { showIntro = true })
             }
             }
@@ -373,7 +380,8 @@ private fun LibraryScreen(docs: List<StudyDocument>, search: String, onSearch: (
 
 @Composable
 private fun ReaderScreen(doc: StudyDocument, store: LibraryStore,
-    allowDocumentEditing: Boolean = true, onBack: () -> Unit, onRemove: () -> Unit) {
+    initialPage: Int = 0, allowDocumentEditing: Boolean = true,
+    onBack: () -> Unit, onRemove: () -> Unit) {
     BackHandler(onBack = onBack)
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -381,7 +389,9 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore,
     val isWide = config.orientation == Configuration.ORIENTATION_LANDSCAPE && config.screenWidthDp >= 700
     val pager = remember(doc.id) { DocumentPager(doc, store) }
     DisposableEffect(pager) { onDispose { pager.close() } }
-    var page by rememberSaveable(doc.id) { mutableIntStateOf(0) }
+    var page by rememberSaveable(doc.id, initialPage) {
+        mutableIntStateOf(initialPage.coerceIn(0, (pager.count - 1).coerceAtLeast(0)))
+    }
     var bitmap by remember(doc.id) { mutableStateOf<Bitmap?>(null) }
     var loadError by remember(doc.id) { mutableStateOf<String?>(null) }
     var tool by remember { mutableStateOf(Tool.PEN) }
