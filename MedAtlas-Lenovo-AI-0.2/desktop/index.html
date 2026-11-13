@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#102744"/>
+  <meta name="description" content="Bibliotecă și notițe MedAtlas offline pe laptop"/>
+  <link rel="manifest" href="manifest.webmanifest"/>
+  <link rel="icon" type="image/svg+xml" href="icon.svg"/>
+  <link rel="stylesheet" href="styles.css"/>
+  <title>MedAtlas Companion · Laptop</title>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="brand"><span class="logo" aria-hidden="true">✚</span>
+        <div><strong>MedAtlas</strong><small>Companion · laptop</small></div>
+      </div>
+      <span class="offline" id="status" role="status">Date stocate local</span>
+      <div class="actions">
+        <label class="button ghost" for="files">+ Documente</label>
+        <input id="files" type="file" accept=".pdf,.docx,.pptx,.txt" multiple hidden/>
+        <button class="button primary" id="create-note">+ Notiță</button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <nav class="sidebar" aria-label="Secțiuni">
+        <h2>Spațiul meu</h2>
+        <button class="nav active" data-view="all">▦ <span>Bibliotecă</span></button>
+        <button class="nav" data-view="documents">▤ <span>Documente</span></button>
+        <button class="nav" data-view="notes">✎ <span>Notițe</span></button>
+        <div class="nav-line"></div>
+        <h2>Transfer cu MedAtlas</h2>
+        <button class="nav minor" id="export-notes">⇧ <span>Export notițe JSON</span></button>
+        <label class="nav minor" for="import-notes">⇩ <span>Import notițe JSON</span></label>
+        <input type="file" id="import-notes" accept=".json,application/json" hidden/>
+        <p class="hint">Transfer manual. Nu înlocuiește backupul Android sau sincronizarea Drive.</p>
+      </nav>
+
+      <main class="main">
+        <div class="welcome">
+          <div><p class="eyebrow">STUDIU, FĂRĂ DISTRAGERI</p>
+            <h1 id="view-title">Biblioteca mea</h1>
+            <p>Deschide cursuri și scrie notițe pe laptop, fără cont.</p></div>
+        </div>
+        <label class="search-wrap"><span aria-hidden="true">⌕</span>
+          <input id="search" placeholder="Caută documente și notițe..." autocomplete="off"/>
+        </label>
+        <div id="list" class="list" aria-live="polite"></div>
+      </main>
+
+      <section class="editor" aria-label="Cititor și editor">
+        <div id="empty" class="empty"><div class="empty-icon">✚</div>
+          <h2>Totul într-un singur loc</h2>
+          <p>Alege un document sau creează o notiță. Datele rămân pe acest dispozitiv.</p>
+        </div>
+        <div id="reader" hidden>
+          <div class="editor-head">
+            <div><small id="document-kind"></small><h2 id="document-title"></h2></div>
+            <button class="close" id="close-reader" title="Închide">✕</button>
+          </div>
+          <div class="reader-body" id="reader-body"></div>
+          <div class="editor-footer"><button class="button danger" id="delete-document">Șterge documentul</button></div>
+        </div>
+        <div id="note-editor" hidden>
+          <div class="editor-head">
+            <div><small>NOTIȚĂ · SALVARE AUTOMATĂ</small><input id="note-title"
+              class="note-title" aria-label="Titlul notiței" placeholder="Titlul notiței"/></div>
+            <button class="close" id="close-note" title="Închide">✕</button>
+          </div>
+          <div class="note-tools">
+            <span id="note-status">Salvat local</span>
+            <button id="copy-note" class="button tiny">Copiază textul</button>
+          </div>
+          <div class="note-composer">
+            <textarea id="note-content" spellcheck="true" placeholder="Începe să scrii. Modificările se salvează automat pe laptop."></textarea>
+            <section class="ink-panel" aria-label="Scriere cu stylus">
+              <div class="ink-toolbar" role="toolbar" aria-label="Instrumente de scriere">
+                <button data-ink-tool="PEN" class="active">Pix</button>
+                <button data-ink-tool="PENCIL">Creion</button>
+                <button data-ink-tool="BRUSH">Pensulă</button>
+                <button data-ink-tool="HIGHLIGHT">Marker</button>
+                <button data-ink-tool="ERASER">Radieră</button>
+                <label class="ink-color-label">Culoare <input id="ink-color" type="color" value="#234d83"/></label>
+                <label class="ink-width-label">Grosime <input id="ink-width" type="range" min="1" max="12" value="3"/></label>
+                <button id="ink-undo" title="Anulează ultima trasare">↶</button>
+                <button id="ink-redo" title="Refă ultima trasare">↷</button>
+              </div>
+              <canvas id="ink-canvas" aria-label="Foaie de scris cu stylus sau mouse"></canvas>
+              <p class="ink-help">Pix, stylus, deget sau mouse. Traseele sunt vectoriale și se pot transfera în MedAtlas Android.</p>
+            </section>
+          </div>
+          <div class="editor-footer"><button class="button danger" id="delete-note">Șterge notița</button></div>
+        </div>
+      </section>
+    </div>
+    <div class="toast" id="toast" role="alert" hidden></div>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

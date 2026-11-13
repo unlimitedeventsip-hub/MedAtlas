@@ -49,7 +49,8 @@ internal fun NadiaGlobalSearch(
     documents: List<StudyDocument>,
     onDismiss: () -> Unit,
     onOpenDocument: (StudyDocument) -> Unit,
-    onOpenNote: (String) -> Unit
+    onOpenNote: (String) -> Unit,
+    onOpenDocumentAtPage: (StudyDocument, Int) -> Unit = { doc, _ -> onOpenDocument(doc) }
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -73,6 +74,16 @@ internal fun NadiaGlobalSearch(
             }
         }
     }
+    val evidenceHits by produceState(
+        initialValue = emptyList<LibraryStore.EvidenceHit>(),
+        trimmed, documentHits
+    ) {
+        value = if (trimmed.length < 2) emptyList() else withContext(Dispatchers.IO) {
+            documentHits.take(12).mapNotNull { doc ->
+                store.searchEvidenceHit(doc, trimmed, 550)
+            }
+        }
+    }
     val noteHits = if (trimmed.isNotBlank()) notes.filter {
         it.heading.contains(trimmed, true) || it.body.contains(trimmed, true) || it.course.contains(trimmed, true)
     } else emptyList()
@@ -92,14 +103,14 @@ internal fun NadiaGlobalSearch(
             try {
                 val evidence = withContext(Dispatchers.IO) {
                     val fromDocs = documentHits.take(5).mapNotNull { doc ->
-                        store.searchEvidence(doc, trimmed, 720)?.let { snippet ->
-                            "DOCUMENT: ${doc.originalName}\n${snippet}"
-                        }
+                        store.searchEvidenceHit(doc, trimmed, 720)
+                    }.mapIndexed { index, hit ->
+                        val where = hit.page?.let { "pagina ${it + 1}" }
+                            ?: "text Office fără paginare"
+                        "[S${index + 1}] DOCUMENT: ${hit.documentName}, $where\n${hit.excerpt}"
                     }
-                    val fromNotes = noteHits.take(3).mapNotNull { note ->
-                        note.body.takeIf { it.contains(trimmed, true) }?.let {
-                            "NOTIȚĂ: ${note.heading}\n${it.take(400)}"
-                        }
+                    val fromNotes = noteHits.take(3).mapIndexed { index, note ->
+                        "[N${index + 1}] NOTIȚĂ: ${note.heading}\n${note.body.take(400)}"
                     }
                     (fromDocs + fromNotes).joinToString("\n\n---\n\n").take(5500)
                 }
@@ -112,8 +123,9 @@ internal fun NadiaGlobalSearch(
                                 "Context extras din biblioteca utilizatorului:\n${evidence}")
                     } else {
                         "Întrebare medicală: ${trimmed}. Rezumă EXCLUSIV fragmentele de mai jos. " +
-                            "Menționează explicit numele documentului și pagina doar dacă acestea apar în fragment. " +
-                            "Nu inventa concluzii și spune ce nu este documentat.\n\n${evidence}"
+                            "Citează marcajele [S1], [S2] ori [N1] doar dacă informația se află " +
+                            "în sursa numerotată. Indică pagina reală numai pentru PDF. " +
+                            "Nu inventa concluzii sau pagini; explică ce lipsește.\n\n${evidence}"
                     }
                     answer = AiClient.ask(context, mode, prompt, null, "Căutare globală MedAtlas")
                 }
@@ -239,6 +251,39 @@ internal fun NadiaGlobalSearch(
                             color = aiMuted, fontSize = 12.sp)
                     }
                     LazyColumn(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (evidenceHits.isNotEmpty()) {
+                            item { Text("Fragmente cu sursă și pagină",
+                                color = Color(0xFFAFD4FF), fontWeight = FontWeight.SemiBold,
+                                fontSize = 12.sp) }
+                        }
+                        items(evidenceHits, key = {
+                            "evidence-${it.documentId}-${it.page ?: -1}"
+                        }) { hit ->
+                            val source = documents.firstOrNull { it.id == hit.documentId }
+                            Surface(
+                                color = Color(0xFF284869),
+                                shape = RoundedCornerShape(14.dp),
+                                modifier = Modifier.fillMaxWidth().clickable {
+                                    val doc = source ?: return@clickable
+                                    onDismiss()
+                                    if (hit.page != null) onOpenDocumentAtPage(doc, hit.page)
+                                    else onOpenDocument(doc)
+                                }
+                            ) {
+                                Column(Modifier.padding(12.dp), verticalArrangement =
+                                    Arrangement.spacedBy(4.dp)) {
+                                    Text(hit.documentName + (hit.page?.let {
+                                        " · pagina ${it + 1}"
+                                    } ?: " · document Office"),
+                                        color = aiWhite, fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp)
+                                    Text(hit.excerpt, color = aiMuted, fontSize = 11.sp,
+                                        maxLines = 3, overflow = TextOverflow.Ellipsis)
+                                    Text("Deschide sursa", color = Color(0xFF9BCCFF),
+                                        fontSize = 10.sp)
+                                }
+                            }
+                        }
                         items(documentHits, key = { "doc-${it.id}" }) { doc ->
                             Surface(
                                 color = Color.White.copy(alpha = .065f),

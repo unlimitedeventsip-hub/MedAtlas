@@ -115,10 +115,13 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MedAtlasApp() {
     val context = LocalContext.current
+    val phoneMode = DeviceExperience.profile(
+        LocalConfiguration.current.smallestScreenWidthDp) == WorkspaceProfile.PHONE
     val scope = rememberCoroutineScope()
     val store = remember { LibraryStore(context) }
     val docs = remember { mutableStateListOf<StudyDocument>().apply { addAll(store.documents()) } }
     var selected by remember { mutableStateOf<StudyDocument?>(null) }
+    var selectedStartPage by remember { mutableIntStateOf(0) }
     var officeTextMode by remember { mutableStateOf(false) }
     var libraryNoteId by remember { mutableStateOf<String?>(null) }
     var libraryRevision by remember { mutableIntStateOf(0) }
@@ -135,6 +138,9 @@ private fun MedAtlasApp() {
     }
     var importFolderId by remember { mutableStateOf<String?>(null) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(phoneMode, tab) {
+        if (phoneMode && tab !in DeviceExperience.allowedTabs(WorkspaceProfile.PHONE)) tab = 0
+    }
     val introPrefs = remember { context.getSharedPreferences("medatlas_editor", android.content.Context.MODE_PRIVATE) }
     var showIntro by rememberSaveable {
         mutableStateOf(introPrefs.getBoolean("show_premium_intro", true))
@@ -164,7 +170,7 @@ private fun MedAtlasApp() {
             if (failures.isNotEmpty()) importError = failures.first()
         }
     }
-    if (showIntro) {
+    if (showIntro && !phoneMode) {
         PremiumIntro(onFinish = { showIntro = false })
         return
     }
@@ -174,7 +180,8 @@ private fun MedAtlasApp() {
                 onBack = { selected = null; officeTextMode = false },
                 onTextMode = { officeTextMode = true })
         } else {
-            ReaderScreen(doc, store, onBack = {
+            ReaderScreen(doc, store, initialPage = selectedStartPage,
+                allowDocumentEditing = !phoneMode, onBack = {
                 if (officeTextMode) officeTextMode = false
                 else selected = null
             }, onRemove = {
@@ -188,7 +195,8 @@ private fun MedAtlasApp() {
     }
     libraryNoteId?.let { id ->
         GlassPageFrame(Modifier.fillMaxSize()) {
-            NotebookLibrary(store, docs, onOpen = { selected = it }, initialNoteId = id,
+            NotebookLibrary(store, docs,
+                onOpen = { selectedStartPage = 0; selected = it }, initialNoteId = id,
                 onExit = { libraryNoteId = null; libraryRevision++ })
         }
         return
@@ -197,8 +205,17 @@ private fun MedAtlasApp() {
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
-            if (tab != 0) NavigationBar(containerColor = GlassTokens.DarkGlass, tonalElevation = 0.dp) {
-                val options = listOf(Triple("Bibliotecă", Icons.Rounded.FolderOpen, 0), Triple("Notițe", Icons.Rounded.EditNote, 1), Triple("Studiu", Icons.Rounded.School, 2), Triple("Classroom", Icons.Rounded.Class, 4), Triple("Setări", Icons.Rounded.Settings, 3))
+            if (phoneMode || tab != 0) NavigationBar(containerColor = GlassTokens.DarkGlass, tonalElevation = 0.dp) {
+                val options = if (phoneMode) listOf(
+                    Triple("Bibliotecă", Icons.Rounded.FolderOpen, 0),
+                    Triple("Notițe", Icons.Rounded.EditNote, 1)
+                ) else listOf(
+                    Triple("Bibliotecă", Icons.Rounded.FolderOpen, 0),
+                    Triple("Notițe", Icons.Rounded.EditNote, 1),
+                    Triple("Studiu", Icons.Rounded.School, 2),
+                    Triple("Classroom", Icons.Rounded.Class, 4),
+                    Triple("Setări", Icons.Rounded.Settings, 3)
+                )
                 options.forEach { (name, icon, number) ->
                     NavigationBarItem(selected = tab == number, onClick = {
                         tab = number
@@ -242,8 +259,8 @@ private fun MedAtlasApp() {
                     border = BorderStroke(1.dp, GlassTokens.Stroke)
                 ) {
                     when (tab) {
-                        1 -> NotebookLibrary(store, docs, onOpen = { selected = it }, unified = true)
-                        2 -> CardsScreen(store, docs, onOpen = { selected = it })
+                        1 -> NotebookLibrary(store, docs, onOpen = { selectedStartPage = 0; selected = it }, unified = true)
+                        2 -> CardsScreen(store, docs, onOpen = { selectedStartPage = 0; selected = it })
                         4 -> ClassroomWorkspace(onBack = { tab = 0 })
                         else -> SettingsScreen(onReplayIntro = { showIntro = true })
                     }
@@ -254,8 +271,12 @@ private fun MedAtlasApp() {
                     store = store,
                     refreshKey = libraryRevision,
                     documents = docs,
-                    onOpenDocument = { selected = it },
+                    onOpenDocument = { selectedStartPage = 0; selected = it },
                     onOpenNote = { libraryNoteId = it },
+                    onOpenDocumentAtPage = { doc, page ->
+                        selectedStartPage = page
+                        selected = doc
+                    },
                     onImport = { folderId ->
                         importFolderId = folderId
                         picker.launch(arrayOf(
@@ -281,10 +302,13 @@ private fun MedAtlasApp() {
                         docs.addAll(store.documents())
                         libraryRevision++
                     },
-                    onNavigate = { tab = it }
+                    onNavigate = { target ->
+                        if (!phoneMode || target in DeviceExperience.allowedTabs(WorkspaceProfile.PHONE))
+                            tab = target
+                    }
                 )
-                1 -> NotebookLibrary(store, docs, onOpen = { selected = it }, unified = true)
-                2 -> CardsScreen(store, docs, onOpen = { selected = it })
+                1 -> NotebookLibrary(store, docs, onOpen = { selectedStartPage = 0; selected = it }, unified = true)
+                2 -> CardsScreen(store, docs, onOpen = { selectedStartPage = 0; selected = it })
                 else -> SettingsScreen(onReplayIntro = { showIntro = true })
             }
             }
@@ -355,7 +379,9 @@ private fun LibraryScreen(docs: List<StudyDocument>, search: String, onSearch: (
 }
 
 @Composable
-private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> Unit, onRemove: () -> Unit) {
+private fun ReaderScreen(doc: StudyDocument, store: LibraryStore,
+    initialPage: Int = 0, allowDocumentEditing: Boolean = true,
+    onBack: () -> Unit, onRemove: () -> Unit) {
     BackHandler(onBack = onBack)
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -363,7 +389,9 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
     val isWide = config.orientation == Configuration.ORIENTATION_LANDSCAPE && config.screenWidthDp >= 700
     val pager = remember(doc.id) { DocumentPager(doc, store) }
     DisposableEffect(pager) { onDispose { pager.close() } }
-    var page by rememberSaveable(doc.id) { mutableIntStateOf(0) }
+    var page by rememberSaveable(doc.id, initialPage) {
+        mutableIntStateOf(initialPage.coerceIn(0, (pager.count - 1).coerceAtLeast(0)))
+    }
     var bitmap by remember(doc.id) { mutableStateOf<Bitmap?>(null) }
     var loadError by remember(doc.id) { mutableStateOf<String?>(null) }
     var tool by remember { mutableStateOf(Tool.PEN) }
@@ -372,6 +400,9 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
     var fingerInk by remember { mutableStateOf(false) }
     // Always open documents in safe reading mode; edit is explicit.
     var readOnly by rememberSaveable(doc.id) { mutableStateOf(true) }
+    LaunchedEffect(allowDocumentEditing) {
+        if (!allowDocumentEditing) readOnly = true
+    }
     // AI stays hidden until the reader explicitly requests it.
     var expanded by rememberSaveable(doc.id) { mutableStateOf(false) }
     var continuous by rememberSaveable(doc.id) { mutableStateOf(true) }
@@ -435,6 +466,10 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
     var processing by remember { mutableStateOf(false) }
     var textVersion by remember { mutableIntStateOf(0) }
     var showOcrLibrary by remember { mutableStateOf(false) }
+    var smartScanReport by remember(doc.id) { mutableStateOf<SmartScanReport?>(null) }
+    var smartScanOpen by remember(doc.id) { mutableStateOf(false) }
+    var smartScanBusy by remember(doc.id) { mutableStateOf(false) }
+    var smartScanError by remember(doc.id) { mutableStateOf<String?>(null) }
     var marks by remember(doc.id, page) { mutableStateOf(store.ink(doc.id, page)) }
     var stickers by remember(doc.id, page) { mutableStateOf(store.stickers(doc.id, page)) }
     val stickerCache = remember(doc.id) { mutableMapOf<String, Bitmap>() }
@@ -470,6 +505,34 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
             }
             .addOnFailureListener { Toast.makeText(context, it.localizedMessage ?: "OCR nereușit", Toast.LENGTH_LONG).show() }
             .addOnCompleteListener { processing = false; client.close() }
+    }
+    fun runSmartScan() {
+        val source = bitmap ?: return
+        if (smartScanBusy || processing) return
+        val requestedPage = page
+        smartScanBusy = true
+        smartScanError = null
+        scope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    val detected = SmartDocumentScanner.scan(source)
+                    SmartDocumentScanner.save(context, doc.id, requestedPage, detected)
+                    if (store.pageText(doc.id, requestedPage).isBlank() &&
+                        detected.text.isNotBlank()) {
+                        store.savePageText(doc.id, requestedPage, detected.text)
+                    }
+                    detected
+                }
+                if (requestedPage == page) {
+                    smartScanReport = result
+                    smartScanOpen = true
+                    textVersion++
+                }
+            } catch (error: Exception) {
+                smartScanError = error.localizedMessage ?:
+                    "Nu pot analiza imaginea. Încearcă o pagină mai clară."
+            } finally { smartScanBusy = false }
+        }
     }
     fun suggestImportantLines() {
         val source = bitmap ?: return
@@ -587,7 +650,9 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                     .background(Color(0xFF0E2948)).padding(3.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                listOf(true to "Citire", false to "Editare").forEach { (reading, label) ->
+                (if (allowDocumentEditing)
+                    listOf(true to "Citire", false to "Editare")
+                else listOf(true to "Citire")).forEach { (reading, label) ->
                     Surface(
                         shape = RoundedCornerShape(20.dp),
                         color = if (readOnly == reading) Color(0xFF338DFA) else Color.Transparent,
@@ -911,6 +976,13 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                 }) { Text("Oprește OCR", fontSize = 11.sp) }
             }
             }
+            TextButton(onClick = { runSmartScan() },
+                enabled = bitmap != null && !smartScanBusy && !processing,
+                colors = ButtonDefaults.textButtonColors(contentColor = navColor)) {
+                Icon(Icons.Rounded.DocumentScanner, "Scanare inteligentă")
+                Spacer(Modifier.width(4.dp))
+                Text(if (smartScanBusy) "Scanez…" else "Text + QR", fontSize = 11.sp)
+            }
             TextButton(onClick = { showOcrLibrary = true },
                 colors = ButtonDefaults.textButtonColors(contentColor = navColor)) {
                 Icon(Icons.Rounded.TextSnippet, null)
@@ -927,6 +999,77 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                     onAiSuggest = { suggestAiHighlights() }, onNote = { showNote = true },
                     onClose = { expanded = false })
             }
+        }
+    }
+    if (smartScanError != null) AlertDialog(
+        onDismissRequest = { smartScanError = null },
+        title = { Text("Scanare indisponibilă") },
+        text = { Text(smartScanError.orEmpty()) },
+        confirmButton = {
+            TextButton(onClick = { smartScanError = null }) { Text("Închide") }
+        }
+    )
+    if (smartScanOpen) {
+        smartScanReport?.let { report ->
+            AlertDialog(
+                onDismissRequest = { smartScanOpen = false },
+                title = { Text("Text și coduri · pagina ${page + 1}") },
+                text = {
+                    Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                        Text("Detectare locală: ${report.lines.size} rânduri, " +
+                            "${report.codes.size} coduri. Textul poate necesita corectare.",
+                            color = Slate, fontSize = 12.sp)
+                        val uncertain = report.lines.count {
+                            it.confidence > 0f && it.confidence < .65f
+                        }
+                        if (uncertain > 0) {
+                            Text("${uncertain} rânduri au scor OCR redus; verifică originalul.",
+                                color = Color(0xFF925829), fontSize = 12.sp)
+                        }
+                        if (report.text.isNotBlank()) {
+                            Text("Text detectat", fontWeight = FontWeight.SemiBold)
+                            Text(report.text.take(12000), fontSize = 12.sp)
+                        } else Text("Nu am detectat text pe această pagină.",
+                            color = Slate, fontSize = 12.sp)
+                        if (report.codes.isNotEmpty()) {
+                            HorizontalDivider()
+                            Text("Coduri detectate", fontWeight = FontWeight.SemiBold)
+                            report.codes.forEach { code ->
+                                Column {
+                                    Text(code.type, fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold)
+                                    Text(code.value, fontSize = 12.sp)
+                                    TextButton(onClick = {
+                                        val clipboard = context.getSystemService(
+                                            android.content.Context.CLIPBOARD_SERVICE)
+                                            as android.content.ClipboardManager
+                                        clipboard.setPrimaryClip(
+                                            android.content.ClipData.newPlainText(
+                                                "Cod MedAtlas", code.value))
+                                        Toast.makeText(context, "Cod copiat",
+                                            Toast.LENGTH_SHORT).show()
+                                    }) { Text("Copiază codul") }
+                                }
+                            }
+                            Text("Linkurile din QR nu se deschid automat.",
+                                fontSize = 11.sp, color = Slate)
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { smartScanOpen = false }) { Text("Închide") }
+                },
+                dismissButton = {
+                    if (report.text.isNotBlank()) TextButton(onClick = {
+                        val clipboard = context.getSystemService(
+                            android.content.Context.CLIPBOARD_SERVICE)
+                            as android.content.ClipboardManager
+                        clipboard.setPrimaryClip(
+                            android.content.ClipData.newPlainText("MedAtlas OCR", report.text))
+                    }) { Text("Copiază textul") }
+                }
+            )
         }
     }
     if (showOcrLibrary) {

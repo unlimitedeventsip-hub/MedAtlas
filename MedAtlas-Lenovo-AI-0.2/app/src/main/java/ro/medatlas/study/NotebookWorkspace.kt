@@ -26,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -510,6 +511,27 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
         }
     }
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
+        val compact = LocalConfiguration.current.screenWidthDp < 600
+        if (compact) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { flush(); onBack() }) { Text("‹ Pagini") }
+                Spacer(Modifier.weight(1f))
+                Text("$position / $count", style = MaterialTheme.typography.labelMedium)
+                if (position > 1) IconButton(onClick = { flush(); onPrevious() }) {
+                    Text("‹")
+                }
+                TextButton(onClick = { flush(); onNext() }) {
+                    Text(if (position == count) "+ Pagină" else "Următoarea ›")
+                }
+            }
+            OutlinedTextField(title, { title = it },
+                modifier = Modifier.fillMaxWidth(), singleLine = true,
+                label = { Text("Titlul paginii") })
+            Text(if (title != saved.heading || body != saved.body ||
+                paper != saved.paper || dark != saved.darkPaper) "Se salvează…"
+                else "Salvat local", style = MaterialTheme.typography.labelSmall,
+                color = Color(0xFF557B6B))
+        } else {
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = { flush(); onBack() }) { Text("‹ Pagini") }
             OutlinedTextField(title, { title = it }, Modifier.weight(1f), singleLine = true, label = { Text("Titlul paginii") })
@@ -521,6 +543,7 @@ private fun NotebookPage(original: StudyNote, store: LibraryStore, prefs: Shared
                     Color(0xFFB16C2D) else Color(0xFF557B6B))
             Text("$position / $count", style = MaterialTheme.typography.labelSmall)
             TextButton(onClick = { flush(); onNext() }) { Text(if (position == count) "+ Pagină" else "Următoarea ›") }
+        }
         }
         NotebookPenToolbar(
             activeTool = tool,

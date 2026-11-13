@@ -1,0 +1,19 @@
+{
+  "name": "MedAtlas Companion — Studiu și notițe",
+  "short_name": "MedAtlas",
+  "description": "Bibliotecă și notițe offline pe laptop, fără cont.",
+  "lang": "ro",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#102744",
+  "theme_color": "#102744",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

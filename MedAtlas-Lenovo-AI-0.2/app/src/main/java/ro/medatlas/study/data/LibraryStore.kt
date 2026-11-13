@@ -251,13 +251,43 @@ class LibraryStore(private val context: Context) {
         AtomicLocalFiles.readText(File(ocrDir, "${SafeStorageNames.id(documentId)}_${page}.txt"))
     }.getOrDefault("")
     /**
+     * QR and barcode values are indexed only on this device. Malformed or
+     * oversized reports are ignored; scanning never follows external links.
+     * A user can locate the original page by searching an exact code value.
+     */
+    private fun scannedCodeHit(documentId: String, term: String): Pair<Int, String>? {
+        val id = SafeStorageNames.id(documentId)
+        val sources = ocrDir.listFiles { file ->
+            file.isFile && file.length() <= 512 * 1024 &&
+                file.name.startsWith("${id}_") && file.name.endsWith(".layout.json")
+        }.orEmpty().sortedBy {
+            it.name.removePrefix("${id}_").substringBefore('.').toIntOrNull()
+                ?: Int.MAX_VALUE
+        }
+        for (file in sources) {
+            val page = file.name.removePrefix("${id}_")
+                .substringBefore('.').toIntOrNull() ?: continue
+            val found = runCatching {
+                val codes = JSONObject(AtomicLocalFiles.readText(file))
+                    .optJSONArray("codes") ?: return@runCatching null
+                (0 until codes.length()).asSequence()
+                    .map { codes.getJSONObject(it) }
+                    .firstOrNull { it.optString("value").contains(term, ignoreCase = true) }
+                    ?.let { "${it.optString("type", "Cod")}: ${it.optString("value").take(2000)}" }
+            }.getOrNull()
+            if (found != null) return page to found
+        }
+        return null
+    }
+
+    /**
      * Search OCR page text without concatenating an entire medical textbook into memory.
      * Called on Dispatchers.IO by the library UI, not on the main thread.
      */
     fun containsIndexedText(doc: StudyDocument, phrase: String): Boolean {
         val keyword = phrase.trim()
         if (keyword.isBlank()) return false
-        return if (doc.kind != "PDF") {
+        val textMatch = if (doc.kind != "PDF") {
             val source = File(docsDir, "${SafeStorageNames.id(doc.id)}.txt")
             source.isFile && runCatching {
                 source.bufferedReader().useLines { lines ->
@@ -275,18 +305,37 @@ class LibraryStore(private val context: Context) {
                 }.getOrDefault(false)
             }
         }
+        return textMatch || (doc.kind == "PDF" && scannedCodeHit(doc.id, keyword) != null)
     }
 
     /**
-     * Small source-grounded excerpts for Nadia search. Never upload entire books.
+     * Grounded source with real page references from PDF OCR filenames.
+     * Android and Nadia both reuse this object; page is zero-based.
+     * Office page numbers are intentionally absent until fidelity supports them.
      */
-    fun searchEvidence(doc: StudyDocument, phrase: String, maxChars: Int = 900): String? {
+    data class EvidenceHit(
+        val documentId: String,
+        val documentName: String,
+        val kind: String,
+        val page: Int?,
+        val excerpt: String
+    )
+
+    fun searchEvidenceHit(
+        doc: StudyDocument,
+        phrase: String,
+        maxChars: Int = 900
+    ): EvidenceHit? {
         val term = phrase.trim()
         if (term.isBlank()) return null
+        val id = SafeStorageNames.id(doc.id)
         val sources = if (doc.kind == "PDF") {
-            ocrDir.listFiles { f -> f.isFile && f.name.startsWith("${doc.id}_") && f.name.endsWith(".txt") }
-                .orEmpty().sortedBy { it.name.substringAfter("${doc.id}_").substringBefore('.').toIntOrNull() ?: 0 }
-        } else listOf(File(docsDir, "${SafeStorageNames.id(doc.id)}.txt"))
+            ocrDir.listFiles { file ->
+                file.isFile && file.name.startsWith("${id}_") && file.name.endsWith(".txt")
+            }.orEmpty().sortedBy {
+                it.name.removePrefix("${id}_").substringBefore('.').toIntOrNull() ?: Int.MAX_VALUE
+            }
+        } else listOf(File(docsDir, "$id.txt"))
         for (source in sources) {
             if (!source.isFile) continue
             val snippet = runCatching {
@@ -297,7 +346,8 @@ class LibraryStore(private val context: Context) {
                         if (line.contains(term, ignoreCase = true)) {
                             val next = reader.readLine().orEmpty()
                             return@use listOf(previous, line, next)
-                                .filter { it.isNotBlank() }.joinToString(" ").take(maxChars.coerceIn(100, 1400))
+                                .filter(String::isNotBlank)
+                                .joinToString(" ").take(maxChars.coerceIn(100, 1400))
                         }
                         previous = line
                     }
@@ -305,13 +355,25 @@ class LibraryStore(private val context: Context) {
                 }
             }.getOrNull()
             if (snippet != null) {
-                val page = if (doc.kind == "PDF") {
-                    source.name.removePrefix("${doc.id}_").substringBefore('.').toIntOrNull()?.plus(1)
-                } else null
-                return if (page != null) "Pagina $page: $snippet" else snippet
+                val page = if (doc.kind == "PDF")
+                    source.name.removePrefix("${id}_").substringBefore('.').toIntOrNull()
+                else null
+                return EvidenceHit(doc.id, doc.originalName, doc.kind, page, snippet)
+            }
+        }
+        if (doc.kind == "PDF") {
+            scannedCodeHit(doc.id, term)?.let { (page, code) ->
+                return EvidenceHit(doc.id, doc.originalName, doc.kind, page, code.take(maxChars))
             }
         }
         return null
+    }
+
+    /** Legacy text-only summary; backed by the same structured source index. */
+    fun searchEvidence(doc: StudyDocument, phrase: String, maxChars: Int = 900): String? {
+        val hit = searchEvidenceHit(doc, phrase, maxChars) ?: return null
+        return if (hit.page != null) "Pagina ${hit.page + 1}: ${hit.excerpt}"
+            else hit.excerpt
     }
 
     fun studyText(doc: StudyDocument): String = if (doc.kind != "PDF") extractedText(doc.id) else
