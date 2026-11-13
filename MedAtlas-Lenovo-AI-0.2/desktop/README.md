@@ -25,20 +25,23 @@ originale MedAtlas, nu cod sau elemente copiate din Nebo.
   este reprodus fidel**. Documentele originale sunt păstrate ca fișiere locale
   în IndexedDB (în limitele stocării browserului).
 - Notițe text editabile, autosave și căutare.
+- Foaie de scriere vectorială cu pix, creion, pensulă, marker și radieră;
+  suport pentru mouse, deget și stylus (presiune când browserul o oferă), Undo/Redo.
 - Export / import `notes.json` cu câmpuri compatibile cu
   `StudyNote` Android: `id`, `documentId`, `page`, `heading`,
-  `body`, `course`, `paper`, `createdAt`, `updatedAt` etc.
+  `body`, `course`, `paper`, `createdAt`, `updatedAt` etc.,
+  inclusiv `strokes` în formatul vectorial MedAtlas (`tool`, `color`,
+  `width`, `points`).
 - La import, un ID existent cu text diferit devine **copie separată**,
   evitând suprascrieri automate.
 
 ## Limitări esențiale
 
 - Nu există încă sincronizare automată între Android și laptop.
-- Exportul/importul manual transferă **doar textul notițelor**, nu traseele
-  manuscrise, stickerele, imaginile sau atașamentele originale.
-- Importul notițelor pe Android trebuie făcut printr-un import de backup
-  compatibil sau printr-o viitoare funcție dedicată de import `notes.json`;
-  **nu** introduce manual fișiere în directoarele private ale aplicației.
+- Exportul/importul manual transferă **textul și traseele vectoriale**;
+  nu transferă imaginile raster, stickerele sau documentele originale.
+- Android poate importa/exporta acest fișier din butonul de transfer din
+  Bibliotecă. Nu introduce manual fișiere în directoarele private ale aplicației.
 - Stocarea IndexedDB aparține profilului browserului și poate fi ștearsă de
   browser sau utilizator. Exportă periodic notițele în JSON și păstrează o copie.
 - Instalarea PWA depinde de browser, suportul manifestului și politicile
