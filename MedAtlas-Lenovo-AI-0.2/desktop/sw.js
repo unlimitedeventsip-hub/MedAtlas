@@ -1,5 +1,5 @@
-const CACHE = 'medatlas-companion-v3';
-const SHELL = ['./','./index.html','./styles.css','./app.js','./stroke-format.mjs','./note-merge.mjs','./manifest.webmanifest','./icon.svg'];
+const CACHE = 'medatlas-companion-v4';
+const SHELL = ['./','./index.html','./styles.css','./app.js','./stroke-format.mjs','./note-merge.mjs','./image-scan.mjs','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL)));
   self.skipWaiting();
