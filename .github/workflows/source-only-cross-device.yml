@@ -1,0 +1,72 @@
+name: MedAtlas cross-device source checks (NO APK)
+
+on:
+  push:
+    branches:
+      - feature/medatlas-cross-device-ocr-workspace
+  workflow_dispatch:
+
+concurrency:
+  group: medatlas-source-only-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  source:
+    name: Compile source only — no APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: MedAtlas-Lenovo-AI-0.2
+    steps:
+      - name: Checkout feature sources
+        uses: actions/checkout@v4
+
+      - name: Validate Companion JavaScript
+        run: |
+          node --check desktop/app.js
+          node --check desktop/sw.js
+          python3 -m json.tool desktop/manifest.webmanifest > /dev/null
+          test -s desktop/index.html
+          test -s desktop/styles.css
+          echo "Companion source syntax valid; no installable package created."
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v4
+
+      - name: Install Android SDK API 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Install anatomy generator Python dependencies
+        run: python3 -m pip install numpy==2.2.6 pillow==11.3.0
+
+      - name: Cache original anatomical data
+        uses: actions/cache@v4
+        with:
+          path: MedAtlas-Lenovo-AI-0.2/.gradle/bodyparts
+          key: bodyparts3d-4-partof-9fbc713f
+
+      - name: Compile only Kotlin Android sources (no assemble, no APK)
+        run: gradle --no-daemon --stacktrace :app:compileDebugKotlin
+
+      - name: Assert no installable APK was generated
+        run: |
+          if find app/build/outputs/apk -name '*.apk' -print -quit 2>/dev/null | grep -q .; then
+            echo "::error::Source-only workflow must never generate APK files."
+            exit 1
+          fi
+          echo "Confirmed: no APK built or uploaded."
