@@ -256,6 +256,8 @@ internal fun UnifiedLibraryScreen(
         matchesFolder && matchesSection && matchesType && matchesSearch
     }.sortedByDescending { it.updated }
     val wide = LocalConfiguration.current.screenWidthDp >= 800
+    val phoneProfile = DeviceExperience.profile(
+        LocalConfiguration.current.smallestScreenWidthDp) == WorkspaceProfile.PHONE
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
     fun createNote() {
@@ -305,7 +307,7 @@ internal fun UnifiedLibraryScreen(
                     Text("Biblioteca ta medicală completă", color = glassMuted, fontSize = 12.sp)
                 }
                 Spacer(Modifier.weight(1f))
-                Surface(color = glassBlue.copy(alpha = .18f), shape = RoundedCornerShape(40.dp),
+                if (!phoneProfile) Surface(color = glassBlue.copy(alpha = .18f), shape = RoundedCornerShape(40.dp),
                     border = BorderStroke(1.dp, glassBorder), modifier = Modifier.clickable { showSearch = true }) {
                     Row(Modifier.padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.AutoAwesome, null, tint = Color(0xFFC8B4FF), modifier = Modifier.size(18.dp))
@@ -313,7 +315,7 @@ internal fun UnifiedLibraryScreen(
                         Text("Nadia AI", color = glassWhite, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                     }
                 }
-                Spacer(Modifier.width(8.dp))
+                Spacer(Modifier.width(if (phoneProfile) 0.dp else 8.dp))
                 IconButton(onClick = { showDrive = true }) {
                     Icon(Icons.Rounded.CloudUpload, "Google Drive și backup", tint = glassWhite)
                 }
@@ -322,8 +324,46 @@ internal fun UnifiedLibraryScreen(
                 }
             }
 
+            // On phones the tablet's 163 dp fixed sidebar would leave the
+            // document list unreadable. Replace it with a compact scrollable
+            // navigation/folder strip, and give the list the entire width.
+            if (phoneProfile) {
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                    .padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    listOf("Bibliotecă", "Recente", "Favorite").forEach { choice ->
+                        FilterChip(selected = section == choice,
+                            onClick = { section = choice; selectedFolder = null },
+                            label = { Text(choice, fontSize = 11.sp) })
+                    }
+                    OutlinedButton(onClick = { onNavigate(1) }) {
+                        Icon(Icons.Rounded.EditNote, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("Notițe")
+                    }
+                }
+                if (folders.isNotEmpty()) {
+                    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                        .padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        FilterChip(selected = selectedFolder == null,
+                            onClick = { selectedFolder = null; section = "Bibliotecă" },
+                            label = { Text("Toate folderele") })
+                        folders.forEach { folder ->
+                            FilterChip(selected = selectedFolder == folder.id,
+                                onClick = {
+                                    selectedFolder = folder.id
+                                    section = "Bibliotecă"; search = ""
+                                },
+                                label = { Text(folder.name, maxLines = 1) })
+                        }
+                        TextButton(onClick = { folderName = ""; newFolder = true }) {
+                            Text("+ Folder")
+                        }
+                    }
+                }
+            }
             Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(shape = glassShape, color = glassSurface, border = BorderStroke(1.dp, glassBorder),
+                if (!phoneProfile) Surface(shape = glassShape, color = glassSurface,
+                    border = BorderStroke(1.dp, glassBorder),
                     modifier = Modifier.width(if (wide) 258.dp else 163.dp).fillMaxHeight()) {
                     Column(Modifier.fillMaxSize().padding(horizontal = 10.dp, vertical = 16.dp)) {
                         listOf("Bibliotecă" to Icons.Rounded.FolderOpen, "Recente" to Icons.Rounded.History,
