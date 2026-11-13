@@ -32,6 +32,9 @@ private val colors = listOf(0xD7AB96,0xDFD0B4,0xE6BE68,0xB75864,0xC991A4,0xBC897
     DisposableEffect(body) { onDispose { body.onPause() } }
     Column(Modifier.fillMaxSize().padding(8.dp)) {
         Text("Glisează pentru rotire · apropie două degete pentru zoom")
+        // User-facing and accessibility state must not depend on the GPU rendering
+        // loop. Android emulators and power-save devices may delay OpenGL callbacks.
+        Text("Corp 3D · ${visible.size} straturi vizibile", style = MaterialTheme.typography.labelMedium)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             layers.forEach { layer ->
                 FilterChip(selected = layer.id in visible, onClick = {
@@ -47,7 +50,6 @@ private val colors = listOf(0xD7AB96,0xDFD0B4,0xE6BE68,0xB75864,0xC991A4,0xBC897
 private class BodySurface(context: Context, private val metadata: List<Layer>) : GLSurfaceView(context), GLSurfaceView.Renderer {
     private val buffers = mutableMapOf<Int,ByteBuffer>()
     private var shown: Set<Int> = emptySet()
-    private var reported: Set<Int>? = null
     private var yaw = 0f
     private var pitch = 0f
     private var zoom = 1f
@@ -68,7 +70,11 @@ private class BodySurface(context: Context, private val metadata: List<Layer>) :
         renderMode = RENDERMODE_WHEN_DIRTY
         contentDescription = "Corp anatomic tridimensional cu straturi selectabile"
     }
-    fun layers(ids: Set<Int>) { queueEvent { shown = ids }; requestRender() }
+    fun layers(ids: Set<Int>) {
+        contentDescription = "Corp 3D · ${ids.size} straturi vizibile"
+        queueEvent { shown = ids }
+        requestRender()
+    }
     override fun onTouchEvent(e: MotionEvent): Boolean {
         pinch.onTouchEvent(e)
         if (e.actionMasked == MotionEvent.ACTION_MOVE && e.pointerCount == 1) {
@@ -117,11 +123,6 @@ private class BodySurface(context: Context, private val metadata: List<Layer>) :
             buffer.position(0); gl.glVertexPointer(3,GL10.GL_SHORT,10,buffer)
             buffer.position(6); gl.glNormalPointer(GL10.GL_BYTE,10,buffer)
             gl.glDrawArrays(GL10.GL_TRIANGLES,0,layer.size/10)
-        }
-        if (reported != shown && gl.glGetError() == GL10.GL_NO_ERROR) {
-            reported = shown
-            val message = "Corp 3D · " + shown.size + " straturi vizibile"
-            post { contentDescription = message }
         }
     }
 }
