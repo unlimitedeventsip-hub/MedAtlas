@@ -3,7 +3,10 @@ name: MedAtlas cross-device source checks (NO APK)
 on:
   push:
     branches:
+      - main
       - feature/medatlas-cross-device-ocr-workspace
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
