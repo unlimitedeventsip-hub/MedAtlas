@@ -122,6 +122,8 @@ class NotebookDeviceTest {
             ui.onNodeWithText("+ Caiet").performClick()
             ui.onNodeWithText("Numele caietului").performTextInput(book)
             ui.onNodeWithText("Creează caietul").performClick()
+            // Rare page layout controls are now behind the simplified toolbar.
+            ui.onNodeWithText("Mai multe opțiuni").performClick()
             ui.onNodeWithText("Linii").performClick()
             ui.onNodeWithText("Caroiaj").performClick()
             ui.onNodeWithTag("notebook-ink").performTouchInput { swipe(centerLeft, centerRight, 300) }
