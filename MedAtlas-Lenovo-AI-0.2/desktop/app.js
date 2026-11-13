@@ -145,6 +145,8 @@ async function openNote(id) {
   byId('note-content').value = note.body || '';
   state.inkStrokes = safeStrokes(note.strokes || []);
   state.undone = [];
+  state.undoStates = [];
+  state.redoStates = [];
   state.activeStroke = null;
   state.activePointer = null;
   byId('note-status').textContent = 'Salvat local';
@@ -186,6 +188,185 @@ function scheduleSave() {
     });
   }, 350);
 }
+function safeStrokes(source) {
+  if (!Array.isArray(source)) return [];
+  if (source.length > 3000) throw Error('Prea multe trasee manuscrise.');
+  const tools = new Set(['PEN','PENCIL','BRUSH','HIGHLIGHT','ERASER']);
+  let total = 0;
+  return source.map(input => {
+    if (!input || typeof input !== 'object') throw Error('Traseu invalid.');
+    if (!Array.isArray(input.points) || input.points.length > 10000)
+      throw Error('Traseul depășește limita de puncte.');
+    const points = input.points.map(p => {
+      if (!Array.isArray(p) || p.length < 2) throw Error('Punct invalid.');
+      const x=Number(p[0]), y=Number(p[1]), pressure=Number(p[2] ?? 1);
+      if (![x,y,pressure].every(Number.isFinite) || x < -.01 || x > 1.01 ||
+        y < -.01 || y > 1.01 || pressure < 0 || pressure > 4)
+        throw Error('Coordonate manuscrise invalide.');
+      return [x,y,pressure];
+    });
+    total += points.length;
+    if (total > 150000) throw Error('Notița depășește limita de scriere vectorială.');
+    const width=Number(input.width);
+    return {
+      id:typeof input.id==='string' && /^[a-zA-Z0-9_-]{1,120}$/.test(input.id)
+        ? input.id : crypto.randomUUID(),
+      tool:tools.has(input.tool) ? input.tool : 'PEN',
+      color:Number.isFinite(Number(input.color)) ? Number(input.color)|0 : (-14332541),
+      width:Number.isFinite(width) && width >= .1 && width <= 100 ? width : 3,
+      points
+    };
+  });
+}
+function cssInkColor(argb) {
+  return '#'+((argb >>> 0).toString(16).padStart(8,'0').slice(2));
+}
+function inkArgb(hex) {
+  return (0xff000000 | parseInt(hex.slice(1), 16)) | 0;
+}
+function inkPoint(event) {
+  const rect=byId('ink-canvas').getBoundingClientRect();
+  return [
+    Math.max(0,Math.min(1,(event.clientX-rect.left)/Math.max(1,rect.width))),
+    Math.max(0,Math.min(1,(event.clientY-rect.top)/Math.max(1,rect.height))),
+    Math.max(0,Math.min(1,event.pressure || .5))
+  ];
+}
+function cloneStrokes(source) {
+  return source.map(stroke => ({...stroke,points:stroke.points.map(point=>[...point])}));
+}
+function pushInkHistory() {
+  state.undoStates ??= [];
+  state.redoStates ??= [];
+  state.undoStates.push(cloneStrokes(state.inkStrokes));
+  if (state.undoStates.length > 30) state.undoStates.shift();
+  state.redoStates=[];
+}
+function undoInk() {
+  if (!state.undoStates?.length) return;
+  state.redoStates.push(cloneStrokes(state.inkStrokes));
+  state.inkStrokes=state.undoStates.pop();
+  renderInk();scheduleSave();
+}
+function redoInk() {
+  if (!state.redoStates?.length) return;
+  state.undoStates.push(cloneStrokes(state.inkStrokes));
+  state.inkStrokes=state.redoStates.pop();
+  renderInk();scheduleSave();
+}
+function eraseInk(point) {
+  const width=byId('ink-canvas').getBoundingClientRect().width || 350;
+  const height=byId('ink-canvas').getBoundingClientRect().height || 400;
+  const threshold=16;
+  const before=state.inkStrokes.length;
+  state.inkStrokes=state.inkStrokes.filter(stroke =>
+    !stroke.points.some(p=>
+      Math.hypot((p[0]-point[0])*width,(p[1]-point[1])*height) < threshold));
+  if (state.inkStrokes.length !== before) renderInk();
+}
+function renderInk() {
+  const canvas=byId('ink-canvas');
+  if (state.selected?.kind !== 'note') return;
+  const bounds=canvas.getBoundingClientRect();
+  if (bounds.width < 5 || bounds.height < 5) return;
+  const dpr=Math.min(window.devicePixelRatio || 1, 2);
+  const w=Math.max(1,Math.round(bounds.width)), h=Math.max(1,Math.round(bounds.height));
+  if (canvas.width !== Math.round(w*dpr) || canvas.height !== Math.round(h*dpr)) {
+    canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+  }
+  const ctx=canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle='#fffcf6';
+  ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle='#e3ebe3';
+  ctx.lineWidth=1;
+  for(let y=30;y<h;y+=30) {
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();
+  }
+  for (const stroke of [...state.inkStrokes,
+    ...(state.activeStroke ? [state.activeStroke] : [])]) {
+    const points=stroke.points;
+    if (!points.length) continue;
+    ctx.strokeStyle=cssInkColor(stroke.color);
+    ctx.fillStyle=cssInkColor(stroke.color);
+    ctx.globalAlpha=stroke.tool==='HIGHLIGHT' ? .26 :
+      stroke.tool==='PENCIL' ? .67 : stroke.tool==='BRUSH' ? .82 : 1;
+    ctx.lineJoin='round';ctx.lineCap='round';
+    if (points.length===1) {
+      ctx.beginPath();ctx.arc(points[0][0]*w,points[0][1]*h,
+        Math.max(.6,stroke.width/2),0,Math.PI*2);ctx.fill();
+    } else for(let i=1;i<points.length;i++) {
+      const p0=points[i-1],p1=points[i];
+      ctx.lineWidth=stroke.width*(.55+Math.min(1,p1[2])* .45)*
+        (stroke.tool==='BRUSH'?1.5:1);
+      ctx.beginPath();ctx.moveTo(p0[0]*w,p0[1]*h);
+      ctx.lineTo(p1[0]*w,p1[1]*h);ctx.stroke();
+    }
+  }
+  ctx.globalAlpha=1;
+}
+function connectInk() {
+  const canvas=byId('ink-canvas');
+  document.querySelectorAll('[data-ink-tool]').forEach(button=>
+    button.addEventListener('click',()=>{
+      state.inkTool=button.dataset.inkTool;
+      document.querySelectorAll('[data-ink-tool]').forEach(item=>
+        item.classList.toggle('active',item===button));
+    }));
+  byId('ink-color').addEventListener('input',event=>{
+    state.inkColor=event.target.value;
+  });
+  byId('ink-width').addEventListener('input',event=>{
+    state.inkWidth=Number(event.target.value);
+  });
+  byId('ink-undo').addEventListener('click',undoInk);
+  byId('ink-redo').addEventListener('click',redoInk);
+  canvas.addEventListener('pointerdown',event=>{
+    if (state.selected?.kind!=='note' || state.activePointer!==null) return;
+    // Ignore secondary fingers and keep the active stylus as the owner.
+    if (event.pointerType==='touch' && !event.isPrimary) return;
+    event.preventDefault();
+    canvas.setPointerCapture(event.pointerId);
+    state.activePointer=event.pointerId;
+    pushInkHistory();
+    const point=inkPoint(event);
+    if (state.inkTool==='ERASER') {
+      state.activeStroke=null;eraseInk(point);
+    } else {
+      state.activeStroke={
+        id:crypto.randomUUID(),tool:state.inkTool,
+        color:inkArgb(state.inkColor),width:state.inkWidth,
+        points:[point]
+      };
+      renderInk();
+    }
+  });
+  canvas.addEventListener('pointermove',event=>{
+    if (event.pointerId!==state.activePointer) return;
+    event.preventDefault();
+    const events=typeof event.getCoalescedEvents==='function'
+      ? event.getCoalescedEvents():[event];
+    for (const sample of events.length ? events:[event]) {
+      const point=inkPoint(sample);
+      if (state.inkTool==='ERASER') eraseInk(point);
+      else state.activeStroke?.points.push(point);
+    }
+    renderInk();
+  });
+  function finishInk(event) {
+    if (event.pointerId!==state.activePointer) return;
+    if (state.activeStroke) state.inkStrokes.push(state.activeStroke);
+    state.activeStroke=null;state.activePointer=null;
+    renderInk();scheduleSave();
+  }
+  canvas.addEventListener('pointerup',finishInk);
+  canvas.addEventListener('pointercancel',finishInk);
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(()=>renderInk()).observe(canvas);
+  } else window.addEventListener('resize',renderInk);
+}
+
 function download(name, body, type='application/json') {
   const url = URL.createObjectURL(new Blob([body], { type }));
   const link = document.createElement('a');
@@ -354,6 +535,7 @@ async function openDocument(id) {
   renderList();
 }
 function connect() {
+  connectInk();
   document.querySelectorAll('[data-view]').forEach(button=>
     button.addEventListener('click',()=>activeView(button.dataset.view)));
   byId('search').addEventListener('input',renderList);
