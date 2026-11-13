@@ -5,6 +5,7 @@ import android.net.Uri
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.security.MessageDigest
 import java.util.UUID
 
 /**
@@ -28,12 +29,39 @@ internal object PortableNotes {
 
     data class ImportResult(val imported: Int, val copiedConflicts: Int, val ignored: Int)
 
+    /**
+     * Use a stable ID for an imported conflicting version. Importing the same
+     * laptop file again cannot create endless "(copie importată)" duplicates.
+     * Changes to text, paper or vector ink produce a DIFFERENT conflict ID.
+     */
+    private fun conflictId(candidate: StudyNote, strokes: List<Stroke>, hasInk: Boolean): String {
+        val text = buildString {
+            append(candidate.id).append('\u0000')
+            append(candidate.heading).append('\u0000')
+            append(candidate.body).append('\u0000')
+            append(candidate.course).append('\u0000')
+            append(candidate.paper).append('\u0000')
+            append(candidate.darkPaper).append('\u0000')
+            append(hasInk).append('\u0000')
+            strokes.forEach { append(it.json().toString()).append('\u0000') }
+        }
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(text.toByteArray(Charsets.UTF_8))
+        return "conflict-" + digest.take(16).joinToString("") { "%02x".format(it) }
+    }
+
+    private fun sameFields(a: StudyNote, b: StudyNote): Boolean =
+        a.heading == b.heading && a.body == b.body &&
+            a.course == b.course && a.paper == b.paper &&
+            a.darkPaper == b.darkPaper
+
+    /** Serialize and check size BEFORE opening a destination file. */
     fun export(context: Context, store: LibraryStore, uri: Uri): Int {
         val notes = store.notes()
+        require(notes.size <= MAX_NOTES) { "Sunt prea multe notițe pentru transferul JSON." }
         val payload = JSONArray().apply {
             notes.forEach { note ->
-                // A drawing's path is only meaningful inside the originating
-                // tablet's private storage, so don't export a broken reference.
+                // Raster pictures use the full ZIP backup; vector ink is portable.
                 val entry = note.copy(handwritingFile = "").json()
                 val strokes = store.ink(inkId(note.id), 0)
                 entry.put("strokes", JSONArray().apply {
@@ -41,10 +69,13 @@ internal object PortableNotes {
                 })
                 put(entry)
             }
-        }.toString(2)
+        }.toString().toByteArray(Charsets.UTF_8)
+        require(payload.size <= MAX_IMPORT_BYTES) {
+            "Notițele depășesc 12 MB. Folosește backupul ZIP complet."
+        }
         val stream = context.contentResolver.openOutputStream(uri)
             ?: error("Nu pot crea fișierul de transfer.")
-        stream.use { it.write(payload.toByteArray(Charsets.UTF_8)) }
+        stream.use { it.write(payload) }
         return notes.size
     }
 
@@ -89,6 +120,10 @@ internal object PortableNotes {
                 originalId else UUID.randomUUID().toString()
             val heading = json.optString("heading").take(180)
                 .ifBlank { "Notiță importată" }
+            val inkProvided = json.has("strokes")
+            require(!inkProvided || json.optJSONArray("strokes") != null) {
+                "Notița ${index + 1} are trasee manuscrise invalide."
+            }
             val importedStrokes = json.optJSONArray("strokes")?.let { list ->
                 require(list.length() <= MAX_STROKES_PER_NOTE) {
                     "Notița ${index + 1} are prea multe trasee."
@@ -129,7 +164,7 @@ internal object PortableNotes {
                 updatedAt = json.optLong("updatedAt").takeIf { it > 0 }
                     ?: System.currentTimeMillis()
             )
-            candidate to importedStrokes
+            Triple(candidate, importedStrokes, inkProvided)
         }
 
         val local = store.notes().toMutableList()
@@ -138,35 +173,56 @@ internal object PortableNotes {
         var conflicts = 0
         var ignored = 0
         val newInk = mutableListOf<Pair<String, List<Stroke>>>()
-        parsed.forEach { (candidate, strokes) ->
+        parsed.forEach { (candidate, strokes, hasInk) ->
             val previous = existing[candidate.id]
+            val identical = previous != null &&
+                sameFields(previous, candidate) &&
+                (!hasInk || store.ink(inkId(candidate.id), 0) == strokes)
             if (previous == null) {
                 local += candidate
                 existing[candidate.id] = candidate
                 newInk += candidate.id to strokes
                 imported++
-            } else if (previous.body == candidate.body &&
-                previous.heading == candidate.heading &&
-                (strokes.isEmpty() || store.ink(inkId(candidate.id), 0) == strokes)) {
+            } else if (identical) {
                 ignored++
             } else {
-                val duplicate = candidate.copy(
-                    id = UUID.randomUUID().toString(),
-                    heading = (candidate.heading.take(154) + " (copie importată)"),
-                    updatedAt = System.currentTimeMillis()
-                )
-                local += duplicate
-                existing[duplicate.id] = duplicate
-                newInk += duplicate.id to strokes
-                imported++
-                conflicts++
+                val stableId = conflictId(candidate, strokes, hasInk)
+                val existingCopy = existing[stableId]
+                val sameCopy = existingCopy != null &&
+                    sameFields(
+                        existingCopy,
+                        candidate.copy(heading = (
+                            candidate.heading.take(154) + " (copie importată)"
+                        ))
+                    ) &&
+                    (!hasInk || store.ink(inkId(stableId), 0) == strokes)
+                if (sameCopy) {
+                    ignored++
+                } else {
+                    // A collision is highly unlikely, but must never overwrite
+                    // an unrelated local note.
+                    val copyId = if (existingCopy == null) stableId
+                        else UUID.randomUUID().toString()
+                    val duplicate = candidate.copy(
+                        id = copyId,
+                        heading = candidate.heading.take(154) + " (copie importată)",
+                        updatedAt = System.currentTimeMillis()
+                    )
+                    local += duplicate
+                    existing[duplicate.id] = duplicate
+                    newInk += duplicate.id to strokes
+                    imported++
+                    conflicts++
+                }
             }
         }
         if (imported > 0) {
-            store.saveNotes(local)
+            // Save vector data FIRST: if an I/O error occurs, no new note appears
+            // in the visible index with a missing handwritten drawing.
             newInk.forEach { (id, strokes) ->
                 if (strokes.isNotEmpty()) store.saveInk(inkId(id), 0, strokes)
             }
+            store.saveNotes(local)
         }
         return ImportResult(imported, conflicts, ignored)
     }

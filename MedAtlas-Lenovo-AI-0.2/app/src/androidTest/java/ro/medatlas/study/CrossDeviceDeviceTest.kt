@@ -115,6 +115,87 @@ class CrossDeviceDeviceTest {
         }
     }
 
+
+    @Test fun repeatedImportOfConflictIsIdempotent() {
+        val original = store.notes()
+        val note = StudyNote(
+            id = UUID.randomUUID().toString(),
+            documentId = "medical-notebook", page = 0,
+            heading = "Fiziologie", body = "Original"
+        )
+        val source = note.copy(body = "Versiunea nouă").json()
+        val file = File.createTempFile("medatlas-repeated-", ".json", context.cacheDir)
+        file.writeText(JSONArray().put(source).toString())
+        try {
+            store.saveNotes(original + note)
+            val first = PortableNotes.import(context, store, Uri.fromFile(file))
+            val second = PortableNotes.import(context, store, Uri.fromFile(file))
+            assertEquals(1, first.copiedConflicts)
+            assertEquals(0, second.copiedConflicts)
+            assertEquals(1, second.ignored)
+            assertEquals(1, store.notes().count { it.body == "Versiunea nouă" })
+            assertEquals("Original", store.notes().single { it.id == note.id }.body)
+        } finally {
+            store.saveNotes(original)
+            file.delete()
+        }
+    }
+
+    @Test fun identicalTextButDifferentPaperCreatesSafeVersion() {
+        val original = store.notes()
+        val note = StudyNote(
+            id = UUID.randomUUID().toString(),
+            documentId = "medical-notebook", page = 0,
+            heading = "Anatomie", body = "Aceleași cuvinte", paper = "LINES"
+        )
+        val incoming = note.copy(paper = "GRID").json()
+        val file = File.createTempFile("medatlas-paper-", ".json", context.cacheDir)
+        file.writeText(JSONArray().put(incoming).toString())
+        try {
+            store.saveNotes(original + note)
+            val imported = PortableNotes.import(context, store, Uri.fromFile(file))
+            assertEquals(1, imported.copiedConflicts)
+            assertEquals("LINES", store.notes().single { it.id == note.id }.paper)
+            assertEquals(1, store.notes().count {
+                it.body == "Aceleași cuvinte" && it.paper == "GRID"
+            })
+        } finally {
+            store.saveNotes(original)
+            file.delete()
+        }
+    }
+
+    @Test fun explicitlyEmptyRemoteInkDoesNotEraseLocalDrawing() {
+        val original = store.notes()
+        val id = UUID.randomUUID().toString()
+        val note = StudyNote(
+            id = id, documentId = "medical-notebook",
+            page = 0, heading = "Stilou", body = "Text identic"
+        )
+        val localInk = listOf(Stroke(
+            tool = Tool.PEN,
+            points = listOf(InkPoint(.1f,.2f), InkPoint(.7f,.8f))
+        ))
+        val key = "notebook-" + UUID.nameUUIDFromBytes(id.toByteArray(Charsets.UTF_8))
+        val file = File.createTempFile("medatlas-erased-", ".json", context.cacheDir)
+        file.writeText(JSONArray().put(note.json().put("strokes", JSONArray())).toString())
+        try {
+            store.saveNotes(original + note)
+            store.saveInk(key, 0, localInk)
+            val imported = PortableNotes.import(context, store, Uri.fromFile(file))
+            assertEquals(1, imported.copiedConflicts)
+            assertEquals(localInk, store.ink(key, 0))
+            assertEquals("Text identic", store.notes().single { it.id == id }.body)
+            assertEquals(1, store.notes().count {
+                it.id != id && it.heading.contains("(copie importată)")
+            })
+        } finally {
+            store.saveNotes(original)
+            store.saveInk(key, 0, emptyList())
+            file.delete()
+        }
+    }
+
     @Test fun scannedQrCanBeSearchedWithItsOriginalPdfPage() {
         val id = UUID.randomUUID().toString()
         val doc = StudyDocument(

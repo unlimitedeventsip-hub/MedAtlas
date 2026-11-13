@@ -56,17 +56,10 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Install anatomy generator Python dependencies
-        run: python3 -m pip install numpy==2.2.6 pillow==11.3.0
-
-      - name: Cache original anatomical data
-        uses: actions/cache@v4
-        with:
-          path: MedAtlas-Lenovo-AI-0.2/.gradle/bodyparts
-          key: bodyparts3d-4-partof-9fbc713f
-
       - name: Compile Android app and instrumentation test sources only
-        run: gradle --no-daemon --stacktrace :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin
+        # Anatomical PNG/3D asset generation belongs to explicit APK packaging.
+        # Source compilation does not need the large Python asset pipeline.
+        run: gradle --no-daemon --stacktrace :app:compileDebugKotlin :app:compileDebugAndroidTestKotlin -x :app:prepareAnatomy
 
       - name: Assert no installable APK was generated
         run: |

@@ -2,7 +2,8 @@
  * Pure functions shared by the UI and the Node regression tests.
  */
 export function safeStrokes(source) {
-  if (!Array.isArray(source)) return [];
+  if (source === null || source === undefined) return [];
+  if (!Array.isArray(source)) throw Error('Traseele manuscrise trebuie să fie o listă.');
   if (source.length > 3000) throw Error('Prea multe trasee manuscrise.');
   const tools = new Set(['PEN','PENCIL','BRUSH','HIGHLIGHT','ERASER']);
   let total = 0;
@@ -11,8 +12,11 @@ export function safeStrokes(source) {
     if (!Array.isArray(input.points) || input.points.length > 10000)
       throw Error('Traseul depășește limita de puncte.');
     const points = input.points.map(p => {
-      if (!Array.isArray(p) || p.length < 2) throw Error('Punct invalid.');
-      const x=Number(p[0]), y=Number(p[1]), pressure=Number(p[2] ?? 1);
+      if (!Array.isArray(p) || p.length < 2 ||
+          typeof p[0] !== 'number' || typeof p[1] !== 'number' ||
+          (p[2] !== undefined && typeof p[2] !== 'number'))
+        throw Error('Punct invalid.');
+      const x=p[0], y=p[1], pressure=p[2] ?? 1;
       if (![x,y,pressure].every(Number.isFinite) || x < -.01 || x > 1.01 ||
         y < -.01 || y > 1.01 || pressure < 0 || pressure > 4)
         throw Error('Coordonate manuscrise invalide.');
