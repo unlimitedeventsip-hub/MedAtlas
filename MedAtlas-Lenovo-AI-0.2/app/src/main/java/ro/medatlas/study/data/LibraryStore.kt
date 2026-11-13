@@ -278,15 +278,33 @@ class LibraryStore(private val context: Context) {
     }
 
     /**
-     * Small source-grounded excerpts for Nadia search. Never upload entire books.
+     * Grounded source with real page references from PDF OCR filenames.
+     * Android and Nadia both reuse this object; page is zero-based.
+     * Office page numbers are intentionally absent until fidelity supports them.
      */
-    fun searchEvidence(doc: StudyDocument, phrase: String, maxChars: Int = 900): String? {
+    data class EvidenceHit(
+        val documentId: String,
+        val documentName: String,
+        val kind: String,
+        val page: Int?,
+        val excerpt: String
+    )
+
+    fun searchEvidenceHit(
+        doc: StudyDocument,
+        phrase: String,
+        maxChars: Int = 900
+    ): EvidenceHit? {
         val term = phrase.trim()
         if (term.isBlank()) return null
+        val id = SafeStorageNames.id(doc.id)
         val sources = if (doc.kind == "PDF") {
-            ocrDir.listFiles { f -> f.isFile && f.name.startsWith("${doc.id}_") && f.name.endsWith(".txt") }
-                .orEmpty().sortedBy { it.name.substringAfter("${doc.id}_").substringBefore('.').toIntOrNull() ?: 0 }
-        } else listOf(File(docsDir, "${SafeStorageNames.id(doc.id)}.txt"))
+            ocrDir.listFiles { file ->
+                file.isFile && file.name.startsWith("${id}_") && file.name.endsWith(".txt")
+            }.orEmpty().sortedBy {
+                it.name.removePrefix("${id}_").substringBefore('.').toIntOrNull() ?: Int.MAX_VALUE
+            }
+        } else listOf(File(docsDir, "$id.txt"))
         for (source in sources) {
             if (!source.isFile) continue
             val snippet = runCatching {
@@ -297,7 +315,8 @@ class LibraryStore(private val context: Context) {
                         if (line.contains(term, ignoreCase = true)) {
                             val next = reader.readLine().orEmpty()
                             return@use listOf(previous, line, next)
-                                .filter { it.isNotBlank() }.joinToString(" ").take(maxChars.coerceIn(100, 1400))
+                                .filter(String::isNotBlank)
+                                .joinToString(" ").take(maxChars.coerceIn(100, 1400))
                         }
                         previous = line
                     }
@@ -305,13 +324,20 @@ class LibraryStore(private val context: Context) {
                 }
             }.getOrNull()
             if (snippet != null) {
-                val page = if (doc.kind == "PDF") {
-                    source.name.removePrefix("${doc.id}_").substringBefore('.').toIntOrNull()?.plus(1)
-                } else null
-                return if (page != null) "Pagina $page: $snippet" else snippet
+                val page = if (doc.kind == "PDF")
+                    source.name.removePrefix("${id}_").substringBefore('.').toIntOrNull()
+                else null
+                return EvidenceHit(doc.id, doc.originalName, doc.kind, page, snippet)
             }
         }
         return null
+    }
+
+    /** Legacy text-only summary; backed by the same structured source index. */
+    fun searchEvidence(doc: StudyDocument, phrase: String, maxChars: Int = 900): String? {
+        val hit = searchEvidenceHit(doc, phrase, maxChars) ?: return null
+        return if (hit.page != null) "Pagina ${hit.page + 1}: ${hit.excerpt}"
+            else hit.excerpt
     }
 
     fun studyText(doc: StudyDocument): String = if (doc.kind != "PDF") extractedText(doc.id) else
