@@ -52,6 +52,19 @@ jobs:
             printf '%s' "$MEDATLAS_KEYSTORE_BASE64" | base64 --decode > app/medatlas-signing.jks
           fi
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install anatomy generation dependencies
+        run: python -m pip install numpy==2.2.6 pillow==11.3.0
+
+      - name: Cache original anatomical data
+        uses: actions/cache@v4
+        with:
+          path: MedAtlas-Lenovo-AI-0.2/.gradle/bodyparts
+          key: bodyparts3d-4-partof-9fbc713f
+
       - name: Verify offline study catalog
         run: python3 tools/check_workbook.py
 
@@ -100,6 +113,41 @@ jobs:
           MEDATLAS_STORE_PASSWORD: ${{ secrets.MEDATLAS_STORE_PASSWORD }}
           MEDATLAS_KEY_ALIAS: ${{ secrets.MEDATLAS_KEY_ALIAS }}
           MEDATLAS_KEY_PASSWORD: ${{ secrets.MEDATLAS_KEY_PASSWORD }}
+
+      # Publish a usable v2 APK only after the instrumentation suite passes.
+      - name: Build MedAtlas v2 signed release APK
+        env:
+          MEDATLAS_STORE_PASSWORD: ${{ secrets.MEDATLAS_STORE_PASSWORD }}
+          MEDATLAS_KEY_ALIAS: ${{ secrets.MEDATLAS_KEY_ALIAS }}
+          MEDATLAS_KEY_PASSWORD: ${{ secrets.MEDATLAS_KEY_PASSWORD }}
+        run: gradle --no-daemon --stacktrace :app:assembleRelease
+
+      - name: Verify v2 package version and original Classroom certificate
+        run: |
+          apk=app/build/outputs/apk/release/app-release.apk
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$apk" > app/build/outputs/apk/release/signature-verification.txt
+          grep -F "Verified using v2 scheme (APK Signature Scheme v2): true" app/build/outputs/apk/release/signature-verification.txt
+          sha1=$(sed -n 's/^Signer #1 certificate SHA-1 digest: //p' app/build/outputs/apk/release/signature-verification.txt | tr '[:upper:]' '[:lower:]' | tr -d ':[:space:]')
+          test "$sha1" = "d09083802dc5722fd11538912f5787e8258b53b6"
+          package_info=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | head -n 1)
+          printf '%s\n' "$package_info"
+          printf '%s\n' "$package_info" | grep -F "name='ro.medatlas.study'"
+          printf '%s\n' "$package_info" | grep -F "versionCode='20'"
+          printf '%s\n' "$package_info" | grep -F "versionName='2.0.0'"
+          cp "$apk" app/build/outputs/apk/release/MedAtlas-v2.0.0.apk
+          cd app/build/outputs/apk/release
+          sha256sum MedAtlas-v2.0.0.apk > SHA256SUMS.txt
+
+      - name: Upload tested MedAtlas v2 signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MedAtlas-v2.0.0-signed-release
+          path: |
+            MedAtlas-Lenovo-AI-0.2/app/build/outputs/apk/release/MedAtlas-v2.0.0.apk
+            MedAtlas-Lenovo-AI-0.2/app/build/outputs/apk/release/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Show Android test failures
         if: failure()

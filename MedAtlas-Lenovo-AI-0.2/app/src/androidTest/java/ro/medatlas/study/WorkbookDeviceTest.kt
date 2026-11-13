@@ -97,4 +97,105 @@ class WorkbookDeviceTest {
         }
     }
 
+    @Test fun workbookBackupRoundTripAndOldZip() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = ro.medatlas.study.data.LibraryStore(context)
+        val prefs = context.getSharedPreferences("clinical-workbook", Context.MODE_PRIVATE)
+        prefs.edit().clear().putInt("f01.visit", 1).putBoolean("f01.opened", true)
+            .putString("f01.0.Diagnostic", "Test cu diacritice")
+            .putStringSet("f01.tests", setOf("0","1")).commit()
+        val zip = java.io.File.createTempFile("workbook-", ".zip", context.cacheDir)
+        val uri = android.net.Uri.fromFile(zip)
+        try {
+            store.exportBackup(uri)
+            prefs.edit().clear().commit()
+            store.importBackup(uri)
+            org.junit.Assert.assertEquals(1, prefs.getInt("f01.visit", 0))
+            org.junit.Assert.assertEquals("Test cu diacritice",prefs.getString("f01.0.Diagnostic",""))
+            org.junit.Assert.assertEquals(setOf("0","1"),prefs.getStringSet("f01.tests",emptySet()))
+            fun writeArchive(clinical: String?) {
+                java.util.zip.ZipOutputStream(zip.outputStream()).use { output ->
+                    output.putNextEntry(java.util.zip.ZipEntry("notes.json"))
+                    output.write("[]".toByteArray())
+                    output.closeEntry()
+                    if (clinical != null) {
+                        output.putNextEntry(java.util.zip.ZipEntry("clinical-workbook-v1.json"))
+                        output.write(clinical.toByteArray())
+                        output.closeEntry()
+                    }
+                }
+            }
+            val note = ro.medatlas.study.data.StudyNote(documentId = "test", page = 0, heading = "Test", body = "Păstrează")
+            store.saveNotes(listOf(note))
+            writeArchive("""{"version":1,"fields":{"f01.visit":99}}""")
+            org.junit.Assert.assertTrue(runCatching { store.importBackup(uri) }.isFailure)
+            org.junit.Assert.assertEquals(note.id, store.notes().single().id)
+            org.junit.Assert.assertEquals(1, prefs.getInt("f01.visit", 0))
+            writeArchive(null)
+            store.importBackup(uri)
+            org.junit.Assert.assertTrue(prefs.getBoolean("f01.opened", false))
+        } finally { zip.delete() }
+    }
+
+    @Test fun allThirtyAtlasStickersCanBeInsertedAndReopened() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = ro.medatlas.study.data.LibraryStore(context)
+        val models = store.stickerCatalog().filter { it.first.startsWith("FMA") }
+        org.junit.Assert.assertEquals(30,models.size)
+        val stickers = models.map { (id,_) ->
+            val name = store.builtInSticker(id)
+            val bmp = store.stickerBitmap(name)!!
+            org.junit.Assert.assertEquals(512,bmp.width)
+            org.junit.Assert.assertTrue(bmp.hasAlpha())
+            bmp.recycle()
+            ro.medatlas.study.data.PageSticker(imageName = name)
+        }
+        store.saveStickers("device-test",0,stickers)
+        org.junit.Assert.assertEquals(stickers,store.stickers("device-test",0))
+    }
+
+    @Test fun openLinkedLabAndReturnToSamePatient() {
+        ActivityScenario.launch(ClinicalSimulatorActivity::class.java).use {
+            val patient = "Nu mai pot duce coșul de rufe pe scări."
+            listTo(patient)
+            ui.onNodeWithText(patient).performClick()
+            tap("Deschide laboratorul")
+            ui.onNodeWithText("Feritină și microcitoză").assertExists()
+            ui.onNodeWithContentDescription("Înapoi").performClick()
+            tap("Consultă atlasul")
+            ui.onNodeWithText("Măduvă osoasă", substring=false).assertExists()
+            ui.onNodeWithContentDescription("Înapoi").performClick()
+            listTo("Fișa clinică")
+            ui.onNodeWithText("Fișa clinică").assertExists()
+        }
+    }
+
+    @Test fun examResumesAndShowsStatistics() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        context.getSharedPreferences("exam-session-v1",0).edit().clear().commit()
+        ActivityScenario.launch(ro.medatlas.study.study.ExamActivity::class.java).use {
+            ui.onNodeWithText("Începe un examen").performClick()
+            ui.onNodeWithText("Următor").performScrollTo().performClick()
+        }
+        ActivityScenario.launch(ro.medatlas.study.study.ExamActivity::class.java).use {
+            ui.onNodeWithText("Întrebarea 2 din 20",substring=true).assertExists()
+            repeat(18) { ui.onNodeWithText("Următor").performScrollTo().performClick() }
+            ui.onNodeWithText("Încheie examenul").performScrollTo().performClick()
+            ui.onNodeWithText("Rezultat · 0 / 20").assertExists()
+            ui.onNodeWithText("Anatomie · 0 / 10").assertExists()
+        }
+    }
+
+    @Test fun anatomicalLayerControlsUpdateWithoutDependingOnGpuTimings() {
+        ActivityScenario.launch(ro.medatlas.study.anatomy.Anatomy3DActivity::class.java).use {
+            // The visible state comes from Compose, not the asynchronous GPU frame.
+            // GPU output fidelity still needs a physical Lenovo tablet test.
+            ui.onNodeWithText("Corp 3D · 4 straturi vizibile").assertExists()
+            ui.onNodeWithText("Schelet").performClick()
+            ui.onNodeWithText("Corp 3D · 3 straturi vizibile").assertExists()
+            ui.onNodeWithText("Schelet").performClick()
+            ui.onNodeWithText("Corp 3D · 4 straturi vizibile").assertExists()
+        }
+    }
+
 }

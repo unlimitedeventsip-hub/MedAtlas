@@ -211,6 +211,7 @@ internal fun UnifiedLibraryScreen(
     var section by remember { mutableStateOf("Bibliotecă") }
     var search by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf("Toate") }
+    var showUmf by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
     var showPlus by remember { mutableStateOf(false) }
     var newFolder by remember { mutableStateOf(false) }
     var folderName by remember { mutableStateOf("") }
@@ -531,6 +532,8 @@ internal fun UnifiedLibraryScreen(
                     onClick = { showPlus = false; createNote() })
                 DropdownMenuItem(text = { Text("Importă documente") }, leadingIcon = { Icon(Icons.Rounded.FileUpload, null) },
                     onClick = { showPlus = false; onImport(selectedFolder) })
+                DropdownMenuItem(text = { Text("Materiale UMF") }, leadingIcon = { Icon(Icons.Rounded.School, null) },
+                    onClick = { showPlus = false; showUmf = true })
                 DropdownMenuItem(text = { Text("Folder nou") }, leadingIcon = { Icon(Icons.Rounded.CreateNewFolder, null) },
                     onClick = { showPlus = false; folderName = ""; newFolder = true })
             }
@@ -542,6 +545,10 @@ internal fun UnifiedLibraryScreen(
         }
     }
 
+    if (showUmf) UmfMaterialsDialog(onDismiss = { showUmf = false }, onImport = {
+        showUmf = false
+        onImport(selectedFolder)
+    })
     if (newFolder) AlertDialog(onDismissRequest = { newFolder = false },
         title = { Text("Folder nou") },
         text = {

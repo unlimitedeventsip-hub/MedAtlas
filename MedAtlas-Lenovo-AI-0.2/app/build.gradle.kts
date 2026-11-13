@@ -11,8 +11,8 @@ android {
         applicationId = "ro.medatlas.study"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "0.8.0"
+        versionCode = 20
+        versionName = "2.0.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     val stableKeystore = file("medatlas-signing.jks")
@@ -32,6 +32,11 @@ android {
         }
         release {
             isMinifyEnabled = false
+            // Same stable signing certificate as previous MedAtlas installs:
+            // updates retain local notes and keep Google Classroom OAuth valid.
+            if (stableKeystore.exists()) {
+                signingConfig = signingConfigs.getByName("medatlas")
+            }
         }
     }
     compileOptions {
@@ -46,6 +51,7 @@ android {
 dependencies {
     androidTestImplementation(platform("androidx.compose:compose-bom:2024.12.01"))
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    androidTestImplementation("androidx.test.uiautomator:uiautomator:2.3.0")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
@@ -65,3 +71,14 @@ dependencies {
     implementation("com.google.mlkit:digital-ink-recognition:19.0.0")
     implementation("com.google.android.gms:play-services-auth:21.3.0")
 }
+
+val generatedAnatomy = layout.buildDirectory.dir("generated/body-assets")
+val prepareAnatomy by tasks.registering(Exec::class) {
+    val generator = rootProject.file("tools/build_anatomy.py")
+    inputs.files(generator, rootProject.file("tools/sticker-models.tsv"))
+    outputs.dir(generatedAnatomy)
+    commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3",
+        generator.absolutePath, generatedAnatomy.get().asFile.absolutePath)
+}
+android.sourceSets.getByName("main").assets.srcDir(generatedAnatomy)
+tasks.named("preBuild").configure { dependsOn(prepareAnatomy) }

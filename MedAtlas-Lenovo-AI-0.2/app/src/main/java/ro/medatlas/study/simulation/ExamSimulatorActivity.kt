@@ -103,6 +103,9 @@ class ExamSimulatorActivity : ComponentActivity() {
                 if (!examStarted) {
                     Column(Modifier.fillMaxSize().padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        OutlinedButton(onClick = {
+                            startActivity(android.content.Intent(this@ExamSimulatorActivity, ro.medatlas.study.study.ExamActivity::class.java))
+                        }) { Text("Examen cronometrat · anatomie, laborator și clinică") }
                         Text("Alege materia", fontWeight = FontWeight.SemiBold)
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf("Toate", "Laborator", "Cazuri clinice").forEach { option ->

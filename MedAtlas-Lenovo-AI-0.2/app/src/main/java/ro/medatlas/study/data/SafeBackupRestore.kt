@@ -114,7 +114,7 @@ internal object SafeBackupRestore {
             }
             require(entries > 0 && names.any {
                 it in setOf("documents.json", "notes.json", "boards.json",
-                    "cards.json", "organization.json")
+                    "cards.json", "organization.json", "clinical-workbook-v1.json")
             }) { "Acest fișier nu este o arhivă MedAtlas validă." }
 
             // Corrupted core metadata must not poison the app's local library.
@@ -130,7 +130,16 @@ internal object SafeBackupRestore {
                 }
             }
 
-            val staged = staging.walkTopDown().filter { it.isFile }.toList()
+
+            val workbookFile = File(staging, "clinical-workbook-v1.json")
+            val workbook = ClinicalBackup(context)
+            val clinicalUpdate = if (workbookFile.exists()) {
+                require(workbookFile.length() <= 32L * 1024 * 1024) { "Fișa clinică depășește limita de citire." }
+                workbook.prepare(workbookFile.readText())
+            } else null
+            val previousClinical = clinicalUpdate?.let { workbook.encode() }
+            var clinicalCommitStarted = false
+            val staged = staging.walkTopDown().filter { it.isFile && it != workbookFile }.toList()
             val prior = hashSetOf<String>()
 
             // Save every file that could be replaced BEFORE any changes.
@@ -164,8 +173,16 @@ internal object SafeBackupRestore {
                         }
                     } finally { pending.delete() }
                 }
+                if (clinicalUpdate != null) {
+                    clinicalCommitStarted = true
+                    check(clinicalUpdate.commit()) { "Restaurarea fișelor clinice a eșuat." }
+                }
             } catch (error: Exception) {
                 val failures = mutableListOf<Throwable>()
+                if (clinicalCommitStarted && previousClinical != null) {
+                    runCatching { check(workbook.prepare(previousClinical).commit()) }
+                        .onFailure { failures.add(it) }
+                }
                 touched.asReversed().forEach { relative ->
                     val target = File(root, relative)
                     try {

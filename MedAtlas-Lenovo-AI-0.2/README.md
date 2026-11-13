@@ -1,4 +1,41 @@
-# MedAtlas Nadia — Android Beta 0.8
+# MedAtlas Nadia — Android Beta 0.9
+
+### Folosire pe tabletă
+
+Din **Studiu** se deschid spitalul, examenul, atlasul și laboratorul. Din fișa unui pacient, **Consultă atlasul** și **Deschide laboratorul** afișează resursele asociate. Înapoi revine la pacient. La relansarea spitalului, **Continuă ultima fișă** reia vizita.
+Într-un document deschis, **Atlas** afișează 30 de stickere anatomice cu miniaturi și cele trei schițe existente. Atingerea unei miniaturi inserează imaginea pe pagina curentă. Stickerele BodyParts3D își păstrează sursa și licența în bibliografie.
+Examenul offline selectează 20 de întrebări din trei domenii. Cronometrul continuă la ieșire, iar la final se afișează scorul, rezultatele pe domenii și corecturile.
+Exportul ZIP include fișele clinice. Restaurarea unei arhive vechi, fără secțiune clinică, păstrează fișele actuale.
+
+## Lista celor 12 categorii
+
+| Cerință | Stadiu și verificare rămasă |
+| --- | --- |
+| Classroom | Certificatul APK este verificat în CI. Autentificarea, sincronizarea și importul Drive trebuie probate cu contul destinatar. |
+| Nadia AI | Client și worker implementate. Adresa implicită este configurată. Autorizarea serviciului și testul conversației din aplicație rămân necesare. |
+| Animație pentru Nadia | Monogramă desenată progresiv în antet; biblioteca este disponibilă imediat. |
+| Imagini anatomice | 30 de redări cu proveniență BodyParts3D, trei planșe istorice; revizuirea medicală independentă este deschisă. |
+| Corp 3D offline | Model nativ OpenGL din 1.258 componente cu selectarea straturilor, rotire și zoom. |
+| 100 de scenarii | 100 de fișe și două trasee de urmărire pentru fiecare dintre cele 16 profiluri. Cazurile înrudite împart investigații și răspunsuri la planul ales. |
+| Dialog și feedback AI | Dictare editabilă, răspuns vocal și feedback pe fișă implementate; necesită test live cu serviciile configurate. |
+| Proceduri | Stație interactivă de măsurare a tensiunii; operațiile simulate și manevrele 3D rămân deschise. |
+| ECG, RX, CT, analize | 12 fragmente ECG reale offline, 30 de buletine/exerciții și acces la radiografie și patru secțiuni CT la sursă. Cititorul RX/CT offline rămâne deschis. |
+| Grile și examen | Simulare cronometrată cu reluare, scor pe domeniu și revizuirea greșelilor. Acoperire actuală: anatomie, laborator, clinică. |
+| Validare medicală | Necesită revizuire și semnătura unui specialist. Histologia, vascularizația, inervația și patologia pentru toate structurile rămân incomplete. |
+| Lenovo Tab Pen | Necesită probă de instalare/actualizare pe dispozitiv, pen, orientare, voce, backup și acces Classroom pe contul destinat. |
+
+### Resurse pentru studiu
+
+Grilele offline sunt exerciții originale. Laboratorul include acces online la [exemplele oficiale USMLE](https://www.usmle.org/exam-resources/step-1-materials/step-1-sample-test-questions).
+Pentru aprofundare: [feritină](https://medlineplus.gov/lab-tests/ferritin-blood-test/), [HbA1c](https://medlineplus.gov/lab-tests/hemoglobin-a1c-hba1c-test/) și [anatomie renală microscopică](https://openstax.org/books/anatomy-and-physiology-2e/pages/25-4-microscopic-anatomy-of-the-kidney).
+
+- BodyParts3D, © The Database Center for Life Science, [CC Attribution 4.0 International](https://creativecommons.org/licenses/by/4.0/). [Arhiva și termenii actuali](https://dbarchive.biosciencedbc.jp/data/bodyparts3d/LATEST/README_e.html). MedAtlas a grupat și cuantificat plasele și a generat proiecții ortografice colorate.
+- Moody G., Mark R. [MIT-BIH Arrhythmia Database 1.0.0](https://doi.org/10.13026/C2F305), PhysioNet, ODC-By 1.0. Primele 6 secunde din prima derivație a 12 înregistrări, 360 Hz, conversie după calibrarea fiecărei înregistrări. Moody GB, Mark RG. The impact of the MIT-BIH Arrhythmia Database. IEEE Eng Med Biol Mag. 2001;20(3):45–50.
+- [RX toracică PA](https://commons.wikimedia.org/wiki/File:Chest_Xray_PA_3-8-2010.png), Stillwaterising, și [serie CT cerebrală](https://commons.wikimedia.org/wiki/File:CT_of_a_normal_brain,_axial_14.png), Mikael Häggström, CC0. Imaginile se consultă la sursă.
+
+## Istoric și documentația funcțiilor anterioare
+
+
 
 Aplicație de studiu medical pentru tableta Lenovo, construită cu Kotlin + Jetpack Compose. Aplicația este un prototip educațional, **nu un dispozitiv medical**. Codul este în subfolderul `MedAtlas-Lenovo-AI-0.2/`; istoricul folderului a fost păstrat pentru compatibilitatea workflow-ului.
 

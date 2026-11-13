@@ -217,11 +217,12 @@ private fun MedAtlasApp() {
             if (tab != 0) Surface(color = GlassTokens.DarkGlass,
                 modifier = Modifier.statusBarsPadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 15.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.MenuBook, null, tint = Color(0xFF8FC7FF), modifier = Modifier.size(26.dp))
+                    ro.medatlas.study.ui.NadiaSignature()
                     Spacer(Modifier.width(9.dp))
                     Column(Modifier.weight(1f)) {
                         Text("MedAtlas", fontSize = 23.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                        Text("Nadia's Medical Workspace", fontSize = 11.sp, color = Color(0xFFB9CDE7))
+                        Text("Carnetul medical al Nadiei", fontSize = 11.sp, color = Color(0xFFB9CDE7))
+
                     }
                     if (tab == 0) {
                         FilledTonalButton(onClick = { picker.launch(arrayOf("application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.presentationml.presentation")) }) {
@@ -1065,19 +1066,38 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                     OutlinedTextField(value = atlasQuery, onValueChange = { atlasQuery = it },
                         label = { Text("Caută organ / structură") }, modifier = Modifier.fillMaxWidth(),
                         singleLine = true)
-                    Text("Bibliotecă locală — schițe de exemplu", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                    listOf("lungs" to "Plămâni", "heart" to "Inimă", "neuron" to "Neuron").forEach { (key, name) ->
-                        if (atlasQuery.isBlank() || name.contains(atlasQuery, true)) {
-                            OutlinedButton(onClick = {
-                                runCatching { store.builtInSticker(key) }.onSuccess { imageName ->
-                                    stickers = stickers + PageSticker(imageName = imageName)
-                                    store.saveStickers(doc.id, page, stickers)
-                                    tool = Tool.STICKER
+                    val catalog = remember { store.stickerCatalog() }
+                    Text("Stickere offline · " + catalog.size, fontWeight = FontWeight.SemiBold)
+                    catalog.filter { atlasQuery.isBlank() || it.second.contains(atlasQuery, true) }
+                        .chunked(3).forEach { group ->
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                group.forEach { (key, name) ->
+                                    val thumb = remember(key) { context.assets.open("stickers/$key.png").use {
+                                        BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inSampleSize = 4 })
+                                    } }
+                                    OutlinedCard(onClick = {
+                                        runCatching {
+                                            val image = store.builtInSticker(key)
+                                            val sticker = if (key.startsWith("FMA")) PageSticker(imageName = image,
+                                                sourceUrl = "https://dbarchive.biosciencedbc.jp/en/bodyparts3d/download.html",
+                                                attribution = "$name · BodyParts3D © The Database Center for Life Science · redare MedAtlas",
+                                                license = "CC BY 4.0") else PageSticker(imageName = image)
+                                            val updated = stickers + sticker
+                                            store.saveStickers(doc.id, page, updated)
+                                            stickers = updated
+                                            tool = Tool.STICKER
+                                            showAtlas = false
+                                        }.onFailure { Toast.makeText(context, "Imaginea nu a putut fi adăugată.", Toast.LENGTH_SHORT).show() }
+                                    }, modifier = Modifier.weight(1f)) {
+                                        Column(Modifier.padding(5.dp)) {
+                                            if (thumb != null) androidx.compose.foundation.Image(thumb.asImageBitmap(), null, Modifier.fillMaxWidth().height(58.dp))
+                                            Text(name, fontSize = 11.sp)
+                                        }
+                                    }
                                 }
-                                showAtlas = false
-                            }, modifier = Modifier.fillMaxWidth()) { Text("Adaugă $name") }
+                                repeat(3 - group.size) { Spacer(Modifier.weight(1f)) }
+                            }
                         }
-                    }
                     HorizontalDivider()
                     Text("Caută în Servier Medical Art (3000+ imagini, CC BY 4.0)",
                         fontWeight = FontWeight.Medium, fontSize = 12.sp)
@@ -1759,7 +1779,8 @@ private fun CardsScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: 
         reveal = null
         refresh++
     }
-    Column(Modifier.fillMaxSize().padding(20.dp)) {
+    LazyColumn(Modifier.fillMaxSize().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item { Column {
         Text("Pregătire pentru examen", fontSize = 23.sp, fontWeight = FontWeight.Bold)
         Text("Flashcarduri și materiale generate din cursuri", color = Slate, fontSize = 13.sp)
         OutlinedButton(onClick = {
@@ -1812,7 +1833,7 @@ private fun CardsScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: 
         }
         Spacer(Modifier.height(10.dp))
         if (cards.isEmpty()) Text("Deschide un curs și folosește Studio de învățare pentru rezumate și grile. Flashcardurile personalizate vor fi afișate aici.", color = Slate)
-        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        } }
             items(cards.filter { !dueOnly || it.dueAt <= today }, key = { it.id }) { card ->
                 Surface(Modifier.fillMaxWidth().clickable { reveal = if (reveal == card.id) null else card.id }, color = Color.White, shape = RoundedCornerShape(15.dp)) {
                     Column(Modifier.padding(16.dp)) {
@@ -1833,7 +1854,6 @@ private fun CardsScreen(store: LibraryStore, docs: List<StudyDocument>, onOpen: 
                     }
                 }
             }
-        }
     }
 }
 
