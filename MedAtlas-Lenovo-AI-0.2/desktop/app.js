@@ -5,7 +5,11 @@
 const DB_NAME = 'medatlas-companion-v1';
 const DB_VERSION = 1;
 const byId = id => document.getElementById(id);
-const state = { view: 'all', selected: null, blobUrl: null, saveTimer: null };
+const state = {
+  view: 'all', selected: null, blobUrl: null, saveTimer: null,
+  inkStrokes: [], undone: [], activeStroke: null, activePointer: null,
+  inkTool: 'PEN', inkColor: '#234d83', inkWidth: 3
+};
 let database;
 
 function openDatabase() {
@@ -123,7 +127,7 @@ async function createNote() {
   const note = {
     id: crypto.randomUUID(), documentId:'medical-notebook', page:0,
     heading:'Notiță nouă', body:'', course:'General',
-    paper:'BLANK', darkPaper:false, handwritingFile:'',
+    paper:'BLANK', darkPaper:false, handwritingFile:'', strokes:[],
     createdAt:now, updatedAt:now
   };
   await put('notes', note);
@@ -139,10 +143,15 @@ async function openNote(id) {
   state.selected = { id, kind:'note' };
   byId('note-title').value = note.heading || '';
   byId('note-content').value = note.body || '';
+  state.inkStrokes = safeStrokes(note.strokes || []);
+  state.undone = [];
+  state.activeStroke = null;
+  state.activePointer = null;
   byId('note-status').textContent = 'Salvat local';
   byId('empty').hidden = true;
   byId('reader').hidden = true;
   byId('note-editor').hidden = false;
+  requestAnimationFrame(renderInk);
   renderList();
 }
 async function saveSelectedNote() {
@@ -152,10 +161,14 @@ async function saveSelectedNote() {
   // must never accidentally write another note's text into this note.
   const heading = byId('note-title').value.trim().slice(0,180) || 'Notiță fără titlu';
   const body = byId('note-content').value.slice(0,300000);
+  const strokes = state.inkStrokes.map(stroke => ({
+    ...stroke, points: stroke.points.map(point => [...point])
+  }));
   const note = await get('notes', id);
   if (!note) return;
   note.heading = heading;
   note.body = body;
+  note.strokes = strokes;
   note.updatedAt = Date.now();
   await put('notes', note);
   byId('note-status').textContent = 'Salvat local';
@@ -188,7 +201,8 @@ async function exportNotes() {
     page:item.page || 0, heading:item.heading || '', body:item.body || '',
     createdAt:item.createdAt || Date.now(), course:item.course || 'General',
     handwritingFile:item.handwritingFile || '', updatedAt:item.updatedAt || Date.now(),
-    paper:item.paper || 'BLANK', darkPaper:!!item.darkPaper
+    paper:item.paper || 'BLANK', darkPaper:!!item.darkPaper,
+    strokes:item.strokes || []
   })),null,2));
   toast(notes.length + ' notițe exportate în format MedAtlas.');
 }
@@ -211,12 +225,14 @@ async function importNotes(file) {
       course: String(source.course || 'General').slice(0,80),
       paper: String(source.paper || 'BLANK').slice(0,24),
       darkPaper:!!source.darkPaper,
-      handwritingFile:'', // Image/ink files need a separate Android backup import.
+      handwritingFile:'', // Raster images are transferred only through ZIP backup.
+      strokes: safeStrokes(source.strokes || []),
       createdAt: Number(source.createdAt) || Date.now(),
       updatedAt: Number(source.updatedAt) || Date.now()
     };
     if (existing) {
-      if (existing.body === valid.body && existing.heading === valid.heading) continue;
+      if (existing.body === valid.body && existing.heading === valid.heading &&
+        JSON.stringify(existing.strokes || []) === JSON.stringify(valid.strokes)) continue;
       // Never silently overwrite a newer or differently edited note.
       id = crypto.randomUUID();
       valid.id = id; valid.heading += ' (copie importată)';
