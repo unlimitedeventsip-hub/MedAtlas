@@ -223,6 +223,7 @@ internal fun UnifiedLibraryScreen(
     var nameInput by remember { mutableStateOf("") }
     var showSearch by remember { mutableStateOf(false) }
     var showDrive by remember { mutableStateOf(false) }
+    var showPortableNotes by remember { mutableStateOf(false) }
     val folders = remember(revision, refreshKey) { organization.allFolders() }
     val notes = remember(revision, refreshKey, documents.size) { store.notes() }
     val query = search.trim()
@@ -318,6 +319,9 @@ internal fun UnifiedLibraryScreen(
                 Spacer(Modifier.width(if (phoneProfile) 0.dp else 8.dp))
                 IconButton(onClick = { showDrive = true }) {
                     Icon(Icons.Rounded.CloudUpload, "Google Drive și backup", tint = glassWhite)
+                }
+                IconButton(onClick = { showPortableNotes = true }) {
+                    Icon(Icons.Rounded.Sync, "Transferă notițe cu laptopul", tint = glassWhite)
                 }
                 IconButton(onClick = { showSearch = true }) {
                     Icon(Icons.Rounded.Search, "Căutare", tint = glassWhite)
@@ -679,6 +683,13 @@ internal fun UnifiedLibraryScreen(
             onDismiss = { showDrive = false },
             onImported = { onImport(null) },
             onRestored = onLibraryRestored
+        )
+    }
+    if (showPortableNotes) {
+        PortableNotesDialog(
+            store = store,
+            onDismiss = { showPortableNotes = false },
+            onImported = { revision++; onLibraryRestored() }
         )
     }
     if (showSearch) {
