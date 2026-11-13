@@ -148,10 +148,14 @@ async function openNote(id) {
 async function saveSelectedNote() {
   if (state.selected?.kind !== 'note') return;
   const id = state.selected.id;
+  // Snapshot form values before awaiting IndexedDB: closing/switching notes
+  // must never accidentally write another note's text into this note.
+  const heading = byId('note-title').value.trim().slice(0,180) || 'Notiță fără titlu';
+  const body = byId('note-content').value.slice(0,300000);
   const note = await get('notes', id);
   if (!note) return;
-  note.heading = byId('note-title').value.trim().slice(0,180) || 'Notiță fără titlu';
-  note.body = byId('note-content').value.slice(0,300000);
+  note.heading = heading;
+  note.body = body;
   note.updatedAt = Date.now();
   await put('notes', note);
   byId('note-status').textContent = 'Salvat local';
