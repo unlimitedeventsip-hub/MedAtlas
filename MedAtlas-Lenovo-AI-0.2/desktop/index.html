@@ -20,6 +20,8 @@
       <div class="actions">
         <label class="button ghost" for="files">+ Documente</label>
         <input id="files" type="file" accept=".pdf,.docx,.pptx,.txt" multiple hidden/>
+        <label class="button ghost" for="scan-image">Scanare imagine</label>
+        <input id="scan-image" type="file" accept="image/png,image/jpeg,image/webp" hidden/>
         <button class="button primary" id="create-note">+ Notiță</button>
       </div>
     </header>
@@ -95,6 +97,27 @@
         </div>
       </section>
     </div>
+    <dialog id="scan-dialog" class="scan-dialog" aria-labelledby="scan-heading">
+      <div class="scan-head">
+        <div>
+          <small>SCANARE LOCALĂ · FĂRĂ CLOUD</small>
+          <h2 id="scan-heading">Text și coduri din imagine</h2>
+        </div>
+        <button class="close" id="scan-close" aria-label="Închide">✕</button>
+      </div>
+      <div class="scan-content">
+        <img id="scan-preview" class="scan-preview" alt="Imaginea aleasă pentru analiză" hidden/>
+        <p id="scan-status" role="status">Se analizează imaginea…</p>
+        <label for="scan-text">Text recunoscut (verifică față de original)</label>
+        <textarea id="scan-text" readonly placeholder="Textul recunoscut va apărea aici."></textarea>
+        <div id="scan-codes" class="scan-codes"></div>
+        <p id="scan-warning" class="scan-warning"></p>
+      </div>
+      <div class="scan-actions">
+        <button class="button ghost" id="scan-copy">Copiază textul</button>
+        <button class="button primary" id="scan-add-note">Adaugă în notița deschisă</button>
+      </div>
+    </dialog>
     <div class="toast" id="toast" role="alert" hidden></div>
   </div>
   <script type="module" src="app.js"></script>

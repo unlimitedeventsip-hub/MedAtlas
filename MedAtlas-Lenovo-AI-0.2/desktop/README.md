@@ -20,6 +20,19 @@ originale MedAtlas, nu cod sau elemente copiate din Nebo.
 **Nu folosi `file://`** pentru a deschide direct `index.html`: service worker
 și unele funcții PWA necesită `localhost` sau HTTPS.
 
+## Scanare imagini (în browser, fără cloud)
+
+- Butonul **Scanare imagine** permite alegerea unei imagini PNG/JPEG/WebP.
+- Dacă browserul implementează `BarcodeDetector`, se pot citi local
+  QR, Data Matrix, Code 128, EAN-13 și PDF417. Codurile sunt afișate ca
+  text și **linkurile nu sunt deschise automat**.
+- Dacă browserul implementează și `TextDetector`, se afișează fragmentele
+  de text recunoscute. Suportul acestei funcții este limitat și variabil;
+  unele browsere nu o oferă deloc. Nu se descarcă modele externe.
+- Textul se poate copia sau adăuga într-o notiță **numai după apăsarea
+  explicită a butonului**. Verifică acuratețea față de imaginea originală.
+- Scanarea folosește un fișier ales de utilizator, nu camera și nici internetul.
+
 ## Funcții actuale
 
 - Bibliotecă locală offline, căutare, PDF în cititorul browserului.
