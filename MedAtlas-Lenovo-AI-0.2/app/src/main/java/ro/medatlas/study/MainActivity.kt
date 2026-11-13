@@ -115,6 +115,8 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MedAtlasApp() {
     val context = LocalContext.current
+    val phoneMode = DeviceExperience.profile(
+        LocalConfiguration.current.smallestScreenWidthDp) == WorkspaceProfile.PHONE
     val scope = rememberCoroutineScope()
     val store = remember { LibraryStore(context) }
     val docs = remember { mutableStateListOf<StudyDocument>().apply { addAll(store.documents()) } }
@@ -135,6 +137,9 @@ private fun MedAtlasApp() {
     }
     var importFolderId by remember { mutableStateOf<String?>(null) }
     var tab by rememberSaveable { mutableIntStateOf(0) }
+    LaunchedEffect(phoneMode, tab) {
+        if (phoneMode && tab !in DeviceExperience.allowedTabs(WorkspaceProfile.PHONE)) tab = 0
+    }
     val introPrefs = remember { context.getSharedPreferences("medatlas_editor", android.content.Context.MODE_PRIVATE) }
     var showIntro by rememberSaveable {
         mutableStateOf(introPrefs.getBoolean("show_premium_intro", true))
@@ -164,7 +169,7 @@ private fun MedAtlasApp() {
             if (failures.isNotEmpty()) importError = failures.first()
         }
     }
-    if (showIntro) {
+    if (showIntro && !phoneMode) {
         PremiumIntro(onFinish = { showIntro = false })
         return
     }
@@ -174,7 +179,7 @@ private fun MedAtlasApp() {
                 onBack = { selected = null; officeTextMode = false },
                 onTextMode = { officeTextMode = true })
         } else {
-            ReaderScreen(doc, store, onBack = {
+            ReaderScreen(doc, store, allowDocumentEditing = !phoneMode, onBack = {
                 if (officeTextMode) officeTextMode = false
                 else selected = null
             }, onRemove = {
@@ -197,8 +202,17 @@ private fun MedAtlasApp() {
     Scaffold(
         containerColor = Color.Transparent,
         bottomBar = {
-            if (tab != 0) NavigationBar(containerColor = GlassTokens.DarkGlass, tonalElevation = 0.dp) {
-                val options = listOf(Triple("Bibliotecă", Icons.Rounded.FolderOpen, 0), Triple("Notițe", Icons.Rounded.EditNote, 1), Triple("Studiu", Icons.Rounded.School, 2), Triple("Classroom", Icons.Rounded.Class, 4), Triple("Setări", Icons.Rounded.Settings, 3))
+            if (phoneMode || tab != 0) NavigationBar(containerColor = GlassTokens.DarkGlass, tonalElevation = 0.dp) {
+                val options = if (phoneMode) listOf(
+                    Triple("Bibliotecă", Icons.Rounded.FolderOpen, 0),
+                    Triple("Notițe", Icons.Rounded.EditNote, 1)
+                ) else listOf(
+                    Triple("Bibliotecă", Icons.Rounded.FolderOpen, 0),
+                    Triple("Notițe", Icons.Rounded.EditNote, 1),
+                    Triple("Studiu", Icons.Rounded.School, 2),
+                    Triple("Classroom", Icons.Rounded.Class, 4),
+                    Triple("Setări", Icons.Rounded.Settings, 3)
+                )
                 options.forEach { (name, icon, number) ->
                     NavigationBarItem(selected = tab == number, onClick = {
                         tab = number
@@ -281,7 +295,10 @@ private fun MedAtlasApp() {
                         docs.addAll(store.documents())
                         libraryRevision++
                     },
-                    onNavigate = { tab = it }
+                    onNavigate = { target ->
+                        if (!phoneMode || target in DeviceExperience.allowedTabs(WorkspaceProfile.PHONE))
+                            tab = target
+                    }
                 )
                 1 -> NotebookLibrary(store, docs, onOpen = { selected = it }, unified = true)
                 2 -> CardsScreen(store, docs, onOpen = { selected = it })
@@ -355,7 +372,8 @@ private fun LibraryScreen(docs: List<StudyDocument>, search: String, onSearch: (
 }
 
 @Composable
-private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> Unit, onRemove: () -> Unit) {
+private fun ReaderScreen(doc: StudyDocument, store: LibraryStore,
+    allowDocumentEditing: Boolean = true, onBack: () -> Unit, onRemove: () -> Unit) {
     BackHandler(onBack = onBack)
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -372,6 +390,9 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
     var fingerInk by remember { mutableStateOf(false) }
     // Always open documents in safe reading mode; edit is explicit.
     var readOnly by rememberSaveable(doc.id) { mutableStateOf(true) }
+    LaunchedEffect(allowDocumentEditing) {
+        if (!allowDocumentEditing) readOnly = true
+    }
     // AI stays hidden until the reader explicitly requests it.
     var expanded by rememberSaveable(doc.id) { mutableStateOf(false) }
     var continuous by rememberSaveable(doc.id) { mutableStateOf(true) }
@@ -587,7 +608,9 @@ private fun ReaderScreen(doc: StudyDocument, store: LibraryStore, onBack: () -> 
                     .background(Color(0xFF0E2948)).padding(3.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                listOf(true to "Citire", false to "Editare").forEach { (reading, label) ->
+                (if (allowDocumentEditing)
+                    listOf(true to "Citire", false to "Editare")
+                else listOf(true to "Citire")).forEach { (reading, label) ->
                     Surface(
                         shape = RoundedCornerShape(20.dp),
                         color = if (readOnly == reading) Color(0xFF338DFA) else Color.Transparent,
