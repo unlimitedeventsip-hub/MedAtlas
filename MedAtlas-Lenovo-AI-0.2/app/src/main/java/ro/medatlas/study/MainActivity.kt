@@ -116,7 +116,7 @@ class MainActivity : ComponentActivity() {
 private fun MedAtlasApp() {
     val context = LocalContext.current
     val phoneMode = DeviceExperience.profile(
-        LocalConfiguration.current.smallestScreenWidthDp) == WorkspaceProfile.PHONE
+        LocalConfiguration.current.screenWidthDp) == WorkspaceProfile.PHONE
     val scope = rememberCoroutineScope()
     val store = remember { LibraryStore(context) }
     val docs = remember { mutableStateListOf<StudyDocument>().apply { addAll(store.documents()) } }
