@@ -73,7 +73,24 @@
             <span id="note-status">Salvat local</span>
             <button id="copy-note" class="button tiny">Copiază textul</button>
           </div>
-          <textarea id="note-content" spellcheck="true" placeholder="Începe să scrii. Modificările se salvează automat pe laptop."></textarea>
+          <div class="note-composer">
+            <textarea id="note-content" spellcheck="true" placeholder="Începe să scrii. Modificările se salvează automat pe laptop."></textarea>
+            <section class="ink-panel" aria-label="Scriere cu stylus">
+              <div class="ink-toolbar" role="toolbar" aria-label="Instrumente de scriere">
+                <button data-ink-tool="PEN" class="active">Pix</button>
+                <button data-ink-tool="PENCIL">Creion</button>
+                <button data-ink-tool="BRUSH">Pensulă</button>
+                <button data-ink-tool="HIGHLIGHT">Marker</button>
+                <button data-ink-tool="ERASER">Radieră</button>
+                <label class="ink-color-label">Culoare <input id="ink-color" type="color" value="#234d83"/></label>
+                <label class="ink-width-label">Grosime <input id="ink-width" type="range" min="1" max="12" value="3"/></label>
+                <button id="ink-undo" title="Anulează ultima trasare">↶</button>
+                <button id="ink-redo" title="Refă ultima trasare">↷</button>
+              </div>
+              <canvas id="ink-canvas" aria-label="Foaie de scris cu stylus sau mouse"></canvas>
+              <p class="ink-help">Pix, stylus, deget sau mouse. Traseele sunt vectoriale și se pot transfera în MedAtlas Android.</p>
+            </section>
+          </div>
           <div class="editor-footer"><button class="button danger" id="delete-note">Șterge notița</button></div>
         </div>
       </section>
