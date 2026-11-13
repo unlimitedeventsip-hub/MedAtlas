@@ -8,9 +8,9 @@ import java.io.ByteArrayOutputStream
 import java.util.UUID
 
 /**
- * Text-only cross-device interchange in the same StudyNote JSON schema used by
- * MedAtlas Android. Handwritten ink, stickers and embedded images are not part
- * of this format. Those require the full ZIP backup.
+ * Cross-device interchange in the same StudyNote and Stroke JSON schemas used
+ * by MedAtlas Android. Vector pen strokes and text transfer together.
+ * Embedded pictures, stickering and legacy raster paper require a full ZIP backup.
  *
  * Import never overwrites different existing notes, regardless of timestamps.
  * Conflicts are copied, with a new UUID, so no local edit is discarded.
@@ -19,6 +19,12 @@ internal object PortableNotes {
     private const val MAX_IMPORT_BYTES = 12 * 1024 * 1024
     private const val MAX_NOTES = 10_000
     private const val MAX_BODY = 300_000
+    private const val MAX_STROKES_PER_NOTE = 3_000
+    private const val MAX_POINTS_PER_STROKE = 10_000
+    private const val MAX_POINTS_PER_NOTE = 150_000
+
+    private fun inkId(id: String): String =
+        "notebook-" + UUID.nameUUIDFromBytes(id.toByteArray(Charsets.UTF_8))
 
     data class ImportResult(val imported: Int, val copiedConflicts: Int, val ignored: Int)
 
@@ -28,7 +34,12 @@ internal object PortableNotes {
             notes.forEach { note ->
                 // A drawing's path is only meaningful inside the originating
                 // tablet's private storage, so don't export a broken reference.
-                put(note.copy(handwritingFile = "").json())
+                val entry = note.copy(handwritingFile = "").json()
+                val strokes = store.ink(inkId(note.id), 0)
+                entry.put("strokes", JSONArray().apply {
+                    strokes.forEach { put(it.json()) }
+                })
+                put(entry)
             }
         }.toString(2)
         val stream = context.contentResolver.openOutputStream(uri)
@@ -78,7 +89,30 @@ internal object PortableNotes {
                 originalId else UUID.randomUUID().toString()
             val heading = json.optString("heading").take(180)
                 .ifBlank { "Notiță importată" }
-            StudyNote(
+            val importedStrokes = json.optJSONArray("strokes")?.let { list ->
+                require(list.length() <= MAX_STROKES_PER_NOTE) {
+                    "Notița ${index + 1} are prea multe trasee."
+                }
+                (0 until list.length()).map { n ->
+                    val row = list.getJSONObject(n)
+                    require(row.optJSONArray("points")?.length() ?: 0 <= MAX_POINTS_PER_STROKE) {
+                        "Traseu manuscris prea lung."
+                    }
+                    Stroke.parse(row).also { stroke ->
+                        require(stroke.width.isFinite() && stroke.width in .1f..100f &&
+                            stroke.points.all { point ->
+                                point.x.isFinite() && point.y.isFinite() &&
+                                point.pressure.isFinite() &&
+                                point.x in -.01f..1.01f && point.y in -.01f..1.01f &&
+                                point.pressure in 0f..4f
+                            }) { "Date de scriere manuală invalide." }
+                    }
+                }
+            }.orEmpty()
+            require(importedStrokes.sumOf { it.points.size } <= MAX_POINTS_PER_NOTE) {
+                "Notița ${index + 1} are prea multe puncte manuscrise."
+            }
+            val candidate = StudyNote(
                 id = id,
                 documentId = "medical-notebook",
                 page = 0,
@@ -95,6 +129,7 @@ internal object PortableNotes {
                 updatedAt = json.optLong("updatedAt").takeIf { it > 0 }
                     ?: System.currentTimeMillis()
             )
+            candidate to importedStrokes
         }
 
         val local = store.notes().toMutableList()
@@ -102,14 +137,17 @@ internal object PortableNotes {
         var imported = 0
         var conflicts = 0
         var ignored = 0
-        parsed.forEach { candidate ->
+        val newInk = mutableListOf<Pair<String, List<Stroke>>>()
+        parsed.forEach { (candidate, strokes) ->
             val previous = existing[candidate.id]
             if (previous == null) {
                 local += candidate
                 existing[candidate.id] = candidate
+                newInk += candidate.id to strokes
                 imported++
             } else if (previous.body == candidate.body &&
-                previous.heading == candidate.heading) {
+                previous.heading == candidate.heading &&
+                (strokes.isEmpty() || store.ink(inkId(candidate.id), 0) == strokes)) {
                 ignored++
             } else {
                 val duplicate = candidate.copy(
@@ -119,11 +157,17 @@ internal object PortableNotes {
                 )
                 local += duplicate
                 existing[duplicate.id] = duplicate
+                newInk += duplicate.id to strokes
                 imported++
                 conflicts++
             }
         }
-        if (imported > 0) store.saveNotes(local)
+        if (imported > 0) {
+            store.saveNotes(local)
+            newInk.forEach { (id, strokes) ->
+                if (strokes.isNotEmpty()) store.saveInk(inkId(id), 0, strokes)
+            }
+        }
         return ImportResult(imported, conflicts, ignored)
     }
 }
