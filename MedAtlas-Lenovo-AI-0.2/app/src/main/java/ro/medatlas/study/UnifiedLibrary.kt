@@ -258,7 +258,7 @@ internal fun UnifiedLibraryScreen(
     }.sortedByDescending { it.updated }
     val wide = LocalConfiguration.current.screenWidthDp >= 800
     val phoneProfile = DeviceExperience.profile(
-        LocalConfiguration.current.smallestScreenWidthDp) == WorkspaceProfile.PHONE
+        LocalConfiguration.current.screenWidthDp) == WorkspaceProfile.PHONE
     val dateFormat = remember { SimpleDateFormat("dd.MM.yyyy", Locale.getDefault()) }
 
     fun createNote() {
