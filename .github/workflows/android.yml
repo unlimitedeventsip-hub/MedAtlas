@@ -1,8 +1,11 @@
 name: Build MedAtlas Android APK
 
-# APK creation requires an explicit manual action.
-# Routine source pushes and PRs must NEVER assemble or publish APKs.
+# APK creation requires explicit request. One-off branch build is constrained to
+# one exact commit marker. Routine pushes and PRs cannot package APKs.
 on:
+  push:
+    branches:
+      - build/medatlas-lenovo-final-20261117
   workflow_dispatch:
     inputs:
       confirm_apk:
@@ -19,7 +22,7 @@ permissions:
 
 jobs:
   build:
-    if: ${{ inputs.confirm_apk == 'BUILD' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.confirm_apk == 'BUILD') || (github.event_name == 'push' && github.ref == 'refs/heads/build/medatlas-lenovo-final-20261117' && contains(github.event.head_commit.message, '[BUILD-MEDATLAS-20261117]')) }}
     name: Compile debug APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -119,7 +122,7 @@ jobs:
           MEDATLAS_KEY_PASSWORD: ${{ secrets.MEDATLAS_KEY_PASSWORD }}
 
       # Publish a usable v2 APK only after the instrumentation suite passes.
-      - name: Build MedAtlas v2.0.1 signed release APK
+      - name: Build MedAtlas v2.0.2 signed release APK
         env:
           MEDATLAS_STORE_PASSWORD: ${{ secrets.MEDATLAS_STORE_PASSWORD }}
           MEDATLAS_KEY_ALIAS: ${{ secrets.MEDATLAS_KEY_ALIAS }}
@@ -137,18 +140,18 @@ jobs:
           package_info=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk" | head -n 1)
           printf '%s\n' "$package_info"
           printf '%s\n' "$package_info" | grep -F "name='ro.medatlas.study'"
-          printf '%s\n' "$package_info" | grep -F "versionCode='21'"
-          printf '%s\n' "$package_info" | grep -F "versionName='2.0.1'"
-          cp "$apk" app/build/outputs/apk/release/MedAtlas-v2.0.1.apk
+          printf '%s\n' "$package_info" | grep -F "versionCode='22'"
+          printf '%s\n' "$package_info" | grep -F "versionName='2.0.2'"
+          cp "$apk" app/build/outputs/apk/release/MedAtlas-v2.0.2.apk
           cd app/build/outputs/apk/release
-          sha256sum MedAtlas-v2.0.1.apk > SHA256SUMS.txt
+          sha256sum MedAtlas-v2.0.2.apk > SHA256SUMS.txt
 
       - name: Upload tested MedAtlas v2 signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: MedAtlas-v2.0.1-signed-release
+          name: MedAtlas-v2.0.2-signed-release
           path: |
-            MedAtlas-Lenovo-AI-0.2/app/build/outputs/apk/release/MedAtlas-v2.0.1.apk
+            MedAtlas-Lenovo-AI-0.2/app/build/outputs/apk/release/MedAtlas-v2.0.2.apk
             MedAtlas-Lenovo-AI-0.2/app/build/outputs/apk/release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 90
